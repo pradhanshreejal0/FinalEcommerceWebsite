@@ -34,7 +34,7 @@ connectDB();
 
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://final-ecommerce-website-git-main-myself-85a7.vercel.app",
+  "https://final-ecommerce-website-three.vercel.app",
   "https://final-ecommerce-website-k6fhb8x28-myself-85a7.vercel.app",
 ];
 
