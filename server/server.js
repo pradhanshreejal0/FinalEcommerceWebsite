@@ -1,8 +1,9 @@
 import express from "express";
-import cors from "cors";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
+
 import { connectDB } from "./config/db.js";
+
 import authRoutes from "./routes/authRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import vendorRoutes from "./routes/vendorRoutes.js";
@@ -18,41 +19,120 @@ import userRoutes from "./routes/userRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
 
 dotenv.config();
-connectDB();
 
 const app = express();
 
-app.use(
-  cors({
-    origin: [
-          "http://localhost:5173",
-          "https://finalecommercewebsite.vercel.app",
-        ],
-        credentials: true,
-  })
-);
+// =====================================================
+// DATABASE
+// =====================================================
+
+connectDB();
+
+// =====================================================
+// CORS
+// =====================================================
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://final-ecommerce-website-git-main-myself-85a7.vercel.app",
+  "https://final-ecommerce-website-k6fhb8x28-myself-85a7.vercel.app",
+];
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  console.log("Request Origin:", origin);
+
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+  );
+
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization"
+  );
+
+  // Handle browser preflight requests
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
+// =====================================================
+// MIDDLEWARE
+// =====================================================
+
 app.use(express.json());
 app.use(cookieParser());
 
+// =====================================================
+// ROUTES
+// =====================================================
+
 app.use("/api/auth", authRoutes);
+
 app.use("/api/categories", categoryRoutes);
+
 app.use("/api/vendors", vendorRoutes);
+
 app.use("/api/ads", adRoutes);
+
 app.use("/api/upload", uploadRoutes);
+
 app.use("/api/products", productRoutes);
+
 app.use("/api/cart", cartRoutes);
+
 app.use("/api/orders", orderRoutes);
+
 app.use("/api/stats", statsRoutes);
+
 app.use("/api/wishlist", wishlistRoutes);
+
 app.use("/api/reviews", reviewRoutes);
+
 app.use("/api/users", userRoutes);
+
 app.use("/api/settings", settingsRoutes);
 
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: "Something went wrong" });
+// =====================================================
+// HEALTH CHECK
+// =====================================================
+
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "E-commerce API is running",
+  });
 });
 
+// =====================================================
+// GLOBAL ERROR HANDLER
+// =====================================================
+
+app.use((err, req, res, next) => {
+  console.error("Server Error:", err);
+
+  res.status(err.status || 500).json({
+    message: err.message || "Something went wrong",
+  });
+});
+
+// =====================================================
+// SERVER
+// =====================================================
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
