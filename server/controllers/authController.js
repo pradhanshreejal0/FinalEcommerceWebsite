@@ -1,194 +1,64 @@
-import jwt from "jsonwebtoken";
-import User from "../models/User.js";
-import Vendor from "../models/Vendor.js";
-import {
-  generateAccessToken,
-  generateRefreshToken,
-} from "../utils/generateTokens.js";
+import { useState, useEffect } from "react";
+import { AuthContext } from "./AuthContext";
+import { api } from "@/lib/api";
 
-const isProduction = process.env.NODE_ENV === "production";
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [accessToken, setAccessToken] = useState(
+    () => localStorage.getItem("accessToken") || null
+  );
+  const [loading, setLoading] = useState(true);
 
-const cookieOptions = {
-  httpOnly: true,
-  secure: isProduction, // true on Render
-  sameSite: isProduction ? "none" : "lax", // "none" needed for cross-domain (Vercel + Render)
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-};
-
-export const register = async (req, res) => {
-  try {
-    const { name, email, password, role } = req.body;
-
-    const existing = await User.findOne({ email });
-    if (existing) {
-      return res.status(400).json({ message: "Email already registered" });
-    }
-
-    const finalRole = role === "vendor" ? "vendor" : "customer";
-
-    const user = await User.create({
-      name,
-      email,
-      password,
-      role: finalRole,
-    });
-
-    // If registering as a vendor, create a linked pending Vendor profile
-    if (finalRole === "vendor") {
-      const slug = name
-        .toLowerCase()
-        .trim()
-        .replace(/[^\w\s-]/g, "")
-        .replace(/\s+/g, "-");
-
-      await Vendor.create({
-        user: user._id,
-        storeName: name,
-        storeSlug: `${slug}-${user._id.toString().slice(-4)}`,
-        status: "pending",
-      });
-    }
-
-    const accessToken = generateAccessToken(user._id, user.role);
-    const refreshToken = generateRefreshToken(user._id);
-    user.refreshToken = refreshToken;
-    await user.save();
-
-    res.cookie("refreshToken", refreshToken, cookieOptions);
-
-    res.status(201).json({
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-      accessToken,
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-export const login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ email });
-    if (!user || !(await user.comparePassword(password))) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-    if (user.isBanned) {
-      return res.status(403).json({ message: "Account has been banned" });
-    }
-
-    const accessToken = generateAccessToken(user._id, user.role);
-    const refreshToken = generateRefreshToken(user._id);
-    user.refreshToken = refreshToken;
-    await user.save();
-
-    res.cookie("refreshToken", refreshToken, cookieOptions);
-
-    res.json({
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-      accessToken,
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-export const refresh = async (req, res) => {
-  const token = req.cookies.refreshToken;
-  if (!token) return res.status(401).json({ message: "No refresh token" });
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
-    const user = await User.findById(decoded.id);
-
-    if (!user || user.refreshToken !== token) {
-      return res.status(401).json({ message: "Invalid refresh token" });
-    }
-
-    const accessToken = generateAccessToken(user._id, user.role);
-
-    res.json({
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-      accessToken,
-    });
-  } catch (error) {
-    return res.status(401).json({ message: "Refresh token expired or invalid" });
-  }
-};
-
-export const logout = async (req, res) => {
-  try {
-    const token = req.cookies.refreshToken;
-
-    if (token) {
+  useEffect(() => {
+    const restoreSession = async () => {
       try {
-        const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
-        await User.findByIdAndUpdate(decoded.id, { refreshToken: null });
+        // First try with cookie
+        const data = await api("/auth/refresh", { method: "POST" });
+        setUser(data.user);
+        setAccessToken(data.accessToken);
+        localStorage.setItem("accessToken", data.accessToken);
       } catch {
-        // Token invalid/expired — still clear the cookie
+        // Cookie failed → try localStorage token (if exists)
+        const savedToken = localStorage.getItem("accessToken");
+        if (savedToken) {
+          try {
+            // Optional: you can call /auth/me here later
+            setAccessToken(savedToken);
+          } catch {
+            localStorage.removeItem("accessToken");
+            setAccessToken(null);
+            setUser(null);
+          }
+        }
+      } finally {
+        setLoading(false);
       }
+    };
+
+    restoreSession();
+  }, []);
+
+  const login = (userData, token) => {
+    setUser(userData);
+    setAccessToken(token);
+    localStorage.setItem("accessToken", token);
+  };
+
+  const logout = async () => {
+    try {
+      await api("/auth/logout", { method: "POST" });
+    } catch {
+      // ignore
+    } finally {
+      setUser(null);
+      setAccessToken(null);
+      localStorage.removeItem("accessToken");
     }
+  };
 
-    res.clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? "none" : "lax",
-    });
-
-    res.json({ message: "Logged out successfully" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// Get current user profile
-export const getMe = async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id).select("-password");
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// Update current user profile
-export const updateMe = async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const { name } = req.body;
-    if (name !== undefined) user.name = name;
-
-    await user.save();
-
-    res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+  return (
+    <AuthContext.Provider value={{ user, accessToken, loading, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
