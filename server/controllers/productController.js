@@ -119,7 +119,7 @@ export const createProduct = async (req, res) => {
       .populate("category", "name parentCategory")
       .populate({
         path: "vendor",
-        select: "storeName storeSlug logo banner",
+        select: "storeName storeSlug logo banner phone",
       });
 
     res.status(201).json(createdProduct);
@@ -309,7 +309,7 @@ export const getProducts = async (req, res) => {
       .populate("category", "name parentCategory")
       .populate({
         path: "vendor",
-        select: "storeName storeSlug logo",
+        select: "storeName storeSlug logo banner phone",
       })
       .sort(sortOption);
 
@@ -336,7 +336,7 @@ export const getProductById = async (req, res) => {
       .populate("category", "name parentCategory")
       .populate({
         path: "vendor",
-        select: "storeName storeSlug logo banner",
+        select: "storeName storeSlug logo banner phone",
       });
 
     if (!product || !product.isPublished) {
@@ -499,7 +499,7 @@ export const updateProduct = async (req, res) => {
       .populate("category", "name parentCategory")
       .populate({
         path: "vendor",
-        select: "storeName storeSlug logo banner",
+        select: "storeName storeSlug logo banner phone",
       });
 
     res.json(updatedProduct);

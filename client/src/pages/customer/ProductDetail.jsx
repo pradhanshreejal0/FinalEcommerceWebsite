@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { StarRating } from "@/components/StarRating";
 import { ProductReviews } from "@/components/ProductReviews";
 import { PriceTag } from "@/components/PriceTag";
-import { Heart } from "lucide-react";
+import { Heart, MessageCircle } from "lucide-react";
 
 export default function ProductDetails() {
   const { id } = useParams();
@@ -277,12 +277,27 @@ export default function ProductDetails() {
 
           {/* Vendor */}
           {product.vendor?.storeName && (
-            <p className="mt-2 text-muted-foreground">
-              Sold by{" "}
-              <span className="font-medium text-foreground">
-                {product.vendor.storeName}
-              </span>
-            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <p className="text-muted-foreground">
+                Sold by{" "}
+                <span className="font-medium text-foreground">
+                  {product.vendor.storeName}
+                </span>
+              </p>
+
+              {product.vendor?.phone && (
+                 <a href={`https://wa.me/${product.vendor.phone}?text=${encodeURIComponent(
+                    `Hi ${product.vendor.storeName}, I'm interested in "${product.title}" (${window.location.href}). Is it available?`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-green-600/30 bg-green-50 px-3 py-1 text-sm font-medium text-green-700 transition hover:bg-green-100"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  Chat on WhatsApp
+                </a>
+              )}
+            </div>
           )}
 
           {/* Price */}

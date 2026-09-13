@@ -322,6 +322,28 @@ export default function VendorProfile() {
           </div>
         </div>
 
+        {/* WhatsApp Number */}
+        <div className="space-y-2">
+          <Label htmlFor="phone">
+            WhatsApp number
+          </Label>
+
+          <Input
+            id="phone"
+            name="phone"
+            type="tel"
+            value={form.phone}
+            onChange={handleChange}
+            placeholder="e.g. 9779812345678 (include country code)"
+          />
+
+          <p className="text-xs text-muted-foreground">
+            Include your country code, no spaces or symbols. Customers
+            will see a "Chat on WhatsApp" button on your product pages
+            that messages this number directly.
+          </p>
+        </div>
+
         {/* Store Banner */}
         <div className="rounded-lg border bg-card p-5 shadow-sm">
           <div className="mb-5">

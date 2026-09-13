@@ -13,6 +13,9 @@ const vendorSchema = new mongoose.Schema(
     storeDescription: { type: String, default: "" },
     logo: { type: String, default: "" },
     banner: { type: String, default: "" },
+    // WhatsApp contact number in international format, digits only
+    // (no "+", spaces or dashes), e.g. "9779812345678".
+    phone: { type: String, default: "" },
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],

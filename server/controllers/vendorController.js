@@ -162,6 +162,22 @@ export const updateMyVendorProfile = async (req, res) => {
       vendor.banner = String(banner).trim();
     }
 
+    // WhatsApp phone number
+    // Accept digits, spaces, "+", and "-" from the input, then strip
+    // everything down to digits only for storage (matches what wa.me expects).
+    if (phone !== undefined) {
+      const digitsOnly = String(phone).replace(/[^\d]/g, "");
+
+      if (digitsOnly && (digitsOnly.length < 7 || digitsOnly.length > 15)) {
+        return res.status(400).json({
+          message:
+            "Phone number must include the country code and be a valid length (7-15 digits).",
+        });
+      }
+
+      vendor.phone = digitsOnly;
+    }
+
     await vendor.save();
 
     const populatedVendor = await Vendor.findById(vendor._id).populate(
