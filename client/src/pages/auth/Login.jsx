@@ -26,7 +26,7 @@ export default function Login() {
     try {
       const data = await api("/auth/login", {
         method: "POST",
-        body: JSON.stringify(formData),
+        body: formData,
       });
 
       login(data.user, data.accessToken);

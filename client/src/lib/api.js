@@ -12,10 +12,16 @@ export async function api(path, options = {}) {
     headers.Authorization = `Bearer ${accessToken}`;
   }
 
+  // Smart body handling
+  let finalBody;
+  if (body) {
+    finalBody = typeof body === "string" ? body : JSON.stringify(body);
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: "include",
     headers,
-    body: body ? JSON.stringify(body) : undefined,   // ← this is the important line
+    body: finalBody,
     ...rest,
   });
 
