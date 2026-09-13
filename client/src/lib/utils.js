@@ -1,3 +1,8 @@
+import { cn } from "cn";
+
+// Re-export cn so other files can import it from here
+export { cn };
+
 // Works whether the backend sent the `finalPrice` virtual or not.
 export function getFinalPrice(product) {
   if (!product) return 0;
@@ -11,10 +16,7 @@ export function getFinalPrice(product) {
   return Number(product.price) || 0;
 }
 
-// Opens a WhatsApp chat with a vendor. Tries the native app first (works
-// great in mobile browsers / when the site is opened as an installed PWA),
-// and falls back to the wa.me web/App-Store redirect if the app doesn't
-// respond quickly — e.g. on desktop, or a phone without WhatsApp installed.
+// Opens a WhatsApp chat with a vendor.
 export function openWhatsAppChat(phone, message) {
   if (!phone) return;
 
@@ -25,10 +27,6 @@ export function openWhatsAppChat(phone, message) {
     const appUrl = `whatsapp://send?phone=${phone}&text=${encodedMessage}`;
     const webUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
 
-    // If the whatsapp:// scheme has no handler, the browser silently does
-    // nothing and the page stays focused — so if we're still here after a
-    // short delay, fall back to the web link (opens the app via wa.me's own
-    // redirect, or the App/Play Store listing if WhatsApp isn't installed).
     const fallbackTimer = setTimeout(() => {
       window.open(webUrl, "_blank", "noopener,noreferrer");
     }, 800);
@@ -41,8 +39,6 @@ export function openWhatsAppChat(phone, message) {
 
     window.location.href = appUrl;
   } else {
-    // Desktop: wa.me opens WhatsApp Web directly, or the desktop app if
-    // the browser has it registered as the handler for the link.
     window.open(
       `https://wa.me/${phone}?text=${encodedMessage}`,
       "_blank",
