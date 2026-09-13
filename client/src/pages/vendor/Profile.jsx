@@ -220,19 +220,15 @@ export default function VendorProfile() {
             <h2 className="text-lg font-semibold">
               Store Information
             </h2>
-
             <p className="text-sm text-muted-foreground">
               This information can be shown to customers on your store page.
             </p>
           </div>
-
+        
           <div className="space-y-5">
             {/* Store Name */}
             <div className="space-y-2">
-              <Label htmlFor="storeName">
-                Store name
-              </Label>
-
+              <Label htmlFor="storeName">Store name</Label>
               <Input
                 id="storeName"
                 name="storeName"
@@ -242,13 +238,10 @@ export default function VendorProfile() {
                 required
               />
             </div>
-
+        
             {/* Store Description */}
             <div className="space-y-2">
-              <Label htmlFor="storeDescription">
-                Store description
-              </Label>
-
+              <Label htmlFor="storeDescription">Store description</Label>
               <textarea
                 id="storeDescription"
                 name="storeDescription"
@@ -259,29 +252,24 @@ export default function VendorProfile() {
                 className="flex min-h-30 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               />
             </div>
-
-            {/* WhatsApp Number */}
-                        <div className="space-y-2">
-                          <Label htmlFor="phone">
-                            WhatsApp number
-                          </Label>
-
-                          <Input
-                            id="phone"
-                            name="phone"
-                            type="tel"
-                            value={form.phone}
-                            onChange={handleChange}
-                            placeholder="e.g. 9779812345678 (include country code)"
-                            required
-                          />
-
-                          <p className="text-xs text-muted-foreground">
-                            Include your country code, no spaces or symbols. Customers
-                            will see a "Chat on WhatsApp" button on your product pages
-                            that messages this number directly.
-                          </p>
-                        </div>
+        
+            {/* WhatsApp Number - THIS IS THE IMPORTANT PART */}
+            <div className="space-y-2">
+              <Label htmlFor="phone">WhatsApp number</Label>
+              <Input
+                id="phone"
+                name="phone"
+                type="tel"
+                value={form.phone}
+                onChange={handleChange}
+                placeholder="e.g. 9779812345678 (include country code)"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Include your country code, no spaces or symbols. Customers will see a
+                "Chat on WhatsApp" button on your product pages that messages this number directly.
+              </p>
+            </div>
           </div>
         </div>
 
