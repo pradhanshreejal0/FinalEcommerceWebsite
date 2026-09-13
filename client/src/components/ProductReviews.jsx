@@ -26,6 +26,7 @@ export function ProductReviews({ productId }) {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editMessage, setEditMessage] = useState("");
 
+  // Reusable loaders — called again after submit/edit/delete actions
   const loadReviews = async () => {
     try {
       setLoading(true);
@@ -52,11 +53,43 @@ export function ProductReviews({ productId }) {
     }
   };
 
+  // Initial + dependency-driven fetch, self-contained and race-safe.
   useEffect(() => {
     if (!productId) return;
-    loadReviews();
-    loadEligibility();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    let ignore = false;
+
+    const fetchAll = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const data = await api(`/reviews/product/${productId}`);
+        if (!ignore) setReviews(data || []);
+      } catch (err) {
+        if (!ignore) setError(err.message || "Failed to load reviews");
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+
+      if (!user || user.role !== "customer" || !accessToken) {
+        if (!ignore) setEligibility(null);
+        return;
+      }
+
+      try {
+        const eligData = await api(`/reviews/eligibility/${productId}`, { accessToken });
+        if (!ignore) setEligibility(eligData);
+      } catch {
+        if (!ignore) setEligibility(null);
+      }
+    };
+
+    fetchAll();
+
+    return () => {
+      ignore = true;
+    };
   }, [productId, user, accessToken]);
 
   const handleSubmit = async (e) => {

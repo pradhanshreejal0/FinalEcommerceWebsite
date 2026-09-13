@@ -89,14 +89,14 @@ export default function OrderDetail() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!accessToken || !id) {
-      setLoading(false);
-      return;
-    }
-
     let cancelled = false;
 
     const load = async () => {
+      if (!accessToken || !id) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError("");
 
@@ -131,7 +131,7 @@ export default function OrderDetail() {
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-10">
-        <div className="flex min-h-[300px] items-center justify-center">
+        <div className="flex min-h-75 items-center justify-center">
           <div className="text-center">
             <Package className="mx-auto h-8 w-8 animate-pulse text-muted-foreground" />
 

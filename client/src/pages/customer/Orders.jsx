@@ -293,7 +293,7 @@ export default function Orders() {
 
       {/* Loading */}
       {loading ? (
-        <div className="flex min-h-[300px] items-center justify-center">
+        <div className="flex min-h-75 items-center justify-center">
           <div className="text-center">
             <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
 
