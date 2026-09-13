@@ -1,14 +1,7 @@
 const API_BASE = import.meta.env.VITE_API_URL || "https://finalecommercewebsite-backend.onrender.com/api";
 
-/**
- * Simple fetch wrapper that:
- * - Prefixes the API base URL
- * - Always sends credentials (for httpOnly refresh cookie)
- * - Attaches Authorization header when accessToken is provided
- * - Throws an error with the server message on non-2xx responses
- */
 export async function api(path, options = {}) {
-  const { accessToken, headers: customHeaders, ...rest } = options;
+  const { accessToken, headers: customHeaders, body, ...rest } = options;
 
   const headers = {
     "Content-Type": "application/json",
@@ -22,10 +15,10 @@ export async function api(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: "include",
     headers,
+    body: body ? JSON.stringify(body) : undefined,   // ← this is the important line
     ...rest,
   });
 
-  // Handle empty responses (e.g. 204)
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
 

@@ -18,7 +18,6 @@ import Profile from "@/pages/customer/Profile";
 import Wishlist from "@/pages/customer/Wishlist";
 import Users from "@/pages/admin/Users";
 import Settings from "@/pages/admin/Settings";
-import ChatPage from "@/pages/Chat";
 import Home from "@/pages/customer/Home";
 import ProductDetails from "@/pages/customer/ProductDetail";
 import Login from "@/pages/auth/Login";
@@ -28,6 +27,8 @@ import AdminDashboard from "@/pages/admin/Dashboard";
 import Categories from "@/pages/admin/Categories";
 import VendorApprovals from "@/pages/admin/VendorApprovals";
 import Ads from "@/pages/admin/Ads";
+import Chats from "@/pages/Chats";
+import ChatPage from "@/pages/Chat";
 
 function App() {
   return (
@@ -47,6 +48,7 @@ function App() {
         <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/wishlist" element={<Wishlist />} />
+        <Route path="/chats" element={<Chats />} />
         <Route path="/chats/:id" element={<ChatPage />} />
       </Route>
 
@@ -65,6 +67,7 @@ function App() {
         <Route path="/vendor/products" element={<Products />} />
         <Route path="/vendor/orders" element={<VendorOrders />} />
         <Route path="/vendor/profile" element={<VendorProfile />} />
+        <Route path="/vendor/chats" element={<Chats />} />
         <Route path="/vendor/chats/:id" element={<ChatPage />} />
       </Route>
 

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ShoppingCart, Menu, User, Search } from "lucide-react";
-
+import { ShoppingCart, Menu, User, Search, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -42,6 +41,8 @@ export default function Navbar() {
     }
   };
 
+  const messagesLink = user?.role === "vendor" ? "/vendor/chats" : "/chats";
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
       <div className="mx-auto flex h-16 max-w-7xl items-center px-4 gap-4">
@@ -53,7 +54,7 @@ export default function Navbar() {
           YourStore
         </Link>
 
-        {/* Nav links – next to logo */}
+        {/* Nav links */}
         <nav className="hidden md:flex items-center gap-5 ml-6">
           {navLinks.map((link) => (
             <Link
@@ -66,7 +67,7 @@ export default function Navbar() {
           ))}
         </nav>
 
-        {/* Search – center */}
+        {/* Search */}
         <form
           onSubmit={handleSearch}
           className="hidden md:flex flex-1 justify-center px-6"
@@ -89,6 +90,16 @@ export default function Navbar() {
 
         {/* Right actions */}
         <div className="flex items-center gap-1 shrink-0 ml-auto">
+          {/* Messages */}
+          {user && (
+            <Link to={messagesLink}>
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <MessageCircle className="h-5 w-5" />
+              </Button>
+            </Link>
+          )}
+
+          {/* Cart */}
           <Link to="/cart" className="relative">
             <Button variant="ghost" size="icon" className="rounded-full">
               <ShoppingCart className="h-5 w-5" />
@@ -100,6 +111,7 @@ export default function Navbar() {
             )}
           </Link>
 
+          {/* User menu */}
           <div className="hidden md:block">
             {user ? (
               <DropdownMenu>
@@ -117,6 +129,9 @@ export default function Navbar() {
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/wishlist">Wishlist</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to={messagesLink}>Messages</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={logout}>Logout</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -181,6 +196,12 @@ export default function Navbar() {
                       className="rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
                     >
                       My Orders
+                    </Link>
+                    <Link
+                      to={messagesLink}
+                      className="rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+                    >
+                      Messages
                     </Link>
                     <Button
                       variant="outline"
