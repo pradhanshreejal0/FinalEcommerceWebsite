@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -17,24 +17,35 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const bottomRef = useRef(null);
 
-  const loadChat = useCallback(async () => {
+  useEffect(() => {
     if (!accessToken || !id) return;
 
-    try {
-      setLoading(true);
-      const data = await api(`/chats/${id}`, { accessToken });
-      setChat(data);
-    } catch (err) {
-      alert(err.message || "Chat not found or expired");
-      navigate(-1);
-    } finally {
-      setLoading(false);
-    }
-  }, [id, accessToken, navigate]);
+    let cancelled = false;
 
-  useEffect(() => {
+    const loadChat = async () => {
+      try {
+        const data = await api(`/chats/${id}`, { accessToken });
+        if (!cancelled) {
+          setChat(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          alert(err.message || "Chat not found or expired");
+          navigate(-1);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
     loadChat();
-  }, [loadChat]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, accessToken, navigate]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -61,7 +72,11 @@ export default function ChatPage() {
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-muted-foreground">Loading chat...</div>;
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        Loading chat...
+      </div>
+    );
   }
 
   if (!chat) return null;
