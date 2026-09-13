@@ -6,6 +6,15 @@ import {
   generateRefreshToken,
 } from "../utils/generateTokens.js";
 
+const isProduction = process.env.NODE_ENV === "production";
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: isProduction, // true on Render
+  sameSite: isProduction ? "none" : "lax", // "none" needed for cross-domain (Vercel + Render)
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+};
+
 export const register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
@@ -26,11 +35,16 @@ export const register = async (req, res) => {
 
     // If registering as a vendor, create a linked pending Vendor profile
     if (finalRole === "vendor") {
-      const slug = name.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-");
+      const slug = name
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/\s+/g, "-");
+
       await Vendor.create({
         user: user._id,
         storeName: name,
-        storeSlug: `${slug}-${user._id.toString().slice(-4)}`, // avoid slug collisions
+        storeSlug: `${slug}-${user._id.toString().slice(-4)}`,
         status: "pending",
       });
     }
@@ -40,15 +54,15 @@ export const register = async (req, res) => {
     user.refreshToken = refreshToken;
     await user.save();
 
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie("refreshToken", refreshToken, cookieOptions);
 
     res.status(201).json({
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
       accessToken,
     });
   } catch (error) {
@@ -73,15 +87,15 @@ export const login = async (req, res) => {
     user.refreshToken = refreshToken;
     await user.save();
 
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie("refreshToken", refreshToken, cookieOptions);
 
     res.json({
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
       accessToken,
     });
   } catch (error) {
@@ -96,13 +110,20 @@ export const refresh = async (req, res) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
     const user = await User.findById(decoded.id);
+
     if (!user || user.refreshToken !== token) {
       return res.status(401).json({ message: "Invalid refresh token" });
     }
 
     const accessToken = generateAccessToken(user._id, user.role);
+
     res.json({
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
       accessToken,
     });
   } catch (error) {
@@ -113,6 +134,7 @@ export const refresh = async (req, res) => {
 export const logout = async (req, res) => {
   try {
     const token = req.cookies.refreshToken;
+
     if (token) {
       try {
         const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
@@ -124,8 +146,8 @@ export const logout = async (req, res) => {
 
     res.clearCookie("refreshToken", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
     });
 
     res.json({ message: "Logged out successfully" });
