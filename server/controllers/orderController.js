@@ -48,44 +48,76 @@ export const createOrder = async (req, res) => {
 
     const orderItems = [];
     let totalAmount = 0;
+    const stockUpdates = []; // track successful decrements so we can roll back on failure
 
-    for (const item of cart.items) {
-      const product = item.product;
+    try {
+      for (const item of cart.items) {
+        const product = item.product;
 
-      if (!product || !product.isPublished) {
-        return res.status(400).json({
-          message: `Product unavailable: ${
-            product?.title || "Unknown"
-          }`,
+        if (!product || !product.isPublished) {
+          throw {
+            status: 400,
+            message: `Product unavailable: ${product?.title || "Unknown"}`,
+          };
+        }
+
+        const requestedQty = Number(item.quantity);
+
+        // Atomically decrement stock ONLY if enough is available.
+        // Prevents overselling when multiple customers checkout at once.
+        const updatedProduct = await Product.findOneAndUpdate(
+          { _id: product._id, stock: { $gte: requestedQty } },
+          { $inc: { stock: -requestedQty } },
+          { new: true }
+        );
+
+        if (!updatedProduct) {
+          throw {
+            status: 400,
+            message: `Not enough stock for "${product.title}" (only ${product.stock} left)`,
+          };
+        }
+
+        stockUpdates.push({ productId: product._id, qty: requestedQty });
+
+        // Snapshot the price the customer actually pays,
+        // including any vendor discount active at checkout time.
+        const effectivePrice =
+          product.discountPercentage > 0
+            ? Math.round(
+                (product.price -
+                  (product.price * product.discountPercentage) / 100) *
+                  100
+              ) / 100
+            : product.price;
+
+        const lineSubtotal = effectivePrice * requestedQty;
+
+        orderItems.push({
+          product: product._id,
+          vendor: product.vendor,
+          title: product.title,
+          price: effectivePrice,
+          quantity: requestedQty,
+          image: product.images?.[0] || "",
+          subtotal: lineSubtotal,
+          status: "pending",
+          cancellationReason: "",
+        });
+
+        totalAmount += lineSubtotal;
+      }
+    } catch (stockError) {
+      // Roll back any stock we already decremented before the failure
+      for (const update of stockUpdates) {
+        await Product.findByIdAndUpdate(update.productId, {
+          $inc: { stock: update.qty },
         });
       }
 
-      // Snapshot the price the customer actually pays,
-      // including any vendor discount active at checkout time.
-      const effectivePrice =
-        product.discountPercentage > 0
-          ? Math.round(
-              (product.price -
-                (product.price * product.discountPercentage) / 100) *
-                100
-            ) / 100
-          : product.price;
-
-      const lineSubtotal = effectivePrice * Number(item.quantity);
-
-      orderItems.push({
-        product: product._id,
-        vendor: product.vendor,
-        title: product.title,
-        price: effectivePrice,
-        quantity: item.quantity,
-        image: product.images?.[0] || "",
-        subtotal: lineSubtotal,
-        status: "pending",
-        cancellationReason: "",
+      return res.status(stockError.status || 500).json({
+        message: stockError.message || "Failed to process order",
       });
-
-      totalAmount += lineSubtotal;
     }
 
     const orderNumber = `ORD-${Date.now()}-${Math.floor(
@@ -337,6 +369,13 @@ export const updateOrderStatus = async (req, res) => {
 
     // Update ONLY this vendor's items
     for (const item of vendorItems) {
+      // Restock if this item is newly cancelled (wasn't cancelled before)
+      if (status === "cancelled" && item.status !== "cancelled") {
+        await Product.findByIdAndUpdate(item.product, {
+          $inc: { stock: item.quantity },
+        });
+      }
+
       item.status = status;
 
       if (status === "cancelled") {
