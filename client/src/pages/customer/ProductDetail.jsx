@@ -224,6 +224,32 @@ export default function ProductDetails() {
     );
   }
 
+  const handleStartChat = async () => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+  
+    const message = prompt("Write your first message to the vendor:");
+    if (!message?.trim()) return;
+  
+    try {
+      const chat = await api("/chats/start", {
+        method: "POST",
+        accessToken,
+        body: {
+          productId: id,
+          message: message.trim(),
+        },
+      });
+  
+      // Go to the chat page
+      navigate(`/chats/${chat._id}`);
+    } catch (err) {
+      alert(err.message || "Failed to start chat");
+    }
+  };
+
   const image =
     product.images?.length > 0
       ? typeof product.images[0] === "string"
@@ -299,6 +325,17 @@ export default function ProductDetails() {
                 >
                   <MessageCircle className="h-3.5 w-3.5" />
                   Chat on WhatsApp
+                </button>
+              )}
+
+              {user && user.role === "customer" && (
+                <button
+                  type="button"
+                  onClick={handleStartChat}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-blue-600/30 bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700 transition hover:bg-blue-100"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  Chat with Vendor
                 </button>
               )}
             </div>

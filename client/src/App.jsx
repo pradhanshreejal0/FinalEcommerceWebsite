@@ -18,7 +18,7 @@ import Profile from "@/pages/customer/Profile";
 import Wishlist from "@/pages/customer/Wishlist";
 import Users from "@/pages/admin/Users";
 import Settings from "@/pages/admin/Settings";
-
+import ChatPage from "@/pages/Chat";
 import Home from "@/pages/customer/Home";
 import ProductDetails from "@/pages/customer/ProductDetail";
 import Login from "@/pages/auth/Login";
@@ -39,7 +39,6 @@ function App() {
         <Route path="/cart" element={<Cart />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/checkout" element={<Checkout />} />
-        {/* <Route path="/orders" element={<Orders />} />*/}
         <Route path="/orders/:id" element={<OrderDetail />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/orders" element={<Orders />} />
@@ -48,6 +47,7 @@ function App() {
         <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/wishlist" element={<Wishlist />} />
+        <Route path="/chats/:id" element={<ChatPage />} />
       </Route>
 
       <Route path="/login" element={<Login />} />
@@ -65,6 +65,7 @@ function App() {
         <Route path="/vendor/products" element={<Products />} />
         <Route path="/vendor/orders" element={<VendorOrders />} />
         <Route path="/vendor/profile" element={<VendorProfile />} />
+        <Route path="/vendor/chats/:id" element={<ChatPage />} />
       </Route>
 
       {/* Admin routes */}
