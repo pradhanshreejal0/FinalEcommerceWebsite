@@ -104,8 +104,6 @@ export default function VendorProfile() {
       setError(err.message || "Logo upload failed");
     } finally {
       setUploadingLogo(false);
-
-      // Allow selecting the same file again
       e.target.value = "";
     }
   };
@@ -130,8 +128,6 @@ export default function VendorProfile() {
       setError(err.message || "Banner upload failed");
     } finally {
       setUploadingBanner(false);
-
-      // Allow selecting the same file again
       e.target.value = "";
     }
   };
@@ -263,6 +259,28 @@ export default function VendorProfile() {
                 className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               />
             </div>
+
+            {/* WhatsApp Number (Now safely nested inside Store Information) */}
+            <div className="space-y-2">
+              <Label htmlFor="phone">
+                WhatsApp number
+              </Label>
+
+              <Input
+                id="phone"
+                name="phone"
+                type="tel"
+                value={form.phone}
+                onChange={handleChange}
+                placeholder="e.g. 9779812345678 (include country code)"
+              />
+
+              <p className="text-xs text-muted-foreground">
+                Include your country code, no spaces or symbols. Customers
+                will see a "Chat on WhatsApp" button on your product pages
+                that messages this number directly.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -323,28 +341,6 @@ export default function VendorProfile() {
               </p>
             </div>
           </div>
-        </div>
-
-        {/* WhatsApp Number */}
-        <div className="space-y-2">
-          <Label htmlFor="phone">
-            WhatsApp number
-          </Label>
-
-          <Input
-            id="phone"
-            name="phone"
-            type="tel"
-            value={form.phone}
-            onChange={handleChange}
-            placeholder="e.g. 9779812345678 (include country code)"
-          />
-
-          <p className="text-xs text-muted-foreground">
-            Include your country code, no spaces or symbols. Customers
-            will see a "Chat on WhatsApp" button on your product pages
-            that messages this number directly.
-          </p>
         </div>
 
         {/* Store Banner */}
