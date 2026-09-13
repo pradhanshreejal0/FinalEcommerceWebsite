@@ -35,31 +35,23 @@ connectDB();
 const allowedOrigins = [
   "http://localhost:5173",
   "https://final-ecommerce-website-three.vercel.app",
-  "https://final-ecommerce-website-k6fhb8x28-myself-85a7.vercel.app",
 ];
+// Matches any Vercel preview deploy of your project, e.g.
+// https://final-ecommerce-website-k6fhb8x28-myself-85a7.vercel.app
+const vercelPreviewPattern = /^https:\/\/final-ecommerce-website-[a-z0-9]+-myself-85a7\.vercel\.app$/;
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
+const origin = req.headers.origin;
 
-  console.log("Request Origin:", origin);
-
-  if (allowedOrigins.includes(origin)) {
+  if (origin && (allowedOrigins.includes(origin) || vercelPreviewPattern.test(origin))) {
     res.setHeader("Access-Control-Allow-Origin", origin);
   }
 
   res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-  );
-
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization"
-  );
-
-  // Handle browser preflight requests
   if (req.method === "OPTIONS") {
     return res.sendStatus(204);
   }
