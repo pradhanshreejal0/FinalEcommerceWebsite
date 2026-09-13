@@ -1,6 +1,7 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
+import rateLimit from "express-rate-limit";
 
 import { connectDB } from "./config/db.js";
 
@@ -41,7 +42,6 @@ const allowedOrigins = [
 const vercelPreviewPattern = /^https:\/\/final-ecommerce-website-[a-z0-9]+-myself-85a7\.vercel\.app$/;
 
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
 const origin = req.headers.origin;
 
   if (origin && (allowedOrigins.includes(origin) || vercelPreviewPattern.test(origin))) {
@@ -65,6 +65,16 @@ const origin = req.headers.origin;
 
 app.use(express.json());
 app.use(cookieParser());
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per IP per window
+  message: { message: "Too many login attempts. Please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use("/api/auth/login", loginLimiter);
 
 // =====================================================
 // ROUTES
