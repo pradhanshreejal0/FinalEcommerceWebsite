@@ -260,7 +260,7 @@ export default function VendorProfile() {
               />
             </div>
 
-            {/* WhatsApp Number (Now safely nested inside Store Information) */}
+            {/* WhatsApp Number */}
             <div className="space-y-2">
               <Label htmlFor="phone">
                 WhatsApp number
@@ -342,40 +342,6 @@ export default function VendorProfile() {
             </div>
           </div>
         </div>
-
-        {/* WhatsApp Number Section */}
-                <div className="rounded-lg border bg-card p-5 shadow-sm">
-                  <div className="mb-5">
-                    <h2 className="text-lg font-semibold">
-                      WhatsApp Contact
-                    </h2>
-
-                    <p className="text-sm text-muted-foreground">
-                      Add a phone number so customers can chat with you directly.
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">
-                      WhatsApp number
-                    </Label>
-
-                    <Input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      value={form.phone}
-                      onChange={handleChange}
-                      placeholder="e.g. 9779812345678 (include country code)"
-                    />
-
-                    <p className="text-xs text-muted-foreground">
-                      Include your country code, no spaces or symbols. Customers
-                      will see a "Chat on WhatsApp" button on your product pages
-                      that messages this number directly.
-                    </p>
-                  </div>
-                </div>
 
         {/* Store Banner */}
         <div className="rounded-lg border bg-card p-5 shadow-sm">
