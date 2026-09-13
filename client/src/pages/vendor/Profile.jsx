@@ -28,6 +28,7 @@ export default function VendorProfile() {
     status: "",
     email: "",
     name: "",
+    phone: "",
   });
 
   useEffect(() => {
@@ -54,6 +55,7 @@ export default function VendorProfile() {
           status: data.status || "",
           email: data.user?.email || "",
           name: data.user?.name || "",
+          phone: data.phone || "",
         });
       } catch (err) {
         if (!cancelled) {
@@ -150,6 +152,7 @@ export default function VendorProfile() {
           storeDescription: form.storeDescription.trim(),
           logo: form.logo,
           banner: form.banner,
+          phone: form.phone.trim(),
         }),
       });
 
