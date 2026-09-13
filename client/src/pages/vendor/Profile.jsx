@@ -256,31 +256,32 @@ export default function VendorProfile() {
                 onChange={handleChange}
                 placeholder="Tell customers about your store"
                 rows={5}
-                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex min-h-30 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               />
             </div>
 
             {/* WhatsApp Number */}
-            <div className="space-y-2">
-              <Label htmlFor="phone">
-                WhatsApp number
-              </Label>
+                        <div className="space-y-2">
+                          <Label htmlFor="phone">
+                            WhatsApp number
+                          </Label>
 
-              <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                value={form.phone}
-                onChange={handleChange}
-                placeholder="e.g. 9779812345678 (include country code)"
-              />
+                          <Input
+                            id="phone"
+                            name="phone"
+                            type="tel"
+                            value={form.phone}
+                            onChange={handleChange}
+                            placeholder="e.g. 9779812345678 (include country code)"
+                            required
+                          />
 
-              <p className="text-xs text-muted-foreground">
-                Include your country code, no spaces or symbols. Customers
-                will see a "Chat on WhatsApp" button on your product pages
-                that messages this number directly.
-              </p>
-            </div>
+                          <p className="text-xs text-muted-foreground">
+                            Include your country code, no spaces or symbols. Customers
+                            will see a "Chat on WhatsApp" button on your product pages
+                            that messages this number directly.
+                          </p>
+                        </div>
           </div>
         </div>
 
