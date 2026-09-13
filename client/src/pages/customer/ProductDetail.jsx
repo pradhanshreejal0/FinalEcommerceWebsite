@@ -8,6 +8,7 @@ import { StarRating } from "@/components/StarRating";
 import { ProductReviews } from "@/components/ProductReviews";
 import { PriceTag } from "@/components/PriceTag";
 import { Heart, MessageCircle } from "lucide-react";
+import { openWhatsAppChat } from "@/lib/utils";
 
 export default function ProductDetails() {
   const { id } = useParams();
@@ -286,16 +287,19 @@ export default function ProductDetails() {
               </p>
 
               {product.vendor?.phone && (
-                 <a href={`https://wa.me/${product.vendor.phone}?text=${encodeURIComponent(
-                    `Hi ${product.vendor.storeName}, I'm interested in "${product.title}" (${window.location.href}). Is it available?`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() =>
+                    openWhatsAppChat(
+                      product.vendor.phone,
+                      `Hi ${product.vendor.storeName}, I'm interested in "${product.title}" (${window.location.href}). Is it available?`
+                    )
+                  }
                   className="inline-flex items-center gap-1.5 rounded-full border border-green-600/30 bg-green-50 px-3 py-1 text-sm font-medium text-green-700 transition hover:bg-green-100"
                 >
                   <MessageCircle className="h-3.5 w-3.5" />
                   Chat on WhatsApp
-                </a>
+                </button>
               )}
             </div>
           )}
