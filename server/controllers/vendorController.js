@@ -124,6 +124,7 @@ export const updateMyVendorProfile = async (req, res) => {
       description,
       logo,
       banner,
+      phone,
     } = req.body;
 
     // Store name
