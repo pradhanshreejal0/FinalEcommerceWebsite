@@ -4,7 +4,7 @@ import User from "../models/User.js";
 // Admin: create a vendor account (user + vendor profile, already approved)
 export const createVendor = async (req, res) => {
   try {
-    const { name, email, password, storeName, phone = "" } = req.body;
+    const { name, email, password, storeName, phone } = req.body;
 
     if (!name || !String(name).trim()) {
       return res.status(400).json({ message: "Name is required" });
@@ -21,16 +21,31 @@ export const createVendor = async (req, res) => {
       return res.status(400).json({ message: "Store name is required" });
     }
 
-    const existing = await User.findOne({ email: String(email).toLowerCase().trim() });
+    // Phone required for vendors
+    if (!phone || !String(phone).trim()) {
+      return res.status(400).json({ message: "Phone number is required" });
+    }
+
+    const digitsOnly = String(phone).replace(/[^\d]/g, "");
+    if (digitsOnly.length < 7 || digitsOnly.length > 15) {
+      return res.status(400).json({
+        message: "Phone number must be 7–15 digits (include country code)",
+      });
+    }
+
+    const existing = await User.findOne({
+      email: String(email).toLowerCase().trim(),
+    });
     if (existing) {
       return res.status(400).json({ message: "Email already registered" });
     }
 
-    // Create user with vendor role
+    // Create user with vendor role + phone
     const user = await User.create({
       name: String(name).trim(),
       email: String(email).toLowerCase().trim(),
       password: String(password),
+      phone: digitsOnly,
       role: "vendor",
     });
 
@@ -40,19 +55,17 @@ export const createVendor = async (req, res) => {
       .replace(/[^\w\s-]/g, "")
       .replace(/\s+/g, "-");
 
-    const digitsOnly = String(phone).replace(/[^\d]/g, "");
-
     const vendor = await Vendor.create({
       user: user._id,
       storeName: String(storeName).trim(),
       storeSlug: `${slugBase}-${user._id.toString().slice(-4)}`,
       phone: digitsOnly,
-      status: "approved", // admin-created = already approved
+      status: "approved",
     });
 
     const populated = await Vendor.findById(vendor._id).populate(
       "user",
-      "name email createdAt"
+      "name email phone createdAt"
     );
 
     res.status(201).json(populated);
@@ -69,9 +82,8 @@ export const getPendingVendors = async (req, res) => {
   try {
     const vendors = await Vendor.find({ status: "pending" }).populate(
       "user",
-      "name email createdAt"
+      "name email phone createdAt"
     );
-
     res.json(vendors);
   } catch (error) {
     res.status(500).json({
@@ -85,9 +97,8 @@ export const getAllVendors = async (req, res) => {
   try {
     const vendors = await Vendor.find().populate(
       "user",
-      "name email createdAt"
+      "name email phone createdAt"
     );
-
     res.json(vendors);
   } catch (error) {
     res.status(500).json({
@@ -106,7 +117,7 @@ export const approveVendor = async (req, res) => {
         new: true,
         runValidators: true,
       }
-    ).populate("user", "name email");
+    ).populate("user", "name email phone");
 
     if (!vendor) {
       return res.status(404).json({
@@ -132,7 +143,7 @@ export const rejectVendor = async (req, res) => {
         new: true,
         runValidators: true,
       }
-    ).populate("user", "name email");
+    ).populate("user", "name email phone");
 
     if (!vendor) {
       return res.status(404).json({
@@ -153,7 +164,7 @@ export const getMyVendorProfile = async (req, res) => {
   try {
     const vendor = await Vendor.findOne({
       user: req.user._id,
-    }).populate("user", "name email");
+    }).populate("user", "name email phone");
 
     if (!vendor) {
       return res.status(404).json({
@@ -191,69 +202,55 @@ export const updateMyVendorProfile = async (req, res) => {
       phone,
     } = req.body;
 
-    // Store name
     if (storeName !== undefined) {
       const trimmedStoreName = String(storeName).trim();
-
       if (!trimmedStoreName) {
         return res.status(400).json({
           message: "Store name is required",
         });
       }
-
       vendor.storeName = trimmedStoreName;
     }
 
-    // Store description
-    //
-    // New/correct field:
-    // storeDescription
-    //
-    // We also support "description" so existing frontend code
-    // doesn't immediately break.
     if (storeDescription !== undefined) {
       vendor.storeDescription = String(storeDescription).trim();
     } else if (description !== undefined) {
       vendor.storeDescription = String(description).trim();
     }
 
-    // Logo
     if (logo !== undefined) {
       vendor.logo = String(logo).trim();
     }
 
-    // Banner
     if (banner !== undefined) {
       vendor.banner = String(banner).trim();
     }
 
-    // WhatsApp phone number
-    // Accept digits, spaces, "+", and "-" from the input, then strip
-    // everything down to digits only for storage (matches what wa.me expects).
+    // Phone (vendor contact number)
     if (phone !== undefined) {
       const digitsOnly = String(phone).replace(/[^\d]/g, "");
-
       if (digitsOnly && (digitsOnly.length < 7 || digitsOnly.length > 15)) {
         return res.status(400).json({
           message:
             "Phone number must include the country code and be a valid length (7-15 digits).",
         });
       }
-
       vendor.phone = digitsOnly;
+
+      // Keep user.phone in sync
+      await User.findByIdAndUpdate(req.user._id, { phone: digitsOnly });
     }
 
     await vendor.save();
 
     const populatedVendor = await Vendor.findById(vendor._id).populate(
       "user",
-      "name email"
+      "name email phone"
     );
 
     res.json(populatedVendor);
   } catch (error) {
     console.error("Update vendor profile error:", error);
-
     res.status(500).json({
       message: error.message || "Failed to update vendor profile",
     });

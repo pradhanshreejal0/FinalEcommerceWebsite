@@ -1,6 +1,5 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
-import Vendor from "../models/Vendor.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -18,7 +17,7 @@ export const register = async (req, res) => {
   try {
     const { name, email, password, role, phone } = req.body;
 
-    // Phone required
+    // Phone required for customers only
     if (!phone || !String(phone).trim()) {
       return res.status(400).json({ message: "Phone number is required" });
     }
@@ -35,24 +34,20 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: "Email already registered" });
     }
 
-    // Public registration = customer only (vendor is created by admin)
+    // Public registration = customer only (vendors are created by admin)
     if (role === "vendor") {
       return res.status(403).json({
         message: "Vendor registration is disabled. Please contact admin.",
       });
     }
 
-    const finalRole = "customer";
-
     const user = await User.create({
       name,
       email,
       password,
-      phone: digitsOnly, // ← save phone
-      role: finalRole,
+      phone: digitsOnly,
+      role: "customer",
     });
-
-    // Vendor auto-create removed — admin creates vendors
 
     const accessToken = generateAccessToken(user._id, user.role);
     const refreshToken = generateRefreshToken(user._id);
@@ -84,6 +79,7 @@ export const login = async (req, res) => {
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
+
     if (user.isBanned) {
       return res.status(403).json({ message: "Account has been banned" });
     }
@@ -100,6 +96,7 @@ export const login = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        phone: user.phone || "",
         role: user.role,
       },
       accessToken,
@@ -128,12 +125,15 @@ export const refresh = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        phone: user.phone || "",
         role: user.role,
       },
       accessToken,
     });
   } catch (error) {
-    return res.status(401).json({ message: "Refresh token expired or invalid" });
+    return res
+      .status(401)
+      .json({ message: "Refresh token expired or invalid" });
   }
 };
 
@@ -146,7 +146,7 @@ export const logout = async (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
         await User.findByIdAndUpdate(decoded.id, { refreshToken: null });
       } catch {
-        // ignore
+        // ignore invalid token on logout
       }
     }
 
@@ -184,16 +184,28 @@ export const updateMe = async (req, res) => {
 
     const { name, phone } = req.body;
 
-    if (name !== undefined) user.name = name;
+    if (name !== undefined) {
+      user.name = name;
+    }
 
     if (phone !== undefined) {
-      const digitsOnly = String(phone).replace(/[^\d]/g, "");
-      if (digitsOnly.length < 7 || digitsOnly.length > 15) {
-        return res.status(400).json({
-          message: "Phone number must be 7–15 digits (include country code)",
-        });
+      // Admin can clear phone; customers should keep a valid one
+      if (!String(phone).trim()) {
+        if (user.role === "admin") {
+          user.phone = "";
+        } else {
+          return res.status(400).json({ message: "Phone number is required" });
+        }
+      } else {
+        const digitsOnly = String(phone).replace(/[^\d]/g, "");
+        if (digitsOnly.length < 7 || digitsOnly.length > 15) {
+          return res.status(400).json({
+            message:
+              "Phone number must be 7–15 digits (include country code)",
+          });
+        }
+        user.phone = digitsOnly;
       }
-      user.phone = digitsOnly;
     }
 
     await user.save();
@@ -202,7 +214,7 @@ export const updateMe = async (req, res) => {
       _id: user._id,
       name: user.name,
       email: user.email,
-      phone: user.phone,
+      phone: user.phone || "",
       role: user.role,
     });
   } catch (error) {

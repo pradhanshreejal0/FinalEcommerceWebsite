@@ -18,7 +18,6 @@ const seedAdmin = async () => {
         console.log(`Admin already exists: ${email}`);
         process.exit(0);
       }
-      // Promote existing user to admin
       existing.role = "admin";
       await existing.save();
       console.log(`Existing user promoted to admin: ${email}`);
@@ -30,6 +29,7 @@ const seedAdmin = async () => {
       email,
       password,
       role: "admin",
+      // phone not required for admin
     });
 
     console.log("Admin created successfully:");
