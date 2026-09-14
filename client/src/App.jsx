@@ -90,12 +90,12 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
             <AdminLayout />
-            {/* inside admin ProtectedRoute */}
-            <Route path="/admin/chats" element={<Chats />} />
-            <Route path="/admin/chats/:id" element={<ChatPage />} />
           </ProtectedRoute>
         }
       >
+            {/* inside admin ProtectedRoute */}
+            <Route path="/admin/chats" element={<Chats />} />
+            <Route path="/admin/chats/:id" element={<ChatPage />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin/categories" element={<Categories />} />
         <Route path="/admin/vendors" element={<VendorApprovals />} />
