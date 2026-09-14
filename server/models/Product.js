@@ -43,4 +43,10 @@ productSchema.virtual("finalPrice").get(function () {
   return this.price;
 });
 
+productSchema.index({ isPublished: 1, createdAt: -1 });
+productSchema.index({ isPublished: 1, price: 1 });
+productSchema.index({ isPublished: 1, category: 1 });
+productSchema.index({ vendor: 1 });
+productSchema.index({ title: "text", description: "text" });
+
 export default mongoose.model("Product", productSchema);

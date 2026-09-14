@@ -29,8 +29,8 @@ export default function Home() {
 
     const loadProducts = async () => {
       try {
-        const data = await api("/products");
-        if (!cancelled) setProducts(data);
+        const data = await api("/products?limit=12"); 
+        if (!cancelled) setProducts(data.products || data);
       } catch (err) {
         console.error("Failed to load products:", err);
       } finally {

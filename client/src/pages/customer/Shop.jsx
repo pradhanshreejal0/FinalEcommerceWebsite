@@ -70,8 +70,10 @@ export default function Shop() {
         if (maxPrice) params.set("maxPrice", maxPrice);
         if (sort) params.set("sort", sort);
 
+        params.set("page", "1");
+        params.set("limit", "24");
         const data = await api(`/products?${params.toString()}`);
-        if (!cancelled) setProducts(data);
+        if (!cancelled) setProducts(data.products || data);
       } catch (err) {
         console.error(err);
         if (!cancelled) setProducts([]);

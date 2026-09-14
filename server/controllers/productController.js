@@ -175,7 +175,7 @@ export const getMyProducts = async (req, res) => {
   }
 };
 
-// Public: Get all published products
+// Public: Get all published products (with pagination)
 export const getProducts = async (req, res) => {
   try {
     const {
@@ -184,87 +184,56 @@ export const getProducts = async (req, res) => {
       minPrice = "",
       maxPrice = "",
       sort = "newest",
+      page = 1,
+      limit = 20,          // default 20 products per page
     } = req.query;
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit) || 20)); // max 50
+    const skip = (pageNum - 1) * limitNum;
 
     const filter = {
       isPublished: true,
     };
 
-    // Search
+    // Search (prefer text index if available)
     if (search.trim()) {
       const searchText = search.trim();
-
       filter.$or = [
-        {
-          title: {
-            $regex: searchText,
-            $options: "i",
-          },
-        },
-        {
-          description: {
-            $regex: searchText,
-            $options: "i",
-          },
-        },
+        { title: { $regex: searchText, $options: "i" } },
+        { description: { $regex: searchText, $options: "i" } },
       ];
     }
 
     // Category filter
-    // If parent category is selected,
-    // include the parent and all direct child categories.
     if (category) {
       const validCategory = await Category.findById(category);
-
       if (!validCategory) {
-        return res.status(400).json({
-          message: "Selected category does not exist",
-        });
+        return res.status(400).json({ message: "Selected category does not exist" });
       }
 
-      const children = await Category.find({
-        parentCategory: category,
-      }).select("_id");
-
-      const categoryIds = [
-        validCategory._id,
-        ...children.map((child) => child._id),
-      ];
-
-      filter.category = {
-        $in: categoryIds,
-      };
+      const children = await Category.find({ parentCategory: category }).select("_id");
+      const categoryIds = [validCategory._id, ...children.map((c) => c._id)];
+      filter.category = { $in: categoryIds };
     }
 
     // Price filter
     if (minPrice !== "" || maxPrice !== "") {
       filter.price = {};
-
       if (minPrice !== "") {
         const minimum = Number(minPrice);
-
         if (!Number.isFinite(minimum) || minimum < 0) {
-          return res.status(400).json({
-            message: "Invalid minimum price",
-          });
+          return res.status(400).json({ message: "Invalid minimum price" });
         }
-
         filter.price.$gte = minimum;
       }
-
       if (maxPrice !== "") {
         const maximum = Number(maxPrice);
-
         if (!Number.isFinite(maximum) || maximum < 0) {
-          return res.status(400).json({
-            message: "Invalid maximum price",
-          });
+          return res.status(400).json({ message: "Invalid maximum price" });
         }
-
         filter.price.$lte = maximum;
       }
-
-      // Make sure minimum isn't greater than maximum
       if (
         filter.price.$gte !== undefined &&
         filter.price.$lte !== undefined &&
@@ -277,52 +246,40 @@ export const getProducts = async (req, res) => {
     }
 
     // Sorting
-    let sortOption = {
-      createdAt: -1,
-    };
+    let sortOption = { createdAt: -1 };
+    if (sort === "price_asc") sortOption = { price: 1 };
+    if (sort === "price_desc") sortOption = { price: -1 };
+    if (sort === "oldest") sortOption = { createdAt: 1 };
 
-    if (sort === "price_asc") {
-      sortOption = {
-        price: 1,
-      };
-    }
+    // Run count + find in parallel for speed
+    const [total, products] = await Promise.all([
+      Product.countDocuments(filter),
+      Product.find(filter)
+        .populate("category", "name parentCategory")
+        .populate({
+          path: "vendor",
+          select: "storeName storeSlug logo banner phone",
+        })
+        .sort(sortOption)
+        .skip(skip)
+        .limit(limitNum)
+        .lean(), // lean() is faster (plain JS objects)
+    ]);
 
-    if (sort === "price_desc") {
-      sortOption = {
-        price: -1,
-      };
-    }
-
-    if (sort === "newest") {
-      sortOption = {
-        createdAt: -1,
-      };
-    }
-
-    if (sort === "oldest") {
-      sortOption = {
-        createdAt: 1,
-      };
-    }
-
-    const products = await Product.find(filter)
-      .populate("category", "name parentCategory")
-      .populate({
-        path: "vendor",
-        select: "storeName storeSlug logo banner phone",
-      })
-      .sort(sortOption);
-
-    res.json(products);
+    res.json({
+      products,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum),
+      },
+    });
   } catch (error) {
     console.error("Get products error:", error);
-
     if (error.name === "CastError") {
-      return res.status(400).json({
-        message: "Invalid category ID",
-      });
+      return res.status(400).json({ message: "Invalid category ID" });
     }
-
     res.status(500).json({
       message: error.message || "Failed to load products",
     });
@@ -337,7 +294,8 @@ export const getProductById = async (req, res) => {
       .populate({
         path: "vendor",
         select: "storeName storeSlug logo banner phone",
-      });
+      })
+      .lean();
 
     if (!product || !product.isPublished) {
       return res.status(404).json({
