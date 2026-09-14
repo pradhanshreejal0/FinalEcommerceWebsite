@@ -4,13 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 
@@ -20,7 +13,6 @@ export default function Register() {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "customer",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -49,14 +41,12 @@ export default function Register() {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          role: formData.role,
+          role: "customer", // always customer – vendor registration disabled
         }),
       });
 
       login(data.user, data.accessToken);
-
-      if (data.user.role === "vendor") navigate("/vendor");
-      else navigate("/");
+      navigate("/");
     } catch (err) {
       setError(err.message || "Registration failed");
     } finally {
@@ -82,6 +72,7 @@ export default function Register() {
                 onChange={handleChange}
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -93,6 +84,7 @@ export default function Register() {
                 onChange={handleChange}
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
@@ -105,6 +97,7 @@ export default function Register() {
                 onChange={handleChange}
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
               <Input
@@ -116,6 +109,8 @@ export default function Register() {
                 onChange={handleChange}
               />
             </div>
+
+            {/* Vendor registration disabled – admin creates vendor accounts
             <div className="space-y-2">
               <Label>I want to register as</Label>
               <Select
@@ -133,6 +128,7 @@ export default function Register() {
                 </SelectContent>
               </Select>
             </div>
+            */}
 
             {error && <p className="text-sm text-destructive">{error}</p>}
 

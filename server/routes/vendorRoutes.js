@@ -5,7 +5,8 @@ import {
   approveVendor,
   rejectVendor,
   getMyVendorProfile,
-    updateMyVendorProfile,
+  updateMyVendorProfile,
+    createVendor,
   } from "../controllers/vendorController.js";
   import { protect, authorize } from "../middleware/authMiddleware.js";
 
@@ -16,6 +17,9 @@ router.get("/", protect, authorize("admin"), getAllVendors);
 
 router.put("/:id/approve", protect, authorize("admin"), approveVendor);
 router.put("/:id/reject", protect, authorize("admin"), rejectVendor);
+
+// Admin creates vendor
+router.post("/", protect, authorize("admin"), createVendor);
 
 router.get("/me", protect, authorize("vendor"), getMyVendorProfile);
 router.put("/me", protect, authorize("vendor"), updateMyVendorProfile);

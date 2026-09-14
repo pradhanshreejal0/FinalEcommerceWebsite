@@ -1,4 +1,68 @@
 import Vendor from "../models/Vendor.js";
+import User from "../models/User.js";
+
+// Admin: create a vendor account (user + vendor profile, already approved)
+export const createVendor = async (req, res) => {
+  try {
+    const { name, email, password, storeName, phone = "" } = req.body;
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ message: "Name is required" });
+    }
+    if (!email || !String(email).trim()) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+    if (!password || String(password).length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters",
+      });
+    }
+    if (!storeName || !String(storeName).trim()) {
+      return res.status(400).json({ message: "Store name is required" });
+    }
+
+    const existing = await User.findOne({ email: String(email).toLowerCase().trim() });
+    if (existing) {
+      return res.status(400).json({ message: "Email already registered" });
+    }
+
+    // Create user with vendor role
+    const user = await User.create({
+      name: String(name).trim(),
+      email: String(email).toLowerCase().trim(),
+      password: String(password),
+      role: "vendor",
+    });
+
+    const slugBase = String(storeName)
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "")
+      .replace(/\s+/g, "-");
+
+    const digitsOnly = String(phone).replace(/[^\d]/g, "");
+
+    const vendor = await Vendor.create({
+      user: user._id,
+      storeName: String(storeName).trim(),
+      storeSlug: `${slugBase}-${user._id.toString().slice(-4)}`,
+      phone: digitsOnly,
+      status: "approved", // admin-created = already approved
+    });
+
+    const populated = await Vendor.findById(vendor._id).populate(
+      "user",
+      "name email createdAt"
+    );
+
+    res.status(201).json(populated);
+  } catch (error) {
+    console.error("Create vendor error:", error);
+    res.status(500).json({
+      message: error.message || "Failed to create vendor",
+    });
+  }
+};
 
 // Admin: get pending vendors
 export const getPendingVendors = async (req, res) => {
