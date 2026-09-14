@@ -83,10 +83,11 @@ export default function ChatPage() {
 
   const otherName =
     user?.role === "customer"
-      ? chat.vendor?.storeName
-      : chat.customer?.name;
-
-  const backLink = user?.role === "vendor" ? "/vendor/chats" : "/chats";
+      ? "Support"
+      : chat.customer?.name || "Customer";
+  
+  const backLink =
+    user?.role === "admin" ? "/admin/chats" : "/chats";
 
   return (
     <div className="mx-auto flex h-[calc(100vh-120px)] max-w-2xl flex-col">

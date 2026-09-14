@@ -1,41 +1,62 @@
 import Chat from "../models/Chat.js";
-import Vendor from "../models/Vendor.js";
 import Product from "../models/Product.js";
+import User from "../models/User.js";
 
-// Customer starts (or continues) a chat with vendor about a product
+// Helper: get first admin user
+const getAdminUser = async () => {
+  return User.findOne({ role: "admin" }).select("_id name email");
+};
+
+// Customer starts (or continues) a chat with admin
 export const startChat = async (req, res) => {
   try {
+    if (req.user.role !== "customer") {
+      return res.status(403).json({
+        message: "Only customers can start a support chat",
+      });
+    }
+
     const { productId, message } = req.body;
 
-    if (!productId || !message?.trim()) {
-      return res.status(400).json({ message: "Product and message are required" });
+    if (!message?.trim()) {
+      return res.status(400).json({ message: "Message is required" });
     }
 
-    const product = await Product.findById(productId).populate("vendor");
-    if (!product || !product.isPublished) {
-      return res.status(404).json({ message: "Product not found" });
+    const admin = await getAdminUser();
+    if (!admin) {
+      return res.status(500).json({
+        message: "Support is not available right now",
+      });
     }
 
-    const vendor = product.vendor;
-    if (!vendor || vendor.status !== "approved") {
-      return res.status(400).json({ message: "Vendor not available" });
+    let product = null;
+    if (productId) {
+      product = await Product.findById(productId);
+      if (!product || !product.isPublished) {
+        return res.status(404).json({ message: "Product not found" });
+      }
     }
 
-    // Check if chat already exists
-    let chat = await Chat.findOne({
+    // Find existing chat (same customer + same product, or general if no product)
+    const filter = {
       customer: req.user._id,
-      vendor: vendor._id,
-      product: productId,
-    });
+      admin: admin._id,
+    };
+    if (productId) {
+      filter.product = productId;
+    } else {
+      filter.product = { $exists: false };
+    }
+
+    let chat = await Chat.findOne(filter);
 
     if (!chat) {
-      // Create new chat that expires in 7 days
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
       chat = await Chat.create({
         customer: req.user._id,
-        vendor: vendor._id,
-        product: productId,
+        admin: admin._id,
+        product: productId || undefined,
         messages: [
           {
             sender: req.user._id,
@@ -45,7 +66,6 @@ export const startChat = async (req, res) => {
         expiresAt,
       });
     } else {
-      // Add message to existing chat
       chat.messages.push({
         sender: req.user._id,
         text: message.trim(),
@@ -55,11 +75,12 @@ export const startChat = async (req, res) => {
 
     const populated = await Chat.findById(chat._id)
       .populate("customer", "name")
-      .populate("vendor", "storeName")
+      .populate("admin", "name")
       .populate("product", "title");
 
     res.status(201).json(populated);
   } catch (error) {
+    console.error("Start chat error:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -77,14 +98,16 @@ export const sendMessage = async (req, res) => {
       return res.status(404).json({ message: "Chat not found or expired" });
     }
 
-    // Authorization: only the customer or the vendor owner can send
-    const isCustomer = chat.customer.toString() === req.user._id.toString();
-    const vendor = await Vendor.findById(chat.vendor);
+    const isCustomer =
+      chat.customer.toString() === req.user._id.toString();
+    const isAdmin =
+      req.user.role === "admin" &&
+      chat.admin.toString() === req.user._id.toString();
 
-    const isVendorOwner =
-      vendor && vendor.user.toString() === req.user._id.toString();
+    // Allow any admin to reply (in case of multiple admins)
+    const isAnyAdmin = req.user.role === "admin";
 
-    if (!isCustomer && !isVendorOwner) {
+    if (!isCustomer && !isAdmin && !isAnyAdmin) {
       return res.status(403).json({ message: "Not allowed" });
     }
 
@@ -92,38 +115,35 @@ export const sendMessage = async (req, res) => {
       sender: req.user._id,
       text: text.trim(),
     });
-
     await chat.save();
 
     const populated = await Chat.findById(chat._id)
       .populate("customer", "name")
-      .populate("vendor", "storeName")
+      .populate("admin", "name")
       .populate("product", "title");
 
     res.json(populated);
   } catch (error) {
+    console.error("Send message error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get my chats (customer or vendor)
+// Get my chats
 export const getMyChats = async (req, res) => {
   try {
     let chats;
 
     if (req.user.role === "customer") {
       chats = await Chat.find({ customer: req.user._id })
-        .populate("vendor", "storeName logo")
+        .populate("admin", "name")
         .populate("product", "title images")
         .sort({ updatedAt: -1 });
-    } else if (req.user.role === "vendor") {
-      const vendor = await Vendor.findOne({ user: req.user._id });
-      if (!vendor) {
-        return res.json([]);
-      }
-
-      chats = await Chat.find({ vendor: vendor._id })
-        .populate("customer", "name")
+    } else if (req.user.role === "admin") {
+      // Admin sees all support chats
+      chats = await Chat.find()
+        .populate("customer", "name email")
+        .populate("admin", "name")
         .populate("product", "title images")
         .sort({ updatedAt: -1 });
     } else {
@@ -140,21 +160,19 @@ export const getMyChats = async (req, res) => {
 export const getChatById = async (req, res) => {
   try {
     const chat = await Chat.findById(req.params.id)
-      .populate("customer", "name")
-      .populate("vendor", "storeName")
+      .populate("customer", "name email")
+      .populate("admin", "name")
       .populate("product", "title images");
 
     if (!chat) {
       return res.status(404).json({ message: "Chat not found or expired" });
     }
 
-    // Authorization
-    const isCustomer = chat.customer._id.toString() === req.user._id.toString();
-    const vendor = await Vendor.findById(chat.vendor._id || chat.vendor);
-    const isVendorOwner =
-      vendor && vendor.user.toString() === req.user._id.toString();
+    const isCustomer =
+      chat.customer._id.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === "admin";
 
-    if (!isCustomer && !isVendorOwner) {
+    if (!isCustomer && !isAdmin) {
       return res.status(403).json({ message: "Not allowed" });
     }
 

@@ -27,12 +27,21 @@ export default function Chats() {
   }, [accessToken]);
 
   if (loading) {
-    return <div className="p-8 text-center text-muted-foreground">Loading messages...</div>;
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        Loading messages...
+      </div>
+    );
   }
+
+  const chatBasePath =
+    user?.role === "admin" ? "/admin/chats" : "/chats";
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold">Messages</h1>
+      <h1 className="mb-6 text-2xl font-bold">
+        {user?.role === "admin" ? "Support Messages" : "Messages"}
+      </h1>
 
       {chats.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-muted-foreground">
@@ -45,13 +54,13 @@ export default function Chats() {
             const lastMessage = chat.messages?.[chat.messages.length - 1];
             const otherName =
               user?.role === "customer"
-                ? chat.vendor?.storeName
-                : chat.customer?.name;
+                ? "Support"
+                : chat.customer?.name || "Customer";
 
             return (
               <Link
                 key={chat._id}
-                to={user?.role === "vendor" ? `/vendor/chats/${chat._id}` : `/chats/${chat._id}`}
+                to={`${chatBasePath}/${chat._id}`}
                 className="flex items-center gap-4 rounded-lg border p-4 transition hover:bg-muted/50"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">

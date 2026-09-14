@@ -24,27 +24,28 @@ const chatSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    vendor: {
+    // Admin / page owner (User with role "admin")
+    admin: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Vendor",
+      ref: "User",
       required: true,
     },
+    // Optional: product the customer is asking about
     product: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Product",
     },
     messages: [messageSchema],
-    // Auto-delete this whole chat after 7 days
     expiresAt: {
       type: Date,
       required: true,
-      index: { expires: 0 }, // MongoDB TTL index
+      index: { expires: 0 }, // auto-delete after this date
     },
   },
   { timestamps: true }
 );
 
-// Prevent duplicate open chats between same customer + vendor for same product
-chatSchema.index({ customer: 1, vendor: 1, product: 1 });
+// One open chat per customer + product (or general support without product)
+chatSchema.index({ customer: 1, product: 1 });
 
 export default mongoose.model("Chat", chatSchema);

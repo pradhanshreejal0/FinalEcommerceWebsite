@@ -8,7 +8,6 @@ import Cart from "@/pages/customer/Cart";
 import Checkout from "@/pages/customer/Checkout";
 import Orders from "@/pages/customer/Orders";
 import OrderDetail from "@/pages/customer/OrderDetail";
-// import Checkout from "@/pages/customer/Checkout";
 import VendorOrders from "@/pages/vendor/Orders";
 import AdminOrders from "@/pages/admin/Orders";
 import Shop from "@/pages/customer/Shop";
@@ -84,8 +83,6 @@ function App() {
         <Route path="/vendor/products" element={<Products />} />
         <Route path="/vendor/orders" element={<VendorOrders />} />
         <Route path="/vendor/profile" element={<VendorProfile />} />
-        <Route path="/vendor/chats" element={<Chats />} />
-        <Route path="/vendor/chats/:id" element={<ChatPage />} />
       </Route>
 
       {/* Admin routes */}
@@ -93,6 +90,9 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
             <AdminLayout />
+            {/* inside admin ProtectedRoute */}
+            <Route path="/admin/chats" element={<Chats />} />
+            <Route path="/admin/chats/:id" element={<ChatPage />} />
           </ProtectedRoute>
         }
       >

@@ -229,21 +229,25 @@ export default function ProductDetails() {
       navigate("/login");
       return;
     }
-  
-    const message = prompt("Write your first message to the vendor:");
+
+    if (user.role !== "customer") {
+      alert("Only customers can contact support.");
+      return;
+    }
+
+    const message = prompt("Write your message to support:");
     if (!message?.trim()) return;
-  
+
     try {
       const chat = await api("/chats/start", {
         method: "POST",
         accessToken,
         body: {
-          productId: id,
+          productId: product._id, // optional context
           message: message.trim(),
         },
       });
-  
-      // Go to the chat page
+
       navigate(`/chats/${chat._id}`);
     } catch (err) {
       alert(err.message || "Failed to start chat");
@@ -335,7 +339,7 @@ export default function ProductDetails() {
                   className="inline-flex items-center gap-1.5 rounded-full border border-blue-600/30 bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700 transition hover:bg-blue-100"
                 >
                   <MessageCircle className="h-3.5 w-3.5" />
-                  Chat with Vendor
+                  Chat with Support
                 </button>
               )}
             </div>
