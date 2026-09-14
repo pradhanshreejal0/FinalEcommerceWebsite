@@ -18,16 +18,29 @@ function Footer() {
           <div>
             <h3 className="text-lg font-semibold mb-4">About Us</h3>
             <p className="text-sm mb-4 text-muted-foreground">
-              Your one-stop shop for the latest products. We offer quality, affordability, and great customer service.
+              Your one-stop shop for the latest products. We offer quality,
+              affordability, and great customer service.
             </p>
             <div className="flex space-x-4 mt-2">
-              <a href="#" aria-label="Facebook" className="text-muted-foreground hover:text-foreground transition-colors">
+              <a
+                href="#"
+                aria-label="Facebook"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
                 <SiFacebook size={20} />
               </a>
-              <a href="#" aria-label="Twitter/X" className="text-muted-foreground hover:text-foreground transition-colors">
+              <a
+                href="#"
+                aria-label="Twitter/X"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
                 <SiX size={20} />
               </a>
-              <a href="#" aria-label="Instagram" className="text-muted-foreground hover:text-foreground transition-colors">
+              <a
+                href="#"
+                aria-label="Instagram"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
                 <SiInstagram size={20} />
               </a>
             </div>
@@ -37,10 +50,38 @@ function Footer() {
           <div>
             <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
             <ul className="space-y-2 text-sm">
-              <li><Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">Home</Link></li>
-              <li><Link to="/products" className="text-muted-foreground hover:text-foreground transition-colors">Shop</Link></li>
-              <li><Link to="/about" className="text-muted-foreground hover:text-foreground transition-colors">About</Link></li>
-              <li><Link to="/contact" className="text-muted-foreground hover:text-foreground transition-colors">Contact</Link></li>
+              <li>
+                <Link
+                  to="/"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Home
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/products"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Shop
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/about"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  About
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/contact"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Contact
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -48,17 +89,48 @@ function Footer() {
           <div>
             <h3 className="text-lg font-semibold mb-4">Customer Service</h3>
             <ul className="space-y-2 text-sm">
-              <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Help Center</a></li>
-              <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Returns</a></li>
-              <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Shipping Info</a></li>
-              <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">FAQs</a></li>
+              <li>
+                <Link
+                  to="/help"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Help Center
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/returns"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Returns
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/shipping"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Shipping Info
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/faq"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  FAQs
+                </Link>
+              </li>
             </ul>
           </div>
 
           {/* Newsletter Sign-up */}
           <div>
             <h3 className="text-lg font-semibold mb-4">Subscribe</h3>
-            <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2">
+            <form
+              onSubmit={handleSubscribe}
+              className="flex flex-col sm:flex-row gap-2"
+            >
               <Input
                 type="email"
                 placeholder="Email"
@@ -80,8 +152,18 @@ function Footer() {
             &copy; {new Date().getFullYear()} YourCompany. All rights reserved.
           </p>
           <div className="space-x-4">
-            <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a>
-            <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Terms of Service</a>
+            <Link
+              to="/privacy"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Privacy Policy
+            </Link>
+            <Link
+              to="/terms"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Terms of Service
+            </Link>
           </div>
         </div>
       </div>

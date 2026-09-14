@@ -29,6 +29,14 @@ import VendorApprovals from "@/pages/admin/VendorApprovals";
 import Ads from "@/pages/admin/Ads";
 import Chats from "@/pages/Chats";
 import ChatPage from "@/pages/Chat";
+import Terms from "@/pages/Terms";
+import Privacy from "@/pages/Privacy";
+import About from "@/pages/About";
+import Contact from "@/pages/Contact";
+import HelpCenter from "@/pages/HelpCenter";
+import Returns from "@/pages/Returns";
+import Shipping from "@/pages/Shipping";
+import FAQ from "@/pages/FAQ";
 
 function App() {
   return (
@@ -50,6 +58,15 @@ function App() {
         <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/chats" element={<Chats />} />
         <Route path="/chats/:id" element={<ChatPage />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/help" element={<HelpCenter />} />
+        <Route path="/returns" element={<Returns />} />
+        <Route path="/shipping" element={<Shipping />} />
+        <Route path="/faq" element={<FAQ />} />
       </Route>
 
       <Route path="/login" element={<Login />} />
