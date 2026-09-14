@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Users, Package, ShoppingBag, Tag } from "lucide-react";
+import {
+  Users,
+  Package,
+  ShoppingBag,
+  Tag,
+  MessageCircle,
+} from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 
 const cards = [
-  { key: "totalUsers", label: "Total Users", icon: Users, to: "/admin/vendors" },
+  { key: "totalUsers", label: "Total Users", icon: Users, to: "/admin/users" },
   { key: "totalProducts", label: "Products", icon: Package, to: "/admin" },
   { key: "totalOrders", label: "Orders", icon: ShoppingBag, to: "/admin/orders" },
   { key: "totalCategories", label: "Categories", icon: Tag, to: "/admin/categories" },
@@ -48,9 +54,10 @@ export default function AdminDashboard() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
+
       {error && <p className="text-sm text-destructive mb-4">{error}</p>}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-10">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
         {cards.map(({ key, label, icon: Icon, to }) => (
           <Link
             key={key}
@@ -66,6 +73,17 @@ export default function AdminDashboard() {
             </p>
           </Link>
         ))}
+      </div>
+
+      {/* Support Messages shortcut */}
+      <div className="mb-10">
+        <Link
+          to="/admin/chats"
+          className="inline-flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium hover:bg-muted transition"
+        >
+          <MessageCircle className="h-4 w-4" />
+          Support Messages
+        </Link>
       </div>
 
       <h2 className="text-lg font-semibold mb-4">Most viewed by customers</h2>

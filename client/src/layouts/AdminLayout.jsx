@@ -1,12 +1,14 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 // import { BarChart3, Users, Tag, Image, ShoppingBag, Menu, LogOut } from "lucide-react";
-import { BarChart3, Users, Tag, Image, ShoppingBag, Menu, LogOut, Settings as SettingsIcon } from "lucide-react";
+import { BarChart3, Users, Tag, Image, ShoppingBag, Menu, LogOut, Settings as SettingsIcon, MessageCircle, } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 
+
 const navItems = [
   { label: "Analytics", to: "/admin", icon: BarChart3 },
+  { label: "Messages", to: "/admin/chats", icon: MessageCircle },
   { label: "Vendor Approvals", to: "/admin/vendors", icon: Users },
   { label: "Users", to: "/admin/users", icon: Users },
   { label: "Categories", to: "/admin/categories", icon: Tag },
@@ -25,7 +27,8 @@ function SidebarLinks({ onLogout }) {
             key={to}
             to={to}
             className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              location.pathname === to
+              location.pathname === to ||
+              (to !== "/admin" && location.pathname.startsWith(to))
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:bg-muted"
             }`}

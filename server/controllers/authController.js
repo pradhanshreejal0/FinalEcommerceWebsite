@@ -16,36 +16,43 @@ const cookieOptions = {
 
 export const register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, phone } = req.body;
+
+    // Phone required
+    if (!phone || !String(phone).trim()) {
+      return res.status(400).json({ message: "Phone number is required" });
+    }
+
+    const digitsOnly = String(phone).replace(/[^\d]/g, "");
+    if (digitsOnly.length < 7 || digitsOnly.length > 15) {
+      return res.status(400).json({
+        message: "Phone number must be 7–15 digits (include country code)",
+      });
+    }
 
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ message: "Email already registered" });
     }
 
-    const finalRole = role === "vendor" ? "vendor" : "customer";
+    // Public registration = customer only (vendor is created by admin)
+    if (role === "vendor") {
+      return res.status(403).json({
+        message: "Vendor registration is disabled. Please contact admin.",
+      });
+    }
+
+    const finalRole = "customer";
 
     const user = await User.create({
       name,
       email,
       password,
+      phone: digitsOnly, // ← save phone
       role: finalRole,
     });
 
-    if (finalRole === "vendor") {
-      const slug = name
-        .toLowerCase()
-        .trim()
-        .replace(/[^\w\s-]/g, "")
-        .replace(/\s+/g, "-");
-
-      await Vendor.create({
-        user: user._id,
-        storeName: name,
-        storeSlug: `${slug}-${user._id.toString().slice(-4)}`,
-        status: "pending",
-      });
-    }
+    // Vendor auto-create removed — admin creates vendors
 
     const accessToken = generateAccessToken(user._id, user.role);
     const refreshToken = generateRefreshToken(user._id);
@@ -59,6 +66,7 @@ export const register = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         role: user.role,
       },
       accessToken,
@@ -174,8 +182,19 @@ export const updateMe = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const { name } = req.body;
+    const { name, phone } = req.body;
+
     if (name !== undefined) user.name = name;
+
+    if (phone !== undefined) {
+      const digitsOnly = String(phone).replace(/[^\d]/g, "");
+      if (digitsOnly.length < 7 || digitsOnly.length > 15) {
+        return res.status(400).json({
+          message: "Phone number must be 7–15 digits (include country code)",
+        });
+      }
+      user.phone = digitsOnly;
+    }
 
     await user.save();
 
@@ -183,6 +202,7 @@ export const updateMe = async (req, res) => {
       _id: user._id,
       name: user.name,
       email: user.email,
+      phone: user.phone,
       role: user.role,
     });
   } catch (error) {

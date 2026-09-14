@@ -7,7 +7,7 @@ const getAdminUser = async () => {
   return User.findOne({ role: "admin" }).select("_id name email");
 };
 
-// Customer starts (or continues) a chat with admin
+// Customer starts (or continues) a chat with admin / support
 export const startChat = async (req, res) => {
   try {
     if (req.user.role !== "customer") {
@@ -25,7 +25,7 @@ export const startChat = async (req, res) => {
     const admin = await getAdminUser();
     if (!admin) {
       return res.status(500).json({
-        message: "Support is not available right now",
+        message: "Support is not available right now (no admin account found)",
       });
     }
 
@@ -37,7 +37,7 @@ export const startChat = async (req, res) => {
       }
     }
 
-    // Find existing chat (same customer + same product, or general if no product)
+    // Existing chat: same customer + same product (or no product)
     const filter = {
       customer: req.user._id,
       admin: admin._id,
@@ -45,10 +45,18 @@ export const startChat = async (req, res) => {
     if (productId) {
       filter.product = productId;
     } else {
-      filter.product = { $exists: false };
+      filter.$or = [{ product: null }, { product: { $exists: false } }];
     }
 
-    let chat = await Chat.findOne(filter);
+    let chat = await Chat.findOne(
+      productId
+        ? { customer: req.user._id, admin: admin._id, product: productId }
+        : {
+            customer: req.user._id,
+            admin: admin._id,
+            $or: [{ product: null }, { product: { $exists: false } }],
+          }
+    );
 
     if (!chat) {
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -56,7 +64,7 @@ export const startChat = async (req, res) => {
       chat = await Chat.create({
         customer: req.user._id,
         admin: admin._id,
-        product: productId || undefined,
+        ...(productId ? { product: productId } : {}),
         messages: [
           {
             sender: req.user._id,
@@ -85,7 +93,7 @@ export const startChat = async (req, res) => {
   }
 };
 
-// Send a message in an existing chat
+// Send a message — customer OR admin
 export const sendMessage = async (req, res) => {
   try {
     const { text } = req.body;
@@ -100,14 +108,9 @@ export const sendMessage = async (req, res) => {
 
     const isCustomer =
       chat.customer.toString() === req.user._id.toString();
-    const isAdmin =
-      req.user.role === "admin" &&
-      chat.admin.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === "admin";
 
-    // Allow any admin to reply (in case of multiple admins)
-    const isAnyAdmin = req.user.role === "admin";
-
-    if (!isCustomer && !isAdmin && !isAnyAdmin) {
+    if (!isCustomer && !isAdmin) {
       return res.status(403).json({ message: "Not allowed" });
     }
 
@@ -129,7 +132,7 @@ export const sendMessage = async (req, res) => {
   }
 };
 
-// Get my chats
+// List chats — customer sees own, admin sees all
 export const getMyChats = async (req, res) => {
   try {
     let chats;
@@ -140,7 +143,6 @@ export const getMyChats = async (req, res) => {
         .populate("product", "title images")
         .sort({ updatedAt: -1 });
     } else if (req.user.role === "admin") {
-      // Admin sees all support chats
       chats = await Chat.find()
         .populate("customer", "name email")
         .populate("admin", "name")
@@ -156,7 +158,7 @@ export const getMyChats = async (req, res) => {
   }
 };
 
-// Get single chat
+// Single chat — customer (own) or any admin
 export const getChatById = async (req, res) => {
   try {
     const chat = await Chat.findById(req.params.id)

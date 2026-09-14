@@ -24,13 +24,11 @@ const chatSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    // Admin / page owner (User with role "admin")
     admin: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-    // Optional: product the customer is asking about
     product: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Product",
@@ -39,13 +37,12 @@ const chatSchema = new mongoose.Schema(
     expiresAt: {
       type: Date,
       required: true,
-      index: { expires: 0 }, // auto-delete after this date
+      index: { expires: 0 },
     },
   },
   { timestamps: true }
 );
 
-// One open chat per customer + product (or general support without product)
 chatSchema.index({ customer: 1, product: 1 });
 
 export default mongoose.model("Chat", chatSchema);

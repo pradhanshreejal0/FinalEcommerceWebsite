@@ -119,7 +119,7 @@ export const createProduct = async (req, res) => {
       .populate("category", "name parentCategory")
       .populate({
         path: "vendor",
-        select: "storeName storeSlug logo banner phone",
+        select: "storeName storeSlug logo banner",
       });
 
     res.status(201).json(createdProduct);
@@ -258,7 +258,7 @@ export const getProducts = async (req, res) => {
         .populate("category", "name parentCategory")
         .populate({
           path: "vendor",
-          select: "storeName storeSlug logo banner phone",
+          select: "storeName storeSlug logo banner ",
         })
         .sort(sortOption)
         .skip(skip)

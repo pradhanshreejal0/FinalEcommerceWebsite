@@ -8,16 +8,23 @@ export default function Chats() {
   const { accessToken, user } = useAuth();
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const chatBasePath =
+    user?.role === "admin" ? "/admin/chats" : "/chats";
 
   useEffect(() => {
     if (!accessToken) return;
 
     const loadChats = async () => {
       try {
+        setError("");
         const data = await api("/chats", { accessToken });
-        setChats(data);
+        setChats(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error(err);
+        setError(err.message || "Failed to load messages");
+        setChats([]);
       } finally {
         setLoading(false);
       }
@@ -34,14 +41,15 @@ export default function Chats() {
     );
   }
 
-  const chatBasePath =
-    user?.role === "admin" ? "/admin/chats" : "/chats";
-
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="mb-6 text-2xl font-bold">
         {user?.role === "admin" ? "Support Messages" : "Messages"}
       </h1>
+
+      {error && (
+        <p className="mb-4 text-sm text-destructive">{error}</p>
+      )}
 
       {chats.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-muted-foreground">
