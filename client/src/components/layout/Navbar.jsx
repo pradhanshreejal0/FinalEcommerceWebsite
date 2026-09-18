@@ -29,6 +29,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
+import { api } from "@/lib/api";
+
 
 // Category bar links. Add a `badge` to flag an item, like "Deals" / "Sale".
 const navLinks = [
