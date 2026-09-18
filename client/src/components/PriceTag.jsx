@@ -11,7 +11,7 @@ export function PriceTag({ product, size = "default", className }) {
 
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      <span className={priceClass}>RS{finalPrice.toFixed(2)}</span>
+      <span className={priceClass}>RS {finalPrice.toFixed(2)}</span>
       {hasDiscount && (
         <>
           <span className={cn(originalClass, "line-through")}>
