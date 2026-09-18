@@ -147,17 +147,17 @@ export default function Cart() {
 
   const byVendor = {};
 
-  // items.forEach((item) => {
-    // const vendorName =
-    //   item.product?.vendor?.storeName ||
-    //   "Unknown Vendor";
+  items.forEach((item) => {
+    const vendorName =
+      item.product?.vendor?.storeName ||
+      "Unknown Vendor";
 
-    // if (!byVendor[vendorName]) {
-    //   byVendor[vendorName] = [];
-    // }
+    if (!byVendor[vendorName]) {
+      byVendor[vendorName] = [];
+    }
 
-    // byVendor[vendorName].push(item);
-  // });
+    byVendor[vendorName].push(item);
+  });
 
   /*
   |--------------------------------------------------------------------------
