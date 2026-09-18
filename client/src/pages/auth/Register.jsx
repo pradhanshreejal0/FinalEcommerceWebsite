@@ -21,6 +21,7 @@ export default function Register() {
     email: "",
     password: "",
     confirmPassword: "",
+    phone: "",
     role: "customer", // kept for future use
   });
   const [error, setError] = useState("");
@@ -52,6 +53,7 @@ export default function Register() {
           name: formData.name,
           email: formData.email,
           password: formData.password,
+          phone: formData.phone,
           // role: formData.role, // uncomment later when vendor registration is enabled
           role: "customer", // force customer for now
         }),
@@ -96,6 +98,17 @@ export default function Register() {
                 type="email"
                 required
                 value={formData.email}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="phone"
+                name="phone"
+                required
+                value={formData.phone}
                 onChange={handleChange}
               />
             </div>
