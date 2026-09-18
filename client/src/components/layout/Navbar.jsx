@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import {
   ShoppingCart,
   Menu,
@@ -57,6 +57,8 @@ export default function Navbar() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
+
+  const location = useLocation();
 
   const category = searchParams.get("category") || "";
 
@@ -144,7 +146,7 @@ export default function Navbar() {
                     <Link
                       key={link.to}
                       to={link.to}
-                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+                      className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted ${link.to == location ? "underline": ""}`}
                     >
                       {link.label}
                       {link.badge && (
