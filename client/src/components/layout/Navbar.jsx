@@ -230,7 +230,7 @@ export default function Navbar() {
 
       {/* Tier 2: category bar — categories dropdown / nav links / contact */}
       <div className="hidden lg:block border-b bg-background">
-        <div className="mx-auto flex h-12 max-w-7xl items-center justify-between px-4">
+        <div className="mx-auto flex h-12 max-w-7xl items-center justify-center px-4">
           <div className="flex items-center gap-6">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
