@@ -18,7 +18,9 @@ const userSchema = new mongoose.Schema(
       default: "customer",
     },
     isBanned: { type: Boolean, default: false },
-    refreshToken: { type: String },
+        refreshToken: { type: String },
+        resetPasswordToken: { type: String },
+        resetPasswordExpires: { type: Date },
   },
   { timestamps: true }
 );

@@ -36,6 +36,8 @@ import HelpCenter from "@/pages/HelpCenter";
 import Returns from "@/pages/Returns";
 import Shipping from "@/pages/Shipping";
 import FAQ from "@/pages/FAQ";
+import ForgotPassword from "@/pages/auth/ForgotPassword";
+import ResetPassword from "@/pages/auth/ResetPassword";
 
 function App() {
   return (
@@ -67,6 +69,8 @@ function App() {
 
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
 
       {/* Vendor routes */}
       <Route

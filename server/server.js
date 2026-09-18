@@ -1,7 +1,8 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
-import rateLimit from "express-rate-limit";
+import { loginLimiter, forgotPasswordLimiter } from "./middleware/rateLimiters.js";
+// import rateLimit from "express-rate-limit";
 
 import { connectDB } from "./config/db.js";
 
@@ -67,15 +68,8 @@ const origin = req.headers.origin;
 app.use(express.json());
 app.use(cookieParser());
 
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 attempts per IP per window
-  message: { message: "Too many login attempts. Please try again later." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
 app.use("/api/auth/login", loginLimiter);
+app.use("/api/auth/forgot-password", forgotPasswordLimiter);
 
 // =====================================================
 // ROUTES

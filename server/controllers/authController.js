@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import crypto from "crypto";
+import { sendEmail } from "../utils/sendEmail.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -217,6 +219,91 @@ export const updateMe = async (req, res) => {
       phone: user.phone || "",
       role: user.role,
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+
+    // Always respond the same way, whether or not the email exists —
+    // this stops people from using this endpoint to check who's registered.
+    if (!user) {
+      return res.json({
+        message: "If that email is registered, a reset link has been sent.",
+      });
+    }
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = Date.now() + 30 * 60 * 1000; // 30 minutes
+    await user.save();
+
+    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${rawToken}`;
+
+    await sendEmail({
+      to: user.email,
+      subject: "Reset your password",
+      html: `
+        <p>Hi ${user.name},</p>
+        <p>Click the link below to reset your password. This link expires in 30 minutes.</p>
+        <p><a href="${resetUrl}">${resetUrl}</a></p>
+        <p>If you didn't request this, you can ignore this email.</p>
+      `,
+    });
+
+    res.json({
+      message: "If that email is registered, a reset link has been sent.",
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!password || password.length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        message: "Reset link is invalid or has expired",
+      });
+    }
+
+    user.password = password; // pre("save") hook hashes it
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    user.refreshToken = undefined; // log out old sessions
+    await user.save();
+
+    res.json({ message: "Password reset successful. Please log in." });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
