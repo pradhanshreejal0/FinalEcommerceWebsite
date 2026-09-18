@@ -277,29 +277,6 @@ export default function Navbar() {
                             View all {parent.name} products →
                           </Link>
                         </div>
-
-                        {children.length > 0 ? (
-                          <div className="mt-6">
-                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">
-                              Subcategories
-                            </p>
-                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                              {children.map((child) => (
-                                <Link
-                                  key={child._id}
-                                  to={`/products?category=${child._id}`}
-                                  className="rounded-lg border px-4 py-3 text-sm font-medium hover:bg-muted transition"
-                                >
-                                  {child.name}
-                                </Link>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="mt-4 text-sm text-muted-foreground">
-                            No subcategories yet.
-                          </p>
-                        )}
                       </section>
                     );
                   })}
