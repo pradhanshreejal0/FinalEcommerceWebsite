@@ -65,7 +65,6 @@ export default function Login() {
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <div className="flex items-center justify-between">
 
               <div className="relative">
                 <Input
@@ -97,7 +96,6 @@ export default function Login() {
                 >
                   Forgot password?
                 </Link>
-              </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
 
