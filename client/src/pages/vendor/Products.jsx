@@ -485,7 +485,9 @@ export default function Products() {
                     <div className="h-12 w-12 rounded bg-muted" />
                   )}
                 </TableCell>
-                <TableCell className="font-medium">{product.title}</TableCell>
+    <TableCell className="font-medium max-w-50 truncate" title={product.title}>
+                  {product.title}
+                </TableCell>
                 <TableCell>
                   <PriceTag product={product} />
                 </TableCell>
