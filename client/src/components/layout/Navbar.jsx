@@ -275,31 +275,19 @@ export default function Navbar() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-48">
-                <DropdownMenuItem asChild>
                   {parents.map((parent) => {
-                    // const children = getChildren(parent._id);
-
                     return (
-                      <section key={parent._id} className="rounded-xl border p-6">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                              Main category
-                            </p>
+                <DropdownMenuItem asChild>
+
                             <h2 className="text-xl font-semibold mt-1">{parent.name}</h2>
                             {parent.description && (
                               <p className="text-sm text-muted-foreground mt-1">
                                 {parent.description}
                               </p>
                             )}
-                          </div>
-
-
-                        </div>
-                      </section>
+                </DropdownMenuItem>
                     );
                   })}
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
