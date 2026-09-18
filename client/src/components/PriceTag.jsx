@@ -15,7 +15,7 @@ export function PriceTag({ product, size = "default", className }) {
       {hasDiscount && (
         <>
           <span className={cn(originalClass, "line-through")}>
-            ${Number(product.price).toFixed(2)}
+            RS{Number(product.price).toFixed(2)}
           </span>
           <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-xs font-semibold text-destructive">
             {discount}% OFF
