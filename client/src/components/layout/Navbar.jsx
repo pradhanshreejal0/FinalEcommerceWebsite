@@ -288,11 +288,11 @@ export default function Navbar() {
                 {parents.map((parent) => (
                   <div key={parent._id}>
                     <SelectItem value={parent._id}>{parent.name}</SelectItem>
-                    {getChildren(parent._id).map((child) => (
+                    {/* {getChildren(parent._id).map((child) => (
                       <SelectItem key={child._id} value={child._id}>
                         — {child.name}
                       </SelectItem>
-                    ))}
+                    ))}*/}
                   </div>
                 ))}
               </SelectContent>
