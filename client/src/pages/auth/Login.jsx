@@ -66,13 +66,7 @@ export default function Login() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                              <Label htmlFor="password">Password</Label>
-                             <Link
-                               to="/forgot-password"
-                               className="text-xs underline text-muted-foreground hover:text-foreground"
-                             >
-                               Forgot password?
-                             </Link>
-                           </div>
+
               <div className="relative">
                 <Input
                   id="password"
@@ -95,6 +89,13 @@ export default function Login() {
                     <Eye className="h-4 w-4" />
                   )}
                 </button>
+                </div>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs underline text-muted-foreground hover:text-foreground"
+                >
+                  Forgot password?
+                </Link>
               </div>
             </div>
 
