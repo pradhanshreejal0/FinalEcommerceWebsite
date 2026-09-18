@@ -103,7 +103,7 @@ export default function Register() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name">Phone Number</Label>
               <Input
                 id="phone"
                 name="phone"
