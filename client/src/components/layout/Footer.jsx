@@ -91,6 +91,7 @@ function Footer() {
             <ul className="space-y-2 text-sm">
               <li>
                 <Link
+                  target="_blank"
                   to="/help"
                   className="text-muted-foreground hover:text-foreground transition-colors"
                 >
@@ -107,6 +108,7 @@ function Footer() {
               </li>
               <li>
                 <Link
+                  target="_blank"
                   to="/shipping"
                   className="text-muted-foreground hover:text-foreground transition-colors"
                 >
@@ -115,6 +117,7 @@ function Footer() {
               </li>
               <li>
                 <Link
+                  target="_blank"
                   to="/faq"
                   className="text-muted-foreground hover:text-foreground transition-colors"
                 >
@@ -153,12 +156,14 @@ function Footer() {
           </p>
           <div className="space-x-4">
             <Link
+              target="_blank"
               to="/privacy"
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
               Privacy Policy
             </Link>
             <Link
+              target="_blank"
               to="/terms"
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
