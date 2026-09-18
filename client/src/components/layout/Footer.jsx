@@ -100,6 +100,7 @@ function Footer() {
               </li>
               <li>
                 <Link
+                  target="_blank"
                   to="/returns"
                   className="text-muted-foreground hover:text-foreground transition-colors"
                 >
