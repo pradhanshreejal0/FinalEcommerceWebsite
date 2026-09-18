@@ -61,6 +61,27 @@ export default function Navbar() {
 
   const messagesLink = user?.role === "vendor" ? "/vendor/chats" : "/chats";
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const data = await api("/categories");
+        if (!cancelled) setCategories(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+
   const parents = categories.filter((c) => !c.parentCategory);
 
   const getChildren = (parentId) =>
