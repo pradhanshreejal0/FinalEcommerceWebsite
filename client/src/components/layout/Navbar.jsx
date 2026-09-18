@@ -44,6 +44,8 @@ const trustItems = [
 ];
 
 export default function Navbar() {
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { user, logout } = useAuth();
   const { itemCount } = useCart();
   const navigate = useNavigate();
