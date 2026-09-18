@@ -90,6 +90,7 @@ export default function Login() {
                   )}
                 </button>
                 </div>
+            </div>
                 <Link
                   to="/forgot-password"
                   className="text-xs underline text-muted-foreground hover:text-foreground"
@@ -97,7 +98,6 @@ export default function Login() {
                   Forgot password?
                 </Link>
               </div>
-            </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
 
