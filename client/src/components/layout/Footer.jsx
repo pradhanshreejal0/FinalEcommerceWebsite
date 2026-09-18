@@ -68,6 +68,7 @@ function Footer() {
               </li>
               <li>
                 <Link
+                  target="_blank"
                   to="/about"
                   className="text-muted-foreground hover:text-foreground transition-colors"
                 >
@@ -76,6 +77,7 @@ function Footer() {
               </li>
               <li>
                 <Link
+                  target="_blank"
                   to="/contact"
                   className="text-muted-foreground hover:text-foreground transition-colors"
                 >
