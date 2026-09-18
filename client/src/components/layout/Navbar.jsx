@@ -61,6 +61,15 @@ export default function Navbar() {
 
   const messagesLink = user?.role === "vendor" ? "/vendor/chats" : "/chats";
 
+  const parents = categories.filter((c) => !c.parentCategory);
+
+  const getChildren = (parentId) =>
+    categories.filter((c) => {
+      if (!c.parentCategory) return false;
+      const pid = c.parentCategory._id || c.parentCategory;
+      return String(pid) === String(parentId);
+    });
+
   return (
     <header className="sticky top-0 z-50 w-full bg-background">
       {/* Tier 1: utility bar — menu / logo / search / account actions */}
@@ -242,7 +251,58 @@ export default function Navbar() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-48">
                 <DropdownMenuItem asChild>
-                  <Link to="/categories">Browse all</Link>
+                  {parents.map((parent) => {
+                    const children = getChildren(parent._id);
+
+                    return (
+                      <section key={parent._id} className="rounded-xl border p-6">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              Main category
+                            </p>
+                            <h2 className="text-xl font-semibold mt-1">{parent.name}</h2>
+                            {parent.description && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {parent.description}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Shows parent + all children products */}
+                          <Link
+                            to={`/products?category=${parent._id}`}
+                            className="text-sm font-medium text-primary hover:underline"
+                          >
+                            View all {parent.name} products →
+                          </Link>
+                        </div>
+
+                        {children.length > 0 ? (
+                          <div className="mt-6">
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">
+                              Subcategories
+                            </p>
+                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                              {children.map((child) => (
+                                <Link
+                                  key={child._id}
+                                  to={`/products?category=${child._id}`}
+                                  className="rounded-lg border px-4 py-3 text-sm font-medium hover:bg-muted transition"
+                                >
+                                  {child.name}
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="mt-4 text-sm text-muted-foreground">
+                            No subcategories yet.
+                          </p>
+                        )}
+                      </section>
+                    );
+                  })}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
