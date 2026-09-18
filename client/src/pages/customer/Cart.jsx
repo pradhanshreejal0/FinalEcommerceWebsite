@@ -147,7 +147,7 @@ export default function Cart() {
 
   const byVendor = {};
 
-  items.forEach((item) => {
+  // items.forEach((item) => {
     // const vendorName =
     //   item.product?.vendor?.storeName ||
     //   "Unknown Vendor";
@@ -157,7 +157,7 @@ export default function Cart() {
     // }
 
     // byVendor[vendorName].push(item);
-  });
+  // });
 
   /*
   |--------------------------------------------------------------------------
