@@ -277,11 +277,11 @@ export default function Shop() {
                         <h2 className="line-clamp-2 font-semibold">
                           {product.title}
                         </h2>
-                        {product.vendor?.storeName && (
+                        {/* {product.vendor?.storeName && (
                           <p className="mt-1 text-sm text-muted-foreground">
                             {product.vendor.storeName}
                           </p>
-                        )}
+                        )}*/}
                         {product.category?.name && (
                           <p className="mt-1 text-xs text-muted-foreground">
                             {product.category.name}
