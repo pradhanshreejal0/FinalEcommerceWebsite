@@ -92,7 +92,7 @@ export default function Navbar() {
                   </Button>
                 </form>
 
-                <nav className="flex flex-col gap-1">
+                <nav className="flex flex-col gap-1 items-center justify-center">
                   {navLinks.map((link) => (
                     <Link
                       key={link.to}
