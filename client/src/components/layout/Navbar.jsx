@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ShoppingCart,
   Menu,
@@ -10,7 +10,6 @@ import {
   Truck,
   ShieldCheck,
   Clock,
-  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,14 +24,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { api } from "@/lib/api";
 
-
-// Category bar links. Add a `badge` to flag an item, like "Deals" / "Sale".
 const navLinks = [
   { label: "Home", to: "/" },
   { label: "Shop", to: "/products", badge: { text: "Hot", variant: "hot" } },
@@ -51,7 +55,10 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const { itemCount } = useCart();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
+
+  const category = searchParams.get("category") || "";
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -63,21 +70,18 @@ export default function Navbar() {
     }
   };
 
+  const updateCategory = (value) => {
+    if (value) {
+      navigate(`/products?category=${value}`);
+    } else {
+      navigate("/products");
+    }
+  };
+
   const messagesLink = user?.role === "vendor" ? "/vendor/chats" : "/chats";
 
   useEffect(() => {
     let cancelled = false;
-
-    const applyFilters = (e) => {
-      e?.preventDefault();
-      const params = {};
-      if (searchInput.trim()) params.search = searchInput.trim();
-      if (category) params.category = category;
-      if (minPriceInput) params.minPrice = minPriceInput;
-      if (maxPriceInput) params.maxPrice = maxPriceInput;
-      if (sort) params.sort = sort;
-      setSearchParams(params);
-    };
 
     const load = async () => {
       try {
@@ -96,7 +100,6 @@ export default function Navbar() {
     };
   }, []);
 
-
   const parents = categories.filter((c) => !c.parentCategory);
 
   const getChildren = (parentId) =>
@@ -111,7 +114,6 @@ export default function Navbar() {
       {/* Tier 1: utility bar — menu / logo / search / account actions */}
       <div className="bg-muted/40 border-b">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4">
-          {/* Mobile menu trigger */}
           <Sheet>
             <SheetTrigger asChild className="lg:hidden">
               <Button variant="ghost" size="icon" className="rounded-full shrink-0">
@@ -189,7 +191,6 @@ export default function Navbar() {
             </SheetContent>
           </Sheet>
 
-          {/* Logo */}
           <Link
             to="/"
             className="hidden lg:flex items-center gap-2 shrink-0 hover:opacity-80 transition"
@@ -200,7 +201,6 @@ export default function Navbar() {
             <span className="text-xl font-bold tracking-tight">YourStore</span>
           </Link>
 
-          {/* Search — grows to fill the middle */}
           <form onSubmit={handleSearch} className="flex flex-1 justify-center">
             <div className="flex w-full max-w-md items-center rounded-full border bg-background overflow-hidden focus-within:ring-2 focus-within:ring-ring">
               <Input
@@ -219,7 +219,6 @@ export default function Navbar() {
             </div>
           </form>
 
-          {/* Account actions */}
           <div className="hidden md:flex items-center gap-2 shrink-0">
             <Link to="/wishlist">
               <Button variant="outline" size="sm" className="rounded-full gap-1.5">
