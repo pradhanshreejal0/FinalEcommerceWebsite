@@ -308,12 +308,12 @@ export default function ProductDetails() {
           {/* Vendor */}
           {product.vendor?.storeName && (
             <div className="mt-2 flex flex-wrap items-center gap-3">
-              {/* <p className="text-muted-foreground">
+              <p className="text-muted-foreground">
                 Sold by{" "}
                 <span className="font-medium text-foreground">
                   {product.vendor.storeName}
                 </span>
-              </p>*/}
+              </p>
 
               {user && user.role === "customer" && (
                 <button
