@@ -4,7 +4,7 @@ import {
   useEffect,
   useCallback,
 } from "react";
-
+import { getFinalPrice } from "@/lib/utils";
 import { CartContext } from "./CartContext";
 import { useAuth } from "./AuthContext";
 import { api } from "@/lib/api";
@@ -238,7 +238,7 @@ export function CartProvider({ children }) {
 
   const total =
     cart?.items?.reduce((sum, item) => {
-      const price = Number(item.product?.price || 0);
+       const price = getFinalPrice(item.product);
       const quantity = Number(item.quantity || 0);
 
       return sum + price * quantity;

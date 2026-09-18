@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { getFinalPrice } from "@/lib/utils";
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -280,9 +281,7 @@ export default function Cart() {
                       const image =
                         product.images?.[0];
 
-                      const price = Number(
-                        product.price || 0
-                      );
+                      const price = getFinalPrice(product);
 
                       const quantity = Number(
                         item.quantity || 1

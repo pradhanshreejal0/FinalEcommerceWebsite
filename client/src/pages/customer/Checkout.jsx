@@ -1,6 +1,6 @@
-
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { getFinalPrice } from "@/lib/utils";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -86,7 +86,7 @@ export default function Checkout() {
   const items = cart?.items || [];
 
   const total = items.reduce((sum, item) => {
-    const price = Number(item.product?.price || 0);
+       const price = getFinalPrice(item.product);
     const quantity = Number(item.quantity || 0);
 
     return sum + price * quantity;
