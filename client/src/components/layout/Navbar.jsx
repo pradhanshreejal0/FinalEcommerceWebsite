@@ -68,6 +68,17 @@ export default function Navbar() {
   useEffect(() => {
     let cancelled = false;
 
+    const applyFilters = (e) => {
+      e?.preventDefault();
+      const params = {};
+      if (searchInput.trim()) params.search = searchInput.trim();
+      if (category) params.category = category;
+      if (minPriceInput) params.minPrice = minPriceInput;
+      if (maxPriceInput) params.maxPrice = maxPriceInput;
+      if (sort) params.sort = sort;
+      setSearchParams(params);
+    };
+
     const load = async () => {
       try {
         const data = await api("/categories");
@@ -266,30 +277,27 @@ export default function Navbar() {
       <div className="hidden lg:block border-b bg-background">
         <div className="mx-auto flex h-12 max-w-7xl items-center justify-center px-4">
           <div className="flex items-center justify-between gap-6">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Menu className="h-4 w-4" />
-                  All Categories
-                  <ChevronDown className="h-3.5 w-3.5 opacity-60" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
-                  {parents.map((parent) => {
-                    return (
-                <DropdownMenuItem asChild>
-
-                            <h2 className="text-xl font-semibold mt-1">{parent.name}</h2>
-                            {parent.description && (
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {parent.description}
-                              </p>
-                            )}
-                </DropdownMenuItem>
-                    );
-                  })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Select
+              value={category || "all"}
+              onValueChange={(v) => updateCategory(v === "all" ? "" : v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All categories</SelectItem>
+                {parents.map((parent) => (
+                  <div key={parent._id}>
+                    <SelectItem value={parent._id}>{parent.name}</SelectItem>
+                    {getChildren(parent._id).map((child) => (
+                      <SelectItem key={child._id} value={child._id}>
+                        — {child.name}
+                      </SelectItem>
+                    ))}
+                  </div>
+                ))}
+              </SelectContent>
+            </Select>
 
             <nav className="flex items-center gap-5">
               {navLinks.map((link) => (
