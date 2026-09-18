@@ -252,7 +252,7 @@ export default function Navbar() {
               <DropdownMenuContent align="start" className="w-48">
                 <DropdownMenuItem asChild>
                   {parents.map((parent) => {
-                    const children = getChildren(parent._id);
+                    // const children = getChildren(parent._id);
 
                     return (
                       <section key={parent._id} className="rounded-xl border p-6">
@@ -269,13 +269,7 @@ export default function Navbar() {
                             )}
                           </div>
 
-                          {/* Shows parent + all children products */}
-                          <Link
-                            to={`/products?category=${parent._id}`}
-                            className="text-sm font-medium text-primary hover:underline"
-                          >
-                            View all {parent.name} products →
-                          </Link>
+
                         </div>
                       </section>
                     );
