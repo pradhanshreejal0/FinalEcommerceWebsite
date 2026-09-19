@@ -191,7 +191,7 @@ export default function Categories() {
   if (loading) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="flex min-h-[200px] items-center justify-center">
+        <div className="flex min-h-50 items-center justify-center">
           <p className="text-muted-foreground">
             Loading categories...
           </p>
