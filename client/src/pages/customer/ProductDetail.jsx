@@ -365,14 +365,14 @@ export default function ProductDetails() {
           )}
 
           {/* Vendor */}
-          {product.vendor?.storeName && (
+          {/* {product.vendor?.storeName && (
             <p className="mt-2 text-muted-foreground">
               Sold by{" "}
               <span className="font-medium text-foreground">
                 {product.vendor.storeName}
               </span>
             </p>
-          )}
+          )}*/}
 
           {/* Chat with us */}
           {(!user || user.role === "customer") && (

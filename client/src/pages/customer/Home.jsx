@@ -234,14 +234,14 @@ export default function Home() {
                       )}
                     </div>
                     <div className="p-3">
-                      <h3 className="text-sm font-medium line-clamp-2 min-h-[40px]">
+                      <h3 className="text-sm font-medium line-clamp-2 min-h-10">
                         {product.title}
                       </h3>
-                      {product.vendor?.storeName && (
+                      {/* {product.vendor?.storeName && (
                         <p className="mt-1 text-xs text-muted-foreground truncate">
                           {product.vendor.storeName}
                         </p>
-                      )}
+                      )}*/}
                       <div className="mt-2">
                         <PriceTag product={product} />
                       </div>
