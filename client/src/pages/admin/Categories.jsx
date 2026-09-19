@@ -984,7 +984,7 @@ export default function Categories() {
         }}
       >
 
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-150">
 
           <DialogHeader>
 
