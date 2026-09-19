@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { AdBanner } from "@/components/AdBanner";
-import { CategoryIcon } from "@/components/CategoryIcon";
+import { CategoryIcon } from "@/components/CategoryIcons";
 
 export default function Categories() {
   const [categories, setCategories] = useState([]);
