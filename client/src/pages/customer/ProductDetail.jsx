@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { StarRating } from "@/components/StarRating";
 import { ProductReviews } from "@/components/ProductReviews";
 import { PriceTag } from "@/components/PriceTag";
+import { cn } from "@/lib/utils";
 import { Heart, MessageCircle } from "lucide-react";
 
 export default function ProductDetails() {
@@ -27,6 +28,8 @@ export default function ProductDetails() {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [wishlistLoading, setWishlistLoading] = useState(false);
 
+  const [activeImage, setActiveImage] = useState(0);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -39,6 +42,7 @@ export default function ProductDetails() {
 
         if (!cancelled) {
           setProduct(data);
+          setActiveImage(0);
         }
       } catch (err) {
         if (!cancelled) {
@@ -253,28 +257,57 @@ export default function ProductDetails() {
     }
   };
 
-  const image =
-    product.images?.length > 0
-      ? typeof product.images[0] === "string"
-        ? product.images[0]
-        : product.images[0]?.url
-      : null;
+  const images = (product.images || [])
+    .map((img) => (typeof img === "string" ? img : img?.url))
+    .filter(Boolean);
+
+  const currentImage = images[activeImage] || images[0] || null;
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="grid gap-10 md:grid-cols-2">
 
-        {/* Product Image */}
-        <div className="overflow-hidden rounded-xl border bg-muted">
-          {image ? (
-            <img
-              src={image}
-              alt={product.title}
-              className="aspect-square w-full object-contain bg-white p-4"
-            />
-          ) : (
-            <div className="flex aspect-square items-center justify-center text-muted-foreground">
-              No image available
+        {/* Product Images */}
+        <div>
+          {/* Main image */}
+          <div className="overflow-hidden rounded-xl border bg-muted">
+            {currentImage ? (
+              <img
+                src={currentImage}
+                alt={product.title}
+                className="aspect-square w-full object-contain bg-white p-4"
+              />
+            ) : (
+              <div className="flex aspect-square items-center justify-center text-muted-foreground">
+                No image available
+              </div>
+            )}
+          </div>
+
+          {/* Thumbnails */}
+          {images.length > 1 && (
+            <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
+              {images.map((img, index) => (
+                <button
+                  key={img + index}
+                  type="button"
+                  onClick={() => setActiveImage(index)}
+                  aria-label={`View image ${index + 1} of ${product.title}`}
+                  aria-current={index === activeImage}
+                  className={cn(
+                    "h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 bg-white transition",
+                    index === activeImage
+                      ? "border-primary"
+                      : "border-transparent hover:border-muted-foreground/30"
+                  )}
+                >
+                  <img
+                    src={img}
+                    alt=""
+                    className="h-full w-full object-contain p-1"
+                  />
+                </button>
+              ))}
             </div>
           )}
         </div>
