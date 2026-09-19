@@ -20,6 +20,7 @@ import reviewRoutes from "./routes/reviewRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
+import categoryIconRoutes from "./routes/categoryIconRoutes.js";
 
 dotenv.config();
 
@@ -79,6 +80,8 @@ app.use("/api/auth", authRoutes);
 
 app.use("/api/categories", categoryRoutes);
 
+app.use("/api/category-icons",categoryIconRoutes);
+
 app.use("/api/vendors", vendorRoutes);
 
 app.use("/api/ads", adRoutes);
@@ -102,6 +105,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/settings", settingsRoutes);
 
 app.use("/api/chats", chatRoutes);
+
 
 // =====================================================
 // HEALTH CHECK
