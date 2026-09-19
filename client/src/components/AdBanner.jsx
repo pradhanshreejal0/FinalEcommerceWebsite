@@ -34,7 +34,7 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
                   alt={ad.title}
                   className="w-full h-40 object-cover transition duration-300 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent" />
                 <p className="absolute bottom-2 left-2 right-2 text-white text-sm font-medium line-clamp-2">
                   {ad.title}
                 </p>
@@ -46,7 +46,7 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
                   alt={ad.title}
                   className="w-full h-40 object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent" />
                 <p className="absolute bottom-2 left-2 right-2 text-white text-sm font-medium line-clamp-2">
                   {ad.title}
                 </p>
@@ -70,7 +70,7 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
               alt={ad.title}
               className="w-full h-48 md:h-64 object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
             <div className="absolute bottom-4 left-4 md:left-6 text-white">
               <p className="text-xs uppercase tracking-widest opacity-80 mb-1">
                 Featured
@@ -85,7 +85,7 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
               alt={ad.title}
               className="w-full h-48 md:h-64 object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
             <div className="absolute bottom-4 left-4 md:left-6 text-white">
               <p className="text-xs uppercase tracking-widest opacity-80 mb-1">
                 Featured
@@ -110,23 +110,23 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
         style={{ transform: `translateX(-${current * 100}%)` }}
       >
         {ads.map((ad) => (
-          <div key={ad._id} className="w-full flex-shrink-0 relative">
+          <div key={ad._id} className="w-full shrink-0 relative">
             {ad.link ? (
               <Link to={ad.link} className="block">
                 <img
                   src={ad.image}
                   alt={ad.title}
-                  className="w-full h-[220px] sm:h-[280px] md:h-[340px] object-cover"
+                  className="w-full h-55 sm:h-70 md:h-85 object-cover"
                 />
               </Link>
             ) : (
               <img
                 src={ad.image}
                 alt={ad.title}
-                className="w-full h-[220px] sm:h-[280px] md:h-[340px] object-cover"
+                className="w-full h-55 sm:h-70 md:h-85 object-cover"
               />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
             <div className="absolute bottom-6 left-6 md:left-10 text-white pointer-events-none">
               <p className="text-xs uppercase tracking-widest mb-1 opacity-80">
                 Special Offer
