@@ -337,7 +337,7 @@ export default function Navbar() {
       </div>
 
       {/* Tier 3: trust strip */}
-      <div className="hidden md:block bg-muted/40 border-b">
+      {/* <div className="hidden md:block bg-muted/40 border-b">
         <div className="mx-auto flex h-10 max-w-7xl items-center justify-between px-4 text-xs text-muted-foreground">
           {trustItems.map(({ icon: Icon, label }) => (
             <span key={label} className="flex items-center gap-1.5">
@@ -346,7 +346,7 @@ export default function Navbar() {
             </span>
           ))}
         </div>
-      </div>
+      </div>*/}
     </header>
   );
 }
