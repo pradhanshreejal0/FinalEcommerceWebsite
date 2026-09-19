@@ -9,6 +9,15 @@ import { ProductReviews } from "@/components/ProductReviews";
 import { PriceTag } from "@/components/PriceTag";
 import { cn } from "@/lib/utils";
 import { Heart, MessageCircle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function ProductDetails() {
   const { id } = useParams();
@@ -29,6 +38,11 @@ export default function ProductDetails() {
   const [wishlistLoading, setWishlistLoading] = useState(false);
 
   const [activeImage, setActiveImage] = useState(0);
+
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatText, setChatText] = useState("");
+  const [chatSending, setChatSending] = useState(false);
+  const [chatError, setChatError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -227,7 +241,7 @@ export default function ProductDetails() {
     );
   }
 
-  const handleStartChat = async () => {
+  const handleOpenChat = () => {
     if (!user) {
       navigate("/login");
       return;
@@ -238,8 +252,17 @@ export default function ProductDetails() {
       return;
     }
 
-    const message = prompt("Write your message to support:");
-    if (!message?.trim()) return;
+    setChatError("");
+    setChatText("");
+    setChatOpen(true);
+  };
+
+  const handleSendChat = async (e) => {
+    e.preventDefault();
+    if (!chatText.trim() || chatSending) return;
+
+    setChatSending(true);
+    setChatError("");
 
     try {
       const chat = await api("/chats/start", {
@@ -247,13 +270,16 @@ export default function ProductDetails() {
         accessToken,
         body: {
           productId: product._id, // optional context
-          message: message.trim(),
+          message: chatText.trim(),
         },
       });
 
+      setChatOpen(false);
       navigate(`/chats/${chat._id}`);
     } catch (err) {
-      alert(err.message || "Failed to start chat");
+      setChatError(err.message || "Failed to start chat");
+    } finally {
+      setChatSending(false);
     }
   };
 
@@ -264,21 +290,21 @@ export default function ProductDetails() {
   const currentImage = images[activeImage] || images[0] || null;
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
+    <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="grid gap-10 md:grid-cols-2">
 
         {/* Product Images */}
         <div>
           {/* Main image */}
-          <div className="overflow-hidden rounded-xl border bg-muted">
+          <div className="mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-xl border bg-muted sm:max-w-md">
             {currentImage ? (
               <img
                 src={currentImage}
                 alt={product.title}
-                className="aspect-square w-full object-contain bg-white p-4"
+                className="h-full w-full object-contain bg-white p-4"
               />
             ) : (
-              <div className="flex aspect-square items-center justify-center text-muted-foreground">
+              <div className="flex h-full items-center justify-center text-muted-foreground">
                 No image available
               </div>
             )}
@@ -286,7 +312,7 @@ export default function ProductDetails() {
 
           {/* Thumbnails */}
           {images.length > 1 && (
-            <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
+            <div className="mx-auto mt-3 flex max-w-sm gap-3 overflow-x-auto pb-1 sm:max-w-md">
               {images.map((img, index) => (
                 <button
                   key={img + index}
@@ -295,7 +321,7 @@ export default function ProductDetails() {
                   aria-label={`View image ${index + 1} of ${product.title}`}
                   aria-current={index === activeImage}
                   className={cn(
-                    "h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 bg-white transition",
+                    "h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border-2 bg-white transition",
                     index === activeImage
                       ? "border-primary"
                       : "border-transparent hover:border-muted-foreground/30"
@@ -340,24 +366,25 @@ export default function ProductDetails() {
 
           {/* Vendor */}
           {product.vendor?.storeName && (
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              <p className="text-muted-foreground">
-                Sold by{" "}
-                <span className="font-medium text-foreground">
-                  {product.vendor.storeName}
-                </span>
-              </p>
+            <p className="mt-2 text-muted-foreground">
+              Sold by{" "}
+              <span className="font-medium text-foreground">
+                {product.vendor.storeName}
+              </span>
+            </p>
+          )}
 
-              {user && user.role === "customer" && (
-                <button
-                  type="button"
-                  onClick={handleStartChat}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-blue-600/30 bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700 transition hover:bg-blue-100"
-                >
-                  <MessageCircle className="h-3.5 w-3.5" />
-                  Chat with Support
-                </button>
-              )}
+          {/* Chat with us */}
+          {(!user || user.role === "customer") && (
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={handleOpenChat}
+                className="inline-flex items-center gap-1.5 rounded-full border border-blue-600/30 bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700 transition hover:bg-blue-100"
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                Chat with us
+              </button>
             </div>
           )}
 
@@ -424,6 +451,47 @@ export default function ProductDetails() {
       </div>
 
       <ProductReviews productId={product._id} />
+
+      {/* Chat with us dialog */}
+      <Dialog open={chatOpen} onOpenChange={setChatOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Chat with us</DialogTitle>
+            <DialogDescription>
+              Send a message to our support team about{" "}
+              <span className="font-medium text-foreground">
+                {product.title}
+              </span>
+              . We'll reply here — you can find this conversation later
+              under Messages.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSendChat} className="space-y-3">
+            <Textarea
+              autoFocus
+              value={chatText}
+              onChange={(e) => setChatText(e.target.value)}
+              placeholder="Write your message..."
+              disabled={chatSending}
+              maxLength={1000}
+            />
+
+            {chatError && (
+              <p className="text-sm text-destructive">{chatError}</p>
+            )}
+
+            <DialogFooter>
+              <Button
+                type="submit"
+                disabled={chatSending || !chatText.trim()}
+              >
+                {chatSending ? "Sending..." : "Send"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
