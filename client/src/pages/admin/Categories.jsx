@@ -53,7 +53,7 @@ import {
 
 import { useAuth } from "@/context/AuthContext";
 import { api, uploadCategoryIcon } from "@/lib/api";
-import { CategoryIcon } from "@/components/CategoryIcons";
+import { CategoryIcon } from "@/components/CategoryIcon";
 
 
 const EMPTY_FORM = {

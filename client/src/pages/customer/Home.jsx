@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { PriceTag } from "@/components/PriceTag";
 import { AdBanner } from "@/components/AdBanner";
 import { ChevronRight, Zap, TrendingUp, Tag } from "lucide-react";
-import { CategoryIcon } from "@/components/CategoryIcons";
+import { CategoryIcon } from "@/components/CategoryIcon";
 
 export default function Home() {
   const [ads, setAds] = useState([]);
