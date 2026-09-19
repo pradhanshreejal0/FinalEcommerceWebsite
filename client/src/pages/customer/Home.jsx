@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { PriceTag } from "@/components/PriceTag";
-import { ChevronRight, Zap, Tag, TrendingUp } from "lucide-react";
+import { AdBanner } from "@/components/AdBanner";
+import { ChevronRight, Zap, TrendingUp, Tag } from "lucide-react";
 
 export default function Home() {
   const [ads, setAds] = useState([]);
@@ -18,7 +19,10 @@ export default function Home() {
       try {
         const data = await api("/ads");
         if (!cancelled) {
-          setAds(data.filter((ad) => ad.position === "homepage" && ad.isActive));
+          // Only homepage + active
+          setAds(
+            data.filter((ad) => ad.position === "homepage" && ad.isActive)
+          );
         }
       } catch (err) {
         console.error("Failed to load ads:", err);
@@ -41,7 +45,8 @@ export default function Home() {
     const loadCategories = async () => {
       try {
         const data = await api("/categories");
-        if (!cancelled) setCategories(data.filter((c) => !c.parentCategory).slice(0, 8));
+        if (!cancelled)
+          setCategories(data.filter((c) => !c.parentCategory).slice(0, 8));
       } catch (err) {
         console.error(err);
       }
@@ -56,7 +61,6 @@ export default function Home() {
     };
   }, []);
 
-  // Products with highest discount
   const dealProducts = [...products]
     .filter((p) => (p.discountPercentage || 0) > 0)
     .sort((a, b) => (b.discountPercentage || 0) - (a.discountPercentage || 0))
@@ -66,37 +70,10 @@ export default function Home() {
 
   return (
     <div className="bg-white min-h-screen">
-      {/* ========== HERO / ADS BANNER ========== */}
-      {!loadingAds && ads.length > 0 && (
-        <section className="w-full border-b border-black/10">
-          {ads.slice(0, 1).map((ad) => (
-            <div key={ad._id} className="relative w-full max-h-85 overflow-hidden">
-              {ad.link ? (
-                <Link to={ad.link} className="block w-full">
-                  <img
-                    src={ad.image}
-                    alt={ad.title}
-                    className="w-full h-auto max-h-85 object-cover object-center"
-                  />
-                </Link>
-              ) : (
-                <img
-                  src={ad.image}
-                  alt={ad.title}
-                  className="w-full h-auto max-h-85 object-cover object-center"
-                />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-              <div className="absolute bottom-6 left-6 md:left-10 text-white">
-                <p className="text-xs uppercase tracking-widest mb-1 opacity-80">Limited Time</p>
-                <h2 className="text-2xl md:text-4xl font-bold">{ad.title}</h2>
-              </div>
-            </div>
-          ))}
-        </section>
-      )}
+      {/* ========== HOMEPAGE ADS CAROUSEL ========== */}
+      {!loadingAds && ads.length > 0 && <AdBanner ads={ads} variant="carousel" />}
 
-      {/* ========== CATEGORY CIRCLES (Flipkart style) ========== */}
+      {/* ========== CATEGORY CIRCLES ========== */}
       {categories.length > 0 && (
         <section className="border-b border-black/10 bg-white">
           <div className="mx-auto max-w-7xl px-4 py-6">
@@ -105,14 +82,14 @@ export default function Home() {
                 <Link
                   key={cat._id}
                   to={`/products?category=${cat._id}`}
-                  className="flex flex-col items-center gap-2 min-w-20 group"
+                  className="flex flex-col items-center gap-2 min-w-[80px] group"
                 >
                   <div className="w-16 h-16 md:w-20 md:h-20 rounded-full border-2 border-black flex items-center justify-center bg-white group-hover:bg-black group-hover:text-white transition-all duration-300">
                     <span className="text-xl font-bold">
                       {cat.name?.charAt(0)?.toUpperCase() || "?"}
                     </span>
                   </div>
-                  <span className="text-xs font-medium text-center line-clamp-1 max-w-20">
+                  <span className="text-xs font-medium text-center line-clamp-1 max-w-[80px]">
                     {cat.name}
                   </span>
                 </Link>
@@ -123,7 +100,7 @@ export default function Home() {
       )}
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-12">
-        {/* ========== DEAL OF THE DAY ========== */}
+        {/* DEAL OF THE DAY */}
         {dealProducts.length > 0 && (
           <section>
             <div className="flex items-center justify-between mb-5">
@@ -134,7 +111,7 @@ export default function Home() {
                 </h2>
               </div>
               <Link
-                to="/products?sort=discount"
+                to="/products"
                 className="flex items-center gap-1 text-sm font-medium hover:underline"
               >
                 View All <ChevronRight className="w-4 h-4" />
@@ -156,13 +133,11 @@ export default function Home() {
                     to={`/products/${product._id}`}
                     className="group relative border border-black/10 rounded-lg overflow-hidden bg-white hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
                   >
-                    {/* Discount badge */}
                     {product.discountPercentage > 0 && (
                       <div className="absolute top-2 left-2 z-10 bg-black text-white text-xs font-bold px-2 py-1 rounded">
                         {product.discountPercentage}% OFF
                       </div>
                     )}
-
                     <div className="aspect-square bg-gray-50 overflow-hidden">
                       {image ? (
                         <img
@@ -176,7 +151,6 @@ export default function Home() {
                         </div>
                       )}
                     </div>
-
                     <div className="p-3">
                       <h3 className="text-sm font-medium line-clamp-2 min-h-[40px]">
                         {product.title}
@@ -192,7 +166,7 @@ export default function Home() {
           </section>
         )}
 
-        {/* ========== TOP PICKS / ALL PRODUCTS ========== */}
+        {/* TOP PICKS */}
         <section>
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2">
@@ -260,18 +234,15 @@ export default function Home() {
                         </div>
                       )}
                     </div>
-
                     <div className="p-3">
                       <h3 className="text-sm font-medium line-clamp-2 min-h-[40px]">
                         {product.title}
                       </h3>
-
                       {product.vendor?.storeName && (
                         <p className="mt-1 text-xs text-muted-foreground truncate">
                           {product.vendor.storeName}
                         </p>
                       )}
-
                       <div className="mt-2">
                         <PriceTag product={product} />
                       </div>
@@ -283,13 +254,14 @@ export default function Home() {
           )}
         </section>
 
-        {/* ========== BOTTOM CTA BANNER ========== */}
+        {/* CTA */}
         <section className="rounded-xl border-2 border-black bg-black text-white p-8 md:p-12 text-center">
           <h2 className="text-2xl md:text-3xl font-bold mb-3">
             Explore All Offers
           </h2>
           <p className="text-white/70 mb-6 max-w-md mx-auto">
-            Discover thousands of products with the biggest discounts from trusted vendors.
+            Discover thousands of products with the biggest discounts from
+            trusted vendors.
           </p>
           <Link
             to="/products"

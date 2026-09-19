@@ -12,18 +12,17 @@ import {
 import { api } from "@/lib/api";
 import { Search } from "lucide-react";
 import { PriceTag } from "@/components/PriceTag";
+import { AdBanner } from "@/components/AdBanner";
 
 export default function Shop() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // URL is the source of truth for fetching
   const search = searchParams.get("search") || "";
   const category = searchParams.get("category") || "";
   const minPrice = searchParams.get("minPrice") || "";
   const maxPrice = searchParams.get("maxPrice") || "";
   const sort = searchParams.get("sort") || "newest";
 
-  // Local draft inputs (for typing before Apply)
   const [searchInput, setSearchInput] = useState(
     () => searchParams.get("search") || ""
   );
@@ -36,6 +35,7 @@ export default function Shop() {
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [sidebarAds, setSidebarAds] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -50,7 +50,21 @@ export default function Shop() {
       }
     };
 
+    const loadSidebarAds = async () => {
+      try {
+        const data = await api("/ads");
+        if (!cancelled) {
+          setSidebarAds(
+            data.filter((ad) => ad.position === "sidebar" && ad.isActive)
+          );
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
     loadCategories();
+    loadSidebarAds();
 
     return () => {
       cancelled = true;
@@ -107,43 +121,26 @@ export default function Shop() {
     setSearchParams({});
   };
 
-  const updateCategory = (value) => {
-    const params = Object.fromEntries(searchParams.entries());
-    if (value) params.category = value;
-    else delete params.category;
-    setSearchParams(params);
-  };
-
-  const updateSort = (value) => {
-    const params = Object.fromEntries(searchParams.entries());
-    params.sort = value;
-    setSearchParams(params);
-  };
-
   const parents = categories.filter((c) => !c.parentCategory);
-  const getChildren = (parentId) =>
-    categories.filter((c) => {
-      if (!c.parentCategory) return false;
-      const pid = c.parentCategory._id || c.parentCategory;
-      return String(pid) === String(parentId);
-    });
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <h1 className="text-3xl font-bold mb-8">Shop</h1>
-
       <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
+        {/* ========== LEFT SIDEBAR ========== */}
         <aside className="space-y-6">
-          <form onSubmit={applyFilters} className="space-y-4">
+          {/* Filters */}
+          <div className="space-y-4 rounded-xl border border-black/10 p-4">
+            <h3 className="font-semibold">Filters</h3>
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Search</label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  className="pl-9"
-                  placeholder="Search products..."
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Search..."
+                  className="pl-8"
                 />
               </div>
             </div>
@@ -152,52 +149,57 @@ export default function Shop() {
               <label className="text-sm font-medium">Category</label>
               <Select
                 value={category || "all"}
-                onValueChange={(v) => updateCategory(v === "all" ? "" : v)}
+                onValueChange={(val) => {
+                  const params = Object.fromEntries(searchParams);
+                  if (val === "all") delete params.category;
+                  else params.category = val;
+                  setSearchParams(params);
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All categories" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All categories</SelectItem>
-                  {parents.map((parent) => (
-                    <div key={parent._id}>
-                      <SelectItem value={parent._id}>{parent.name}</SelectItem>
-                      {getChildren(parent._id).map((child) => (
-                        <SelectItem key={child._id} value={child._id}>
-                          — {child.name}
-                        </SelectItem>
-                      ))}
-                    </div>
+                  {parents.map((cat) => (
+                    <SelectItem key={cat._id} value={cat._id}>
+                      {cat.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Min price</label>
+              <label className="text-sm font-medium">Min Price</label>
               <Input
                 type="number"
-                min="0"
-                placeholder="0"
                 value={minPriceInput}
                 onChange={(e) => setMinPriceInput(e.target.value)}
+                placeholder="0"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Max price</label>
+              <label className="text-sm font-medium">Max Price</label>
               <Input
                 type="number"
-                min="0"
-                placeholder="Any"
                 value={maxPriceInput}
                 onChange={(e) => setMaxPriceInput(e.target.value)}
+                placeholder="Any"
               />
             </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Sort by</label>
-              <Select value={sort} onValueChange={updateSort}>
+              <Select
+                value={sort}
+                onValueChange={(val) => {
+                  const params = Object.fromEntries(searchParams);
+                  params.sort = val;
+                  setSearchParams(params);
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -209,20 +211,28 @@ export default function Shop() {
               </Select>
             </div>
 
-            <Button type="submit" className="w-full">
-              Apply filters
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={clearFilters}
-            >
-              Clear
-            </Button>
-          </form>
+            <div className="flex gap-2 pt-2">
+              <Button onClick={applyFilters} className="flex-1">
+                Apply
+              </Button>
+              <Button variant="outline" onClick={clearFilters}>
+                Clear
+              </Button>
+            </div>
+          </div>
+
+          {/* ========== SIDEBAR ADS ========== */}
+          {sidebarAds.length > 0 && (
+            <div>
+              <h3 className="font-semibold mb-3 text-sm uppercase tracking-wide text-muted-foreground">
+                Sponsored
+              </h3>
+              <AdBanner ads={sidebarAds} variant="sidebar" />
+            </div>
+          )}
         </aside>
 
+        {/* ========== PRODUCTS ========== */}
         <div>
           {loading ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -235,67 +245,62 @@ export default function Shop() {
             </div>
           ) : products.length === 0 ? (
             <div className="rounded-xl border p-10 text-center">
-              <p className="font-medium">No products found</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Try different filters or search terms.
+              <h2 className="text-xl font-semibold">No products found</h2>
+              <p className="mt-2 text-muted-foreground">
+                Try adjusting your filters.
               </p>
             </div>
           ) : (
-            <>
-              <p className="text-sm text-muted-foreground mb-4">
-                {products.length} product{products.length !== 1 ? "s" : ""}
-              </p>
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {products.map((product) => {
-                  const image =
-                    product.images?.length > 0
-                      ? typeof product.images[0] === "string"
-                        ? product.images[0]
-                        : product.images[0]?.url
-                      : null;
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {products.map((product) => {
+                const image =
+                  product.images?.length > 0
+                    ? typeof product.images[0] === "string"
+                      ? product.images[0]
+                      : product.images[0]?.url
+                    : null;
 
-                  return (
-                    <Link
-                      key={product._id}
-                      to={`/products/${product._id}`}
-                      className="group overflow-hidden rounded-xl border bg-background transition hover:-translate-y-1 hover:shadow-lg"
-                    >
-                      <div className="aspect-square overflow-hidden bg-muted">
-                        {image ? (
-                          <img
-                            src={image}
-                            alt={product.title}
-                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-muted-foreground">
-                            No image
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-4">
-                        <h2 className="line-clamp-2 font-semibold">
-                          {product.title}
-                        </h2>
-                        {/* {product.vendor?.storeName && (
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            {product.vendor.storeName}
-                          </p>
-                        )}*/}
-                        {product.category?.name && (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {product.category.name}
-                          </p>
-                        )}
-                        <div className="mt-3">
-                          <PriceTag product={product} />
+                return (
+                  <Link
+                    key={product._id}
+                    to={`/products/${product._id}`}
+                    className="group overflow-hidden rounded-xl border border-black/10 bg-background transition hover:-translate-y-1 hover:shadow-lg"
+                  >
+                    <div className="aspect-square overflow-hidden bg-muted relative">
+                      {product.discountPercentage > 0 && (
+                        <div className="absolute top-2 left-2 z-10 bg-black text-white text-xs font-bold px-2 py-1 rounded">
+                          {product.discountPercentage}% OFF
                         </div>
+                      )}
+                      {image ? (
+                        <img
+                          src={image}
+                          alt={product.title}
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-muted-foreground">
+                          No image
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <h2 className="line-clamp-2 font-semibold">
+                        {product.title}
+                      </h2>
+                      {product.vendor?.storeName && (
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {product.vendor.storeName}
+                        </p>
+                      )}
+                      <div className="mt-3">
+                        <PriceTag product={product} />
                       </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
