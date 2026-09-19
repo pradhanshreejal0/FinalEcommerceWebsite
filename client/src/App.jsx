@@ -57,7 +57,6 @@ function App() {
         <Route path="/chats" element={<Chats />} />
         <Route path="/chats/:id" element={<ChatPage />} />
         <Route path="/terms" element={<Terms />} />
-        <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
