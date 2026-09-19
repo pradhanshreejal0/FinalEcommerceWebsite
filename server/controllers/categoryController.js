@@ -9,7 +9,7 @@ const slugify = (text) =>
 
 export const createCategory = async (req, res) => {
   try {
-    const { name, parentCategory } = req.body;
+    const { name, parentCategory, image } = req.body;
 
     const slug = slugify(name);
     const existing = await Category.findOne({ slug });
@@ -20,6 +20,7 @@ export const createCategory = async (req, res) => {
     const category = await Category.create({
       name,
       slug,
+      image: image || "",
       parentCategory: parentCategory || null,
       createdBy: req.user._id,
     });
@@ -41,7 +42,7 @@ export const getCategories = async (req, res) => {
 
 export const updateCategory = async (req, res) => {
   try {
-    const { name, parentCategory } = req.body;
+    const { name, parentCategory, image } = req.body;
     const category = await Category.findById(req.params.id);
     if (!category) return res.status(404).json({ message: "Category not found" });
 
@@ -49,6 +50,7 @@ export const updateCategory = async (req, res) => {
       category.name = name;
       category.slug = slugify(name);
     }
+    if (image !== undefined) category.image = image;
     category.parentCategory = parentCategory || null;
 
     await category.save();
@@ -60,7 +62,6 @@ export const updateCategory = async (req, res) => {
 
 export const deleteCategory = async (req, res) => {
   try {
-    // Prevent deleting a category that has subcategories
     const hasChildren = await Category.findOne({ parentCategory: req.params.id });
     if (hasChildren) {
       return res

@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
+import { AdBanner } from "@/components/AdBanner";
+import { CategoryIcon } from "@/components/CategoryIcon";
 
 export default function Categories() {
   const [categories, setCategories] = useState([]);
+  const [categoryAds, setCategoryAds] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -11,8 +14,16 @@ export default function Categories() {
 
     const load = async () => {
       try {
-        const data = await api("/categories");
-        if (!cancelled) setCategories(data);
+        const [cats, ads] = await Promise.all([
+          api("/categories"),
+          api("/ads"),
+        ]);
+        if (!cancelled) {
+          setCategories(cats);
+          setCategoryAds(
+            ads.filter((ad) => ad.position === "category" && ad.isActive)
+          );
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -45,6 +56,13 @@ export default function Categories() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      {/* Category Ads Banner */}
+      {categoryAds.length > 0 && (
+        <div className="mb-8">
+          <AdBanner ads={categoryAds} variant="banner" />
+        </div>
+      )}
+
       <h1 className="text-3xl font-bold mb-2">Categories</h1>
       <p className="text-muted-foreground mb-8">
         Main categories and their subcategories
@@ -58,24 +76,31 @@ export default function Categories() {
             const children = getChildren(parent._id);
 
             return (
-              <section key={parent._id} className="rounded-xl border p-6">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Main category
-                    </p>
-                    <h2 className="text-xl font-semibold mt-1">{parent.name}</h2>
-                    {parent.description && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {parent.description}
+              <section
+                key={parent._id}
+                className="rounded-xl border border-black/10 p-6"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <CategoryIcon category={parent} size="md" />
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Main category
                       </p>
-                    )}
+                      <h2 className="text-xl font-semibold mt-1">
+                        {parent.name}
+                      </h2>
+                      {parent.description && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {parent.description}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Shows parent + all children products */}
                   <Link
                     to={`/products?category=${parent._id}`}
-                    className="text-sm font-medium text-primary hover:underline"
+                    className="text-sm font-medium hover:underline"
                   >
                     View all {parent.name} products →
                   </Link>
@@ -91,9 +116,10 @@ export default function Categories() {
                         <Link
                           key={child._id}
                           to={`/products?category=${child._id}`}
-                          className="rounded-lg border px-4 py-3 text-sm font-medium hover:bg-muted transition"
+                          className="flex items-center gap-3 rounded-lg border border-black/10 px-4 py-3 text-sm font-medium hover:bg-black hover:text-white transition"
                         >
-                          {child.name}
+                          <CategoryIcon category={child} size="sm" />
+                          <span>{child.name}</span>
                         </Link>
                       ))}
                     </div>

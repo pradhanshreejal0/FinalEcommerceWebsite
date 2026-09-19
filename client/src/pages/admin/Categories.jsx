@@ -36,9 +36,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, Upload, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import { uploadImage } from "@/lib/upload";
+import { CategoryIcon } from "@/components/CategoryIcon";
 
 export default function Categories() {
   const [categories, setCategories] = useState([]);
@@ -46,7 +48,12 @@ export default function Categories() {
   const [error, setError] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
-  const [formData, setFormData] = useState({ name: "", parentCategory: "" });
+  const [uploading, setUploading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    parentCategory: "",
+    image: "",
+  });
   const { accessToken } = useAuth();
 
   useEffect(() => {
@@ -60,18 +67,13 @@ export default function Categories() {
           setError("");
         }
       } catch (err) {
-        if (!cancelled) {
-          setError("Failed to load categories",err);
-        }
+        if (!cancelled) setError("Failed to load categories");
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     };
 
     loadCategories();
-
     return () => {
       cancelled = true;
     };
@@ -79,7 +81,7 @@ export default function Categories() {
 
   const openCreateDialog = () => {
     setEditingCategory(null);
-    setFormData({ name: "", parentCategory: "" });
+    setFormData({ name: "", parentCategory: "", image: "" });
     setError("");
     setDialogOpen(true);
   };
@@ -89,9 +91,27 @@ export default function Categories() {
     setFormData({
       name: category.name,
       parentCategory: category.parentCategory?._id || "",
+      image: category.image || "",
     });
     setError("");
     setDialogOpen(true);
+  };
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setError("");
+
+    try {
+      const url = await uploadImage(file, accessToken);
+      setFormData((prev) => ({ ...prev, image: url }));
+    } catch (err) {
+      setError(err.message || "Image upload failed");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -99,28 +119,27 @@ export default function Categories() {
     setError("");
 
     try {
+      const payload = {
+        name: formData.name,
+        parentCategory: formData.parentCategory || null,
+        image: formData.image || "",
+      };
+
       if (editingCategory) {
         await api(`/categories/${editingCategory._id}`, {
           method: "PUT",
           accessToken,
-          body: JSON.stringify({
-            name: formData.name,
-            parentCategory: formData.parentCategory || null,
-          }),
+          body: JSON.stringify(payload),
         });
       } else {
         await api("/categories", {
           method: "POST",
           accessToken,
-          body: JSON.stringify({
-            name: formData.name,
-            parentCategory: formData.parentCategory || null,
-          }),
+          body: JSON.stringify(payload),
         });
       }
 
       setDialogOpen(false);
-
       const data = await api("/categories");
       setCategories(data);
     } catch (err) {
@@ -175,6 +194,58 @@ export default function Categories() {
                   required
                 />
               </div>
+
+              {/* Image Upload */}
+              <div className="space-y-2">
+                <Label>Category Image (optional)</Label>
+                <div className="flex items-center gap-3">
+                  <Label
+                    htmlFor="category-image"
+                    className="flex cursor-pointer items-center gap-2 rounded-md border px-4 py-2 text-sm hover:bg-muted"
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4" />
+                        {formData.image ? "Change Image" : "Upload Image"}
+                      </>
+                    )}
+                  </Label>
+                  <Input
+                    id="category-image"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageChange}
+                    disabled={uploading}
+                  />
+                </div>
+
+                {formData.image && (
+                  <div className="mt-2 flex items-center gap-3">
+                    <img
+                      src={formData.image}
+                      alt="Preview"
+                      className="h-16 w-16 rounded-full border object-cover"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setFormData((prev) => ({ ...prev, image: "" }))
+                      }
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label>Parent Category (optional)</Label>
                 <Select
@@ -205,7 +276,7 @@ export default function Categories() {
               {error && <p className="text-sm text-destructive">{error}</p>}
 
               <DialogFooter>
-                <Button type="submit">
+                <Button type="submit" disabled={uploading}>
                   {editingCategory ? "Save" : "Create"}
                 </Button>
               </DialogFooter>
@@ -217,6 +288,7 @@ export default function Categories() {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead>Image</TableHead>
             <TableHead>Name</TableHead>
             <TableHead>Parent</TableHead>
             <TableHead className="text-right">Actions</TableHead>
@@ -226,7 +298,7 @@ export default function Categories() {
           {categories.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={3}
+                colSpan={4}
                 className="text-center text-muted-foreground"
               >
                 No categories yet. Create one to get started.
@@ -235,6 +307,9 @@ export default function Categories() {
           ) : (
             categories.map((category) => (
               <TableRow key={category._id}>
+                <TableCell>
+                  <CategoryIcon category={category} size="sm" />
+                </TableCell>
                 <TableCell className="font-medium">{category.name}</TableCell>
                 <TableCell className="text-muted-foreground">
                   {category.parentCategory?.name || "—"}

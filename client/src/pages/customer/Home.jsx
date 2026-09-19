@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { PriceTag } from "@/components/PriceTag";
 import { AdBanner } from "@/components/AdBanner";
 import { ChevronRight, Zap, TrendingUp, Tag } from "lucide-react";
+import { CategoryIcon } from "@/components/CategoryIcon";
 
 export default function Home() {
   const [ads, setAds] = useState([]);
@@ -84,10 +85,8 @@ export default function Home() {
                   to={`/products?category=${cat._id}`}
                   className="flex flex-col items-center gap-2 min-w-[80px] group"
                 >
-                  <div className="w-16 h-16 md:w-20 md:h-20 rounded-full border-2 border-black flex items-center justify-center bg-white group-hover:bg-black group-hover:text-white transition-all duration-300">
-                    <span className="text-xl font-bold">
-                      {cat.name?.charAt(0)?.toUpperCase() || "?"}
-                    </span>
+                  <div className="group-hover:scale-105 transition-transform duration-300">
+                    <CategoryIcon category={cat} size="md" />
                   </div>
                   <span className="text-xs font-medium text-center line-clamp-1 max-w-[80px]">
                     {cat.name}
