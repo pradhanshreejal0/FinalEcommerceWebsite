@@ -321,9 +321,6 @@ export default function Navbar() {
                   )}
                 </Link>
               ))}
-            </nav>
-          </div>
-
           {user && (
             <Link
               to={messagesLink}
@@ -333,6 +330,9 @@ export default function Navbar() {
               Messages
             </Link>
           )}
+            </nav>
+          </div>
+
         </div>
       </div>
 

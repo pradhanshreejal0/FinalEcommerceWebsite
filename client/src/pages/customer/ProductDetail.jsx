@@ -321,7 +321,7 @@ export default function ProductDetails() {
                   aria-label={`View image ${index + 1} of ${product.title}`}
                   aria-current={index === activeImage}
                   className={cn(
-                    "h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border-2 bg-white transition",
+                    "h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 bg-white transition",
                     index === activeImage
                       ? "border-primary"
                       : "border-transparent hover:border-muted-foreground/30"
