@@ -83,12 +83,12 @@ export default function Home() {
                 <Link
                   key={cat._id}
                   to={`/products?category=${cat._id}`}
-                  className="flex flex-col items-center gap-2 min-w-[80px] group"
+                  className="flex flex-col items-center gap-2 min-w-20 group"
                 >
                   <div className="group-hover:scale-105 transition-transform duration-300">
                     <CategoryIcon category={cat} size="md" />
                   </div>
-                  <span className="text-xs font-medium text-center line-clamp-1 max-w-[80px]">
+                  <span className="text-xs font-medium text-center line-clamp-1 max-w-20">
                     {cat.name}
                   </span>
                 </Link>
@@ -151,7 +151,7 @@ export default function Home() {
                       )}
                     </div>
                     <div className="p-3">
-                      <h3 className="text-sm font-medium line-clamp-2 min-h-[40px]">
+                      <h3 className="text-sm font-medium line-clamp-2 min-h-10">
                         {product.title}
                       </h3>
                       <div className="mt-2">

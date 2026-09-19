@@ -715,7 +715,7 @@ export default function Categories() {
           <TableHeader>
             <TableRow>
 
-              <TableHead className="w-[80px]">
+              <TableHead className="w-20">
                 Icon
               </TableHead>
 
@@ -943,7 +943,7 @@ export default function Categories() {
         }}
       >
 
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-150">
 
           <DialogHeader>
 
