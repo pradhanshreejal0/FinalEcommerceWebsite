@@ -264,7 +264,7 @@ export default function ProductDetails() {
   const currentImage = images[activeImage] || images[0] || null;
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <main className="mx-auto max-w-xs px-4 py-10 sm:px-6 lg:px-8">
       <div className="grid gap-10 md:grid-cols-2">
 
         {/* Product Images */}
