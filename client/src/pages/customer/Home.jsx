@@ -1,15 +1,19 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { PriceTag } from "@/components/PriceTag";
 import { AdBanner } from "@/components/AdBanner";
-import { ChevronRight, Zap, TrendingUp, Tag } from "lucide-react";
-import { CategoryIcon } from "@/components/CategoryIcon";
+import {
+  ChevronRight,
+  Zap,
+  TrendingUp,
+  Tag,
+} from "lucide-react";
 
 export default function Home() {
   const [ads, setAds] = useState([]);
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
+
   const [loadingAds, setLoadingAds] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
 
@@ -19,141 +23,181 @@ export default function Home() {
     const loadAds = async () => {
       try {
         const data = await api("/ads");
+
         if (!cancelled) {
-          // Only homepage + active
-          setAds(
-            data.filter((ad) => ad.position === "homepage" && ad.isActive)
-          );
+          const activeHomepageAds = Array.isArray(data)
+            ? data.filter(
+                (ad) =>
+                  ad.position === "homepage" &&
+                  ad.isActive
+              )
+            : [];
+
+          setAds(activeHomepageAds);
         }
       } catch (err) {
         console.error("Failed to load ads:", err);
+
+        if (!cancelled) {
+          setAds([]);
+        }
       } finally {
-        if (!cancelled) setLoadingAds(false);
+        if (!cancelled) {
+          setLoadingAds(false);
+        }
       }
     };
 
     const loadProducts = async () => {
       try {
         const data = await api("/products?limit=20");
-        if (!cancelled) setProducts(data.products || data);
+
+        if (!cancelled) {
+          const productList = Array.isArray(data)
+            ? data
+            : data?.products || [];
+
+          setProducts(productList);
+        }
       } catch (err) {
         console.error("Failed to load products:", err);
-      } finally {
-        if (!cancelled) setLoadingProducts(false);
-      }
-    };
 
-    const loadCategories = async () => {
-      try {
-        const data = await api("/categories");
-        if (!cancelled)
-          setCategories(data.filter((c) => !c.parentCategory).slice(0, 8));
-      } catch (err) {
-        console.error(err);
+        if (!cancelled) {
+          setProducts([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingProducts(false);
+        }
       }
     };
 
     loadAds();
     loadProducts();
-    loadCategories();
 
     return () => {
       cancelled = true;
     };
   }, []);
 
+  /*
+   * Products with discounts, sorted by highest discount.
+   */
   const dealProducts = [...products]
-    .filter((p) => (p.discountPercentage || 0) > 0)
-    .sort((a, b) => (b.discountPercentage || 0) - (a.discountPercentage || 0))
+    .filter(
+      (product) =>
+        Number(product.discountPercentage || 0) > 0
+    )
+    .sort(
+      (a, b) =>
+        Number(b.discountPercentage || 0) -
+        Number(a.discountPercentage || 0)
+    )
     .slice(0, 8);
 
+  /*
+   * First 12 products for the Top Picks section.
+   */
   const topProducts = products.slice(0, 12);
 
-  return (
-    <div className="bg-white min-h-screen">
-      {/* ========== HOMEPAGE ADS CAROUSEL ========== */}
-      {!loadingAds && ads.length > 0 && <AdBanner ads={ads} variant="carousel" />}
+  /*
+   * Safely get the first product image.
+   */
+  const getProductImage = (product) => {
+    if (!product?.images?.length) {
+      return null;
+    }
 
-      {/* ========== CATEGORY CIRCLES ========== */}
-      {categories.length > 0 && (
-        <section className="border-b border-black/10 bg-white">
-          <div className="mx-auto max-w-7xl px-4 py-6">
-            <div className="flex gap-6 overflow-x-auto pb-2 scrollbar-hide">
-              {categories.map((cat) => (
-                <Link
-                  key={cat._id}
-                  to={`/products?category=${cat._id}`}
-                  className="flex flex-col items-center gap-2 min-w-20 group"
-                >
-                  <div className="group-hover:scale-105 transition-transform duration-300">
-                    <CategoryIcon category={cat} size="md" />
-                  </div>
-                  <span className="text-xs font-medium text-center line-clamp-1 max-w-20">
-                    {cat.name}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
+    const firstImage = product.images[0];
+
+    if (typeof firstImage === "string") {
+      return firstImage;
+    }
+
+    return firstImage?.url || null;
+  };
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* =========================================================
+          HOMEPAGE ADS CAROUSEL
+      ========================================================== */}
+      {!loadingAds && ads.length > 0 && (
+        <AdBanner
+          ads={ads}
+          variant="carousel"
+        />
       )}
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-12">
-        {/* DEAL OF THE DAY */}
+      {/* =========================================================
+          MAIN CONTENT
+      ========================================================== */}
+      <main className="mx-auto max-w-7xl space-y-12 px-4 py-8 sm:px-6 lg:px-8">
+
+        {/* =======================================================
+            DEAL OF THE DAY
+        ======================================================== */}
         {dealProducts.length > 0 && (
           <section>
-            <div className="flex items-center justify-between mb-5">
+            <div className="mb-5 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5" />
-                <h2 className="text-xl md:text-2xl font-bold tracking-tight">
+                <Zap className="h-5 w-5" />
+
+                <h2 className="text-xl font-bold tracking-tight md:text-2xl">
                   Deal of the Day
                 </h2>
               </div>
+
               <Link
                 to="/products"
                 className="flex items-center gap-1 text-sm font-medium hover:underline"
               >
-                View All <ChevronRight className="w-4 h-4" />
+                View All
+
+                <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {dealProducts.map((product) => {
-                const image =
-                  product.images?.length > 0
-                    ? typeof product.images[0] === "string"
-                      ? product.images[0]
-                      : product.images[0]?.url
-                    : null;
+                const image = getProductImage(product);
 
                 return (
                   <Link
                     key={product._id}
                     to={`/products/${product._id}`}
-                    className="group relative border border-black/10 rounded-lg overflow-hidden bg-white hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+                    className="group relative overflow-hidden rounded-lg border border-black/10 bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
                   >
-                    {product.discountPercentage > 0 && (
-                      <div className="absolute top-2 left-2 z-10 bg-black text-white text-xs font-bold px-2 py-1 rounded">
+                    {/* Discount badge */}
+                    {Number(product.discountPercentage || 0) > 0 && (
+                      <div className="absolute left-2 top-2 z-10 rounded bg-black px-2 py-1 text-xs font-bold text-white">
                         {product.discountPercentage}% OFF
                       </div>
                     )}
-                    <div className="aspect-square bg-gray-50 overflow-hidden">
+
+                    {/* Product image */}
+                    <div className="aspect-square overflow-hidden bg-gray-50">
                       {image ? (
                         <img
                           src={image}
-                          alt={product.title}
+                          alt={product.title || "Product"}
+                          loading="lazy"
+                          decoding="async"
                           className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
                         />
                       ) : (
-                        <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+                        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                           No image
                         </div>
                       )}
                     </div>
+
+                    {/* Product information */}
                     <div className="p-3">
-                      <h3 className="text-sm font-medium line-clamp-2 min-h-10">
+                      <h3 className="min-h-10 line-clamp-2 text-sm font-medium">
                         {product.title}
                       </h3>
+
                       <div className="mt-2">
                         <PriceTag product={product} />
                       </div>
@@ -165,83 +209,94 @@ export default function Home() {
           </section>
         )}
 
-        {/* TOP PICKS */}
+        {/* =======================================================
+            TOP PICKS
+        ======================================================== */}
         <section>
-          <div className="flex items-center justify-between mb-5">
+          <div className="mb-5 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5" />
-              <h2 className="text-xl md:text-2xl font-bold tracking-tight">
+              <TrendingUp className="h-5 w-5" />
+
+              <h2 className="text-xl font-bold tracking-tight md:text-2xl">
                 Top Picks For You
               </h2>
             </div>
+
             <Link
               to="/products"
               className="flex items-center gap-1 text-sm font-medium hover:underline"
             >
-              View All <ChevronRight className="w-4 h-4" />
+              View All
+
+              <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
 
+          {/* Loading state */}
           {loadingProducts ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, index) => (
                 <div
-                  key={item}
+                  key={index}
                   className="h-72 animate-pulse rounded-lg border border-black/10 bg-muted"
                 />
               ))}
             </div>
           ) : topProducts.length === 0 ? (
+            /* Empty state */
             <div className="rounded-lg border border-black/20 p-12 text-center">
-              <Tag className="w-10 h-10 mx-auto mb-3 opacity-40" />
-              <h3 className="text-lg font-semibold">No products yet</h3>
-              <p className="mt-1 text-muted-foreground text-sm">
+              <Tag className="mx-auto mb-3 h-10 w-10 opacity-40" />
+
+              <h3 className="text-lg font-semibold">
+                No products yet
+              </h3>
+
+              <p className="mt-1 text-sm text-muted-foreground">
                 Products will appear here once vendors publish them.
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            /* Products */
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {topProducts.map((product) => {
-                const image =
-                  product.images?.length > 0
-                    ? typeof product.images[0] === "string"
-                      ? product.images[0]
-                      : product.images[0]?.url
-                    : null;
+                const image = getProductImage(product);
 
                 return (
                   <Link
                     key={product._id}
                     to={`/products/${product._id}`}
-                    className="group border border-black/10 rounded-lg overflow-hidden bg-white hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+                    className="group overflow-hidden rounded-lg border border-black/10 bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
                   >
-                    <div className="aspect-square bg-gray-50 overflow-hidden relative">
-                      {product.discountPercentage > 0 && (
-                        <div className="absolute top-2 left-2 z-10 bg-black text-white text-[11px] font-bold px-2 py-0.5 rounded">
+                    {/* Product image */}
+                    <div className="relative aspect-square overflow-hidden bg-gray-50">
+                      {/* Discount badge */}
+                      {Number(product.discountPercentage || 0) > 0 && (
+                        <div className="absolute left-2 top-2 z-10 rounded bg-black px-2 py-0.5 text-[11px] font-bold text-white">
                           {product.discountPercentage}% OFF
                         </div>
                       )}
+
                       {image ? (
                         <img
                           src={image}
-                          alt={product.title}
+                          alt={product.title || "Product"}
+                          loading="lazy"
+                          decoding="async"
                           className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
                         />
                       ) : (
-                        <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+                        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                           No image
                         </div>
                       )}
                     </div>
+
+                    {/* Product information */}
                     <div className="p-3">
-                      <h3 className="text-sm font-medium line-clamp-2 min-h-10">
+                      <h3 className="min-h-10 line-clamp-2 text-sm font-medium">
                         {product.title}
                       </h3>
-                      {/* {product.vendor?.storeName && (
-                        <p className="mt-1 text-xs text-muted-foreground truncate">
-                          {product.vendor.storeName}
-                        </p>
-                      )}*/}
+
                       <div className="mt-2">
                         <PriceTag product={product} />
                       </div>
@@ -253,20 +308,26 @@ export default function Home() {
           )}
         </section>
 
-        {/* CTA */}
-        <section className="rounded-xl border-2 border-black bg-black text-white p-8 md:p-12 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold mb-3">
+        {/* =======================================================
+            CTA
+        ======================================================== */}
+        <section className="rounded-xl border-2 border-black bg-black p-8 text-center text-white md:p-12">
+          <h2 className="mb-3 text-2xl font-bold md:text-3xl">
             Explore All Offers
           </h2>
-          <p className="text-white/70 mb-6 max-w-md mx-auto">
-            Discover thousands of products with the biggest discounts from
-            trusted vendors.
+
+          <p className="mx-auto mb-6 max-w-md text-white/70">
+            Discover thousands of products with the biggest
+            discounts from trusted vendors.
           </p>
+
           <Link
             to="/products"
-            className="inline-flex items-center gap-2 bg-white text-black font-semibold px-8 py-3 rounded-full hover:bg-gray-100 transition"
+            className="inline-flex items-center gap-2 rounded-full bg-white px-8 py-3 font-semibold text-black transition hover:bg-gray-100"
           >
-            Shop Now <ChevronRight className="w-4 h-4" />
+            Shop Now
+
+            <ChevronRight className="h-4 w-4" />
           </Link>
         </section>
       </main>

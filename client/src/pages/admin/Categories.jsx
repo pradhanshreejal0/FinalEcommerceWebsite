@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+
+import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Pencil,
@@ -70,6 +71,7 @@ export default function Categories() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
 
@@ -82,7 +84,9 @@ export default function Categories() {
   const [editingCategory, setEditingCategory] = useState(null);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
 
-  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [formData, setFormData] = useState({
+    ...EMPTY_FORM,
+  });
 
   /*
    * =========================================================
@@ -128,8 +132,7 @@ export default function Categories() {
       console.error("Load categories error:", err);
 
       setError(
-        err?.message ||
-          "Failed to load categories."
+        err?.message || "Failed to load categories."
       );
 
       setCategories([]);
@@ -139,12 +142,44 @@ export default function Categories() {
   };
 
   useEffect(() => {
-    loadCategories();
+    let cancelled = false;
+
+    const fetchCategories = async () => {
+      try {
+        const response = await api("/categories");
+
+        console.log("GET /categories:", response);
+
+        const data = normalizeCategories(response);
+
+        if (!cancelled) {
+          setCategories(data);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error("Load categories error:", err);
+
+        if (!cancelled) {
+          setError(
+            err?.message || "Failed to load categories."
+          );
+
+          setCategories([]);
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchCategories();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   /*
    * =========================================================
-   * ONLY TOP LEVEL CATEGORIES CAN BE PARENTS
+   * ONLY TOP-LEVEL CATEGORIES CAN BE PARENTS
    * =========================================================
    */
 
@@ -157,7 +192,8 @@ export default function Categories() {
 
       return (
         !parentId &&
-        category?._id !== editingCategory?._id
+        String(category?._id) !==
+          String(editingCategory?._id)
       );
     });
   }, [categories, editingCategory]);
@@ -169,26 +205,29 @@ export default function Categories() {
    */
 
   const resetForm = () => {
-    setFormData({ ...EMPTY_FORM });
+    setFormData({
+      ...EMPTY_FORM,
+    });
+
     setEditingCategory(null);
     setError("");
+    setSuccess("");
   };
 
   /*
    * =========================================================
-   * CREATE
+   * OPEN CREATE DIALOG
    * =========================================================
    */
 
   const openCreateDialog = () => {
     resetForm();
-    setSuccess("");
     setDialogOpen(true);
   };
 
   /*
    * =========================================================
-   * EDIT
+   * OPEN EDIT DIALOG
    * =========================================================
    */
 
@@ -198,14 +237,25 @@ export default function Categories() {
         ? category?.parentCategory?._id
         : category?.parentCategory;
 
+    const isChild = Boolean(parentId);
+
     setEditingCategory(category);
 
     setFormData({
       name: category?.name || "",
       parentCategory: parentId || "",
       image: category?.image || "",
-      icon: category?.icon || "",
-      iconPublicId: category?.iconPublicId || "",
+
+      /*
+       * Important:
+       * Existing subcategories should not retain
+       * an SVG icon in the frontend state.
+       */
+      icon: isChild ? "" : category?.icon || "",
+
+      iconPublicId: isChild
+        ? ""
+        : category?.iconPublicId || "",
     });
 
     setError("");
@@ -243,6 +293,8 @@ export default function Categories() {
       ...previous,
       [field]: value,
     }));
+
+    setError("");
   };
 
   /*
@@ -253,7 +305,7 @@ export default function Categories() {
 
   const handleParentChange = (value) => {
     /*
-     * NONE = create parent category
+     * NONE = parent category
      */
 
     if (value === "none") {
@@ -262,11 +314,12 @@ export default function Categories() {
         parentCategory: "",
       }));
 
+      setError("");
       return;
     }
 
     /*
-     * Selected parent = create subcategory
+     * Selected parent = subcategory.
      *
      * Subcategories cannot have SVG icons.
      */
@@ -277,6 +330,8 @@ export default function Categories() {
       icon: "",
       iconPublicId: "",
     }));
+
+    setError("");
   };
 
   /*
@@ -440,7 +495,8 @@ export default function Categories() {
         data?.url ||
         data?.secure_url ||
         data?.data?.url ||
-        data?.data?.secure_url;
+        data?.data?.secure_url ||
+        "";
 
       if (!imageUrl) {
         throw new Error(
@@ -483,6 +539,9 @@ export default function Categories() {
       icon: "",
       iconPublicId: "",
     }));
+
+    setSuccess("");
+    setError("");
   };
 
   /*
@@ -496,6 +555,9 @@ export default function Categories() {
       ...previous,
       image: "",
     }));
+
+    setSuccess("");
+    setError("");
   };
 
   /*
@@ -532,6 +594,9 @@ export default function Categories() {
      * Build payload.
      */
 
+    const isSubcategory =
+      Boolean(formData.parentCategory);
+
     const payload = {
       name,
 
@@ -540,21 +605,30 @@ export default function Categories() {
 
       parentCategory:
         formData.parentCategory || null,
+
+      /*
+       * IMPORTANT:
+       *
+       * Explicitly clear icon fields when this
+       * category is a subcategory.
+       *
+       * This prevents an old SVG icon from
+       * remaining in the database.
+       */
+
+      icon: isSubcategory
+        ? ""
+        : formData.icon?.trim() || "",
+
+      iconPublicId: isSubcategory
+        ? ""
+        : formData.iconPublicId?.trim() || "",
     };
 
-    /*
-     * Parent categories can have SVG icons.
-     */
-
-    if (!formData.parentCategory) {
-      payload.icon =
-        formData.icon?.trim() || "";
-
-      payload.iconPublicId =
-        formData.iconPublicId?.trim() || "";
-    }
-
-    console.log("CATEGORY PAYLOAD:", payload);
+    console.log(
+      "CATEGORY PAYLOAD:",
+      payload
+    );
 
     try {
       setSaving(true);
@@ -623,15 +697,21 @@ export default function Categories() {
 
   const openDeleteDialog = (category) => {
     setCategoryToDelete(category);
+    setError("");
+    setSuccess("");
     setDeleteDialogOpen(true);
   };
 
   const handleDelete = async () => {
-    if (!categoryToDelete) {
+    if (
+      !categoryToDelete ||
+      deleting
+    ) {
       return;
     }
 
     try {
+      setDeleting(true);
       setError("");
       setSuccess("");
 
@@ -661,12 +741,14 @@ export default function Categories() {
         err?.message ||
           "Failed to delete category."
       );
+    } finally {
+      setDeleting(false);
     }
   };
 
   /*
    * =========================================================
-   * PARENT NAME
+   * GET PARENT NAME
    * =========================================================
    */
 
@@ -676,7 +758,8 @@ export default function Categories() {
     }
 
     if (
-      typeof category.parentCategory === "object"
+      typeof category.parentCategory ===
+      "object"
     ) {
       return (
         category.parentCategory?.name ||
@@ -695,7 +778,7 @@ export default function Categories() {
 
   /*
    * =========================================================
-   * SUBCATEGORY
+   * CHECK SUBCATEGORY
    * =========================================================
    */
 
@@ -705,7 +788,8 @@ export default function Categories() {
     }
 
     if (
-      typeof category.parentCategory === "object"
+      typeof category.parentCategory ===
+      "object"
     ) {
       return Boolean(
         category.parentCategory?._id
@@ -724,17 +808,21 @@ export default function Categories() {
   return (
     <div className="w-full space-y-6 p-4 md:p-6 lg:p-8">
 
-      {/* PAGE HEADER */}
+      {/* =====================================================
+          PAGE HEADER
+          ===================================================== */}
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
         <div>
           <div className="flex items-center gap-2">
+
             <FolderTree className="h-6 w-6" />
 
             <h1 className="text-2xl font-bold tracking-tight">
               Categories
             </h1>
+
           </div>
 
           <p className="mt-1 text-sm text-muted-foreground">
@@ -750,17 +838,22 @@ export default function Categories() {
           <Plus className="mr-2 h-4 w-4" />
           Add Category
         </Button>
+
       </div>
 
-      {/* SUCCESS */}
+      {/* =====================================================
+          SUCCESS
+          ===================================================== */}
 
-      {success && (
+      {success && !dialogOpen && (
         <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
           {success}
         </div>
       )}
 
-      {/* ERROR */}
+      {/* =====================================================
+          ERROR
+          ===================================================== */}
 
       {error && !dialogOpen && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -768,13 +861,16 @@ export default function Categories() {
         </div>
       )}
 
-      {/* TABLE */}
+      {/* =====================================================
+          TABLE
+          ===================================================== */}
 
       <div className="overflow-hidden rounded-xl border bg-background shadow-sm">
 
         <Table>
 
           <TableHeader>
+
             <TableRow>
 
               <TableHead className="w-20">
@@ -802,28 +898,41 @@ export default function Categories() {
               </TableHead>
 
             </TableRow>
+
           </TableHeader>
 
           <TableBody>
 
             {loading ? (
+
               <TableRow>
+
                 <TableCell
                   colSpan={6}
                   className="h-32 text-center"
                 >
+
                   <div className="flex items-center justify-center gap-2 text-muted-foreground">
+
                     <Loader2 className="h-5 w-5 animate-spin" />
+
                     Loading categories...
+
                   </div>
+
                 </TableCell>
+
               </TableRow>
+
             ) : categories.length === 0 ? (
+
               <TableRow>
+
                 <TableCell
                   colSpan={6}
                   className="h-32 text-center"
                 >
+
                   <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
 
                     <FolderTree className="h-8 w-8" />
@@ -835,21 +944,29 @@ export default function Categories() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={openCreateDialog}
+                      onClick={
+                        openCreateDialog
+                      }
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       Create your first category
                     </Button>
 
                   </div>
+
                 </TableCell>
+
               </TableRow>
+
             ) : (
+
               categories.map((category) => {
+
                 const subcategory =
                   isSubcategory(category);
 
                 return (
+
                   <TableRow
                     key={category._id}
                   >
@@ -857,15 +974,18 @@ export default function Categories() {
                     {/* ICON */}
 
                     <TableCell>
+
                       <CategoryIcon
                         category={category}
                         size="sm"
                       />
+
                     </TableCell>
 
                     {/* NAME */}
 
                     <TableCell>
+
                       <div
                         className={
                           subcategory
@@ -873,6 +993,7 @@ export default function Categories() {
                             : ""
                         }
                       >
+
                         <div className="flex items-center gap-2">
 
                           {subcategory && (
@@ -886,63 +1007,87 @@ export default function Categories() {
                           </span>
 
                         </div>
+
                       </div>
+
                     </TableCell>
 
                     {/* TYPE */}
 
                     <TableCell>
+
                       {subcategory ? (
+
                         <span className="inline-flex rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
                           Subcategory
                         </span>
+
                       ) : (
+
                         <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
                           Parent
                         </span>
+
                       )}
+
                     </TableCell>
 
                     {/* PARENT */}
 
                     <TableCell>
+
                       {getParentName(category) || (
                         <span className="text-muted-foreground">
                           —
                         </span>
                       )}
+
                     </TableCell>
 
                     {/* IMAGE */}
 
                     <TableCell>
+
                       {category.image ? (
+
                         <img
                           src={category.image}
                           alt={category.name}
                           className="h-10 w-10 rounded-lg border object-cover"
                         />
+
                       ) : (
+
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg border bg-muted">
+
                           <ImageIcon className="h-4 w-4 text-muted-foreground" />
+
                         </div>
+
                       )}
+
                     </TableCell>
 
                     {/* ACTIONS */}
 
                     <TableCell>
+
                       <div className="flex justify-end gap-2">
 
                         <Button
                           variant="outline"
                           size="icon"
                           onClick={() =>
-                            openEditDialog(category)
+                            openEditDialog(
+                              category
+                            )
                           }
                           title="Edit category"
+                          disabled={deleting}
                         >
+
                           <Pencil className="h-4 w-4" />
+
                         </Button>
 
                         <Button
@@ -950,19 +1095,27 @@ export default function Categories() {
                           size="icon"
                           className="text-destructive hover:text-destructive"
                           onClick={() =>
-                            openDeleteDialog(category)
+                            openDeleteDialog(
+                              category
+                            )
                           }
                           title="Delete category"
+                          disabled={deleting}
                         >
+
                           <Trash2 className="h-4 w-4" />
+
                         </Button>
 
                       </div>
+
                     </TableCell>
 
                   </TableRow>
+
                 );
               })
+
             )}
 
           </TableBody>
@@ -984,7 +1137,7 @@ export default function Categories() {
         }}
       >
 
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-150">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
 
           <DialogHeader>
 
@@ -1010,9 +1163,11 @@ export default function Categories() {
             {/* ERROR */}
 
             {error && (
+
               <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {error}
               </div>
+
             )}
 
             {/* NAME */}
@@ -1069,6 +1224,7 @@ export default function Categories() {
 
                   {parentCategories.map(
                     (category) => (
+
                       <SelectItem
                         key={category._id}
                         value={String(
@@ -1077,6 +1233,7 @@ export default function Categories() {
                       >
                         {category.name}
                       </SelectItem>
+
                     )
                   )}
 
@@ -1092,15 +1249,20 @@ export default function Categories() {
 
             </div>
 
-            {/* SVG */}
+            {/* =================================================
+                PARENT SVG ICON
+                ================================================= */}
 
             {!formData.parentCategory && (
+
               <div className="space-y-3 rounded-xl border p-4">
 
                 <div className="flex items-start gap-3">
 
                   <div className="rounded-lg bg-primary/10 p-2">
+
                     <Sparkles className="h-5 w-5 text-primary" />
+
                   </div>
 
                   <div className="flex-1">
@@ -1119,6 +1281,7 @@ export default function Categories() {
                 </div>
 
                 {formData.icon ? (
+
                   <div className="flex flex-col gap-4 rounded-lg bg-muted/40 p-4 sm:flex-row sm:items-center">
 
                     <CategoryIcon
@@ -1158,10 +1321,13 @@ export default function Categories() {
                     </Button>
 
                   </div>
+
                 ) : (
+
                   <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-6 text-center transition hover:bg-muted/50">
 
                     {uploadingIcon ? (
+
                       <>
                         <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
 
@@ -1169,7 +1335,9 @@ export default function Categories() {
                           Uploading SVG...
                         </span>
                       </>
+
                     ) : (
+
                       <>
                         <Upload className="h-7 w-7 text-muted-foreground" />
 
@@ -1181,6 +1349,7 @@ export default function Categories() {
                           SVG only • maximum 500KB
                         </span>
                       </>
+
                     )}
 
                     <input
@@ -1197,14 +1366,19 @@ export default function Categories() {
                     />
 
                   </label>
+
                 )}
 
               </div>
+
             )}
 
-            {/* SUBCATEGORY MESSAGE */}
+            {/* =================================================
+                SUBCATEGORY MESSAGE
+                ================================================= */}
 
             {formData.parentCategory && (
+
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
 
                 <div className="font-medium">
@@ -1218,16 +1392,21 @@ export default function Categories() {
                 </p>
 
               </div>
+
             )}
 
-            {/* IMAGE */}
+            {/* =================================================
+                CATEGORY IMAGE
+                ================================================= */}
 
             <div className="space-y-3 rounded-xl border p-4">
 
               <div className="flex items-start gap-3">
 
                 <div className="rounded-lg bg-muted p-2">
+
                   <ImageIcon className="h-5 w-5" />
+
                 </div>
 
                 <div>
@@ -1246,6 +1425,7 @@ export default function Categories() {
               </div>
 
               {formData.image ? (
+
                 <div className="flex flex-col gap-4 rounded-lg bg-muted/40 p-4 sm:flex-row sm:items-center">
 
                   <img
@@ -1280,10 +1460,13 @@ export default function Categories() {
                   </Button>
 
                 </div>
+
               ) : (
+
                 <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-6 text-center transition hover:bg-muted/50">
 
                   {uploadingImage ? (
+
                     <>
                       <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
 
@@ -1291,7 +1474,9 @@ export default function Categories() {
                         Uploading image...
                       </span>
                     </>
+
                   ) : (
+
                     <>
                       <Upload className="h-7 w-7 text-muted-foreground" />
 
@@ -1303,6 +1488,7 @@ export default function Categories() {
                         PNG, JPG, WEBP, etc.
                       </span>
                     </>
+
                   )}
 
                   <input
@@ -1319,11 +1505,14 @@ export default function Categories() {
                   />
 
                 </label>
+
               )}
 
             </div>
 
-            {/* PREVIEW */}
+            {/* =================================================
+                PREVIEW
+                ================================================= */}
 
             <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
 
@@ -1338,9 +1527,15 @@ export default function Categories() {
                     name:
                       formData.name ||
                       "Category",
+
+                    /*
+                     * SVG gets priority for parent.
+                     * Image is used when there is no SVG.
+                     */
                     icon:
                       formData.icon ||
                       formData.image,
+
                     image:
                       formData.image,
                   }}
@@ -1355,9 +1550,11 @@ export default function Categories() {
                   </p>
 
                   <p className="text-xs text-muted-foreground">
+
                     {formData.parentCategory
                       ? "Subcategory"
                       : "Parent Category"}
+
                   </p>
 
                 </div>
@@ -1366,7 +1563,9 @@ export default function Categories() {
 
             </div>
 
-            {/* FOOTER */}
+            {/* =================================================
+                FOOTER
+                ================================================= */}
 
             <DialogFooter className="gap-2">
 
@@ -1394,23 +1593,30 @@ export default function Categories() {
               >
 
                 {saving ? (
+
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
 
                     {editingCategory
                       ? "Updating..."
                       : "Creating..."}
+
                   </>
+
                 ) : editingCategory ? (
+
                   <>
                     <Pencil className="mr-2 h-4 w-4" />
                     Update Category
                   </>
+
                 ) : (
+
                   <>
                     <Plus className="mr-2 h-4 w-4" />
                     Create Category
                   </>
+
                 )}
 
               </Button>
@@ -1423,11 +1629,21 @@ export default function Categories() {
 
       </Dialog>
 
-      {/* DELETE */}
+      {/* =====================================================
+          DELETE DIALOG
+          ===================================================== */}
 
       <AlertDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!deleting) {
+            setDeleteDialogOpen(open);
+
+            if (!open) {
+              setCategoryToDelete(null);
+            }
+          }
+        }}
       >
 
         <AlertDialogContent>
@@ -1441,6 +1657,7 @@ export default function Categories() {
             <AlertDialogDescription>
 
               Are you sure you want to delete{" "}
+
               <strong>
                 {categoryToDelete?.name}
               </strong>
@@ -1460,6 +1677,7 @@ export default function Categories() {
           <AlertDialogFooter>
 
             <AlertDialogCancel
+              disabled={deleting}
               onClick={() =>
                 setCategoryToDelete(null)
               }
@@ -1469,10 +1687,26 @@ export default function Categories() {
 
             <AlertDialogAction
               onClick={handleDelete}
+              disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
+
+              {deleting ? (
+
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+
+              ) : (
+
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </>
+
+              )}
+
             </AlertDialogAction>
 
           </AlertDialogFooter>
