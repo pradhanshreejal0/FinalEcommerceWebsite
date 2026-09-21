@@ -19,6 +19,10 @@ export const register = async (req, res) => {
   try {
     const { name, email, password, role, phone } = req.body;
 
+    if (typeof email !== "string") {
+          return res.status(400).json({ message: "Invalid email" });
+        }
+
     // Phone required for customers only
     if (!phone || !String(phone).trim()) {
       return res.status(400).json({ message: "Phone number is required" });
@@ -76,6 +80,10 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    if (typeof email !== "string" || typeof password !== "string") {
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
 
     const user = await User.findOne({ email });
     if (!user || !(await user.comparePassword(password))) {
@@ -228,6 +236,10 @@ export const updateMe = async (req, res) => {
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
+
+    if (typeof email !== "string") {
+         return res.status(400).json({ message: "Invalid email" });
+       }
 
     const user = await User.findOne({ email });
 
