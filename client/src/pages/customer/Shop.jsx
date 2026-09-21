@@ -413,7 +413,7 @@ export default function Shop() {
         ====================================== */}
         <aside className="hidden space-y-6 lg:block">
           {/* Filters */}
-          <div className="space-y-4 rounded-xl border border-black/10 p-4">
+          <div className="space-y-4 rounded-xl border border-border bg-card p-4">
             <h3 className="font-semibold">
               Filters
             </h3>
@@ -474,13 +474,13 @@ export default function Shop() {
                   <Link
                     key={product._id}
                     to={`/products/${product._id}`}
-                    className="group overflow-hidden rounded-xl border border-black/10 bg-background transition hover:-translate-y-1 hover:shadow-lg"
+                    className="group overflow-hidden rounded-xl border border-border bg-card transition hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10"
                   >
                     {/* Product Image */}
                     <div className="relative aspect-square overflow-hidden bg-muted">
                       {product.discountPercentage >
                         0 && (
-                        <div className="absolute left-2 top-2 z-10 rounded bg-black px-2 py-1 text-[10px] font-bold text-white sm:text-xs">
+                        <div className="absolute left-2 top-2 z-10 rounded bg-primary px-2 py-1 text-[10px] font-bold text-primary-foreground shadow-sm sm:text-xs">
                           {product.discountPercentage}% OFF
                         </div>
                       )}

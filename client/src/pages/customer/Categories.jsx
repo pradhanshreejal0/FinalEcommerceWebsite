@@ -287,7 +287,7 @@ export default function Categories() {
             return (
               <section
                 key={parent._id}
-                className="rounded-xl border border-black/10 p-6"
+                className="rounded-xl border border-border bg-card p-6"
               >
 
                 {/* ===========================================
@@ -355,7 +355,7 @@ export default function Categories() {
                           to={`/products?category=${encodeURIComponent(
                             child._id
                           )}`}
-                          className="flex items-center gap-3 rounded-lg border border-black/10 px-4 py-3 text-sm font-medium transition hover:bg-black hover:text-white"
+                          className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm font-medium transition hover:border-primary hover:bg-primary hover:text-primary-foreground"
                         >
 
                           <CategoryIcon

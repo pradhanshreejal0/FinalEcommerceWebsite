@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { Badge } from "@/components/ui/badge";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
@@ -184,18 +185,22 @@ export default function Navbar() {
               <div className="mt-6 flex flex-col">
                 {/* Mobile Brand */}
 
-                <Link
-                  to="/"
-                  className="mb-6 flex items-center gap-2"
-                >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                    <ShoppingCart className="h-5 w-5" />
-                  </span>
+                <div className="mb-6 flex items-center justify-between gap-2">
+                  <Link
+                    to="/"
+                    className="flex items-center gap-2"
+                  >
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                      <ShoppingCart className="h-5 w-5" />
+                    </span>
 
-                  <span className="text-xl font-bold">
-                    YourStore
-                  </span>
-                </Link>
+                    <span className="text-xl font-bold">
+                      YourStore
+                    </span>
+                  </Link>
+
+                  <ThemeToggle />
+                </div>
 
                 {/* Mobile Search */}
 
@@ -395,6 +400,10 @@ export default function Navbar() {
           ================================================= */}
 
           <div className="hidden items-center gap-2 md:flex">
+            {/* Theme Toggle */}
+
+            <ThemeToggle className="mr-1" />
+
             {/* Wishlist */}
 
             <Button

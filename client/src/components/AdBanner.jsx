@@ -25,7 +25,7 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
         {ads.map((ad) => (
           <div
             key={ad._id}
-            className="relative overflow-hidden rounded-lg border border-black/10 group"
+            className="relative overflow-hidden rounded-lg border border-border group"
           >
             {ad.link ? (
               <Link to={ad.link}>
@@ -62,7 +62,7 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
   if (variant === "banner" || ads.length === 1) {
     const ad = ads[0];
     return (
-      <div className="relative w-full overflow-hidden rounded-xl border border-black/10">
+      <div className="relative w-full overflow-hidden rounded-xl border border-border">
         {ad.link ? (
           <Link to={ad.link} className="block">
             <img

@@ -17,7 +17,7 @@ export function PriceTag({ product, size = "default", className }) {
           <span className={cn(originalClass, "line-through")}>
             RS {Number(product.price).toFixed(0)}
           </span>
-          <span className="rounded-sm bg-black px-1.5 py-0.5 text-xs font-bold text-white">
+          <span className="rounded-sm bg-primary px-1.5 py-0.5 text-xs font-bold text-primary-foreground">
             {discount}% OFF
           </span>
         </>

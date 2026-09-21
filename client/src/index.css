@@ -7,7 +7,8 @@
 
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: 'Inter Variable', sans-serif;
+    --font-sans: "Inter Variable", sans-serif;
+
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -16,29 +17,39 @@
     --color-sidebar-primary: var(--sidebar-primary);
     --color-sidebar-foreground: var(--sidebar-foreground);
     --color-sidebar: var(--sidebar);
+
     --color-chart-5: var(--chart-5);
     --color-chart-4: var(--chart-4);
     --color-chart-3: var(--chart-3);
     --color-chart-2: var(--chart-2);
     --color-chart-1: var(--chart-1);
+
     --color-ring: var(--ring);
     --color-input: var(--input);
     --color-border: var(--border);
     --color-destructive: var(--destructive);
+
     --color-accent-foreground: var(--accent-foreground);
     --color-accent: var(--accent);
+
     --color-muted-foreground: var(--muted-foreground);
     --color-muted: var(--muted);
+
     --color-secondary-foreground: var(--secondary-foreground);
     --color-secondary: var(--secondary);
+
     --color-primary-foreground: var(--primary-foreground);
     --color-primary: var(--primary);
+
     --color-popover-foreground: var(--popover-foreground);
     --color-popover: var(--popover);
+
     --color-card-foreground: var(--card-foreground);
     --color-card: var(--card);
+
     --color-foreground: var(--foreground);
     --color-background: var(--background);
+
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -48,108 +59,235 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* ========== PURE BLACK & WHITE THEME ========== */
+/* =========================================================
+   MIDNIGHT + ELECTRIC VIOLET
+   Premium Ecommerce Theme
+   ========================================================= */
+
 :root {
-    --background: #ffffff;
-    --foreground: #000000;
+    /* ---------- Base ---------- */
+    --background: #f8f7ff;
+    --foreground: #111827;
+
+    /* ---------- Cards ---------- */
     --card: #ffffff;
-    --card-foreground: #000000;
+    --card-foreground: #111827;
+
+    /* ---------- Popovers ---------- */
     --popover: #ffffff;
-    --popover-foreground: #000000;
-    --primary: #000000;
+    --popover-foreground: #111827;
+
+    /* ---------- Primary ---------- */
+    --primary: #7c3aed;
     --primary-foreground: #ffffff;
-    --secondary: #f5f5f5;
-    --secondary-foreground: #000000;
-    --muted: #f0f0f0;
-    --muted-foreground: #555555;
-    --accent: #e8e8e8;
-    --accent-foreground: #000000;
-    --destructive: #000000;          /* black instead of red */
-    --border: #e0e0e0;
-    --input: #e0e0e0;
-    --ring: #000000;
-    --chart-1: #000000;
-    --chart-2: #444444;
-    --chart-3: #666666;
-    --chart-4: #888888;
-    --chart-5: #aaaaaa;
-    --radius: 0.375rem;
-    --sidebar: #fafafa;
-    --sidebar-foreground: #000000;
-    --sidebar-primary: #000000;
+
+    /* ---------- Secondary ---------- */
+    --secondary: #f3e8ff;
+    --secondary-foreground: #6d28d9;
+
+    /* ---------- Muted ---------- */
+    --muted: #f1f5f9;
+    --muted-foreground: #64748b;
+
+    /* ---------- Accent ---------- */
+    --accent: #ede9fe;
+    --accent-foreground: #6d28d9;
+
+    /* ---------- Destructive ---------- */
+    --destructive: #e11d48;
+
+    /* ---------- Borders ---------- */
+    --border: #e2e8f0;
+    --input: #cbd5e1;
+
+    /* ---------- Focus ---------- */
+    --ring: #8b5cf6;
+
+    /* ---------- Charts ---------- */
+    --chart-1: #7c3aed;
+    --chart-2: #a855f7;
+    --chart-3: #06b6d4;
+    --chart-4: #10b981;
+    --chart-5: #f59e0b;
+
+    /* ---------- Radius ---------- */
+    --radius: 0.75rem;
+
+    /* ---------- Sidebar ---------- */
+    --sidebar: #ffffff;
+    --sidebar-foreground: #111827;
+    --sidebar-primary: #7c3aed;
     --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #f0f0f0;
-    --sidebar-accent-foreground: #000000;
-    --sidebar-border: #e0e0e0;
-    --sidebar-ring: #000000;
+    --sidebar-accent: #f3e8ff;
+    --sidebar-accent-foreground: #6d28d9;
+    --sidebar-border: #e2e8f0;
+    --sidebar-ring: #8b5cf6;
 }
+
+/* =========================================================
+   DARK MODE
+   ========================================================= */
 
 .dark {
-    --background: #0a0a0a;
-    --foreground: #ffffff;
-    --card: #141414;
-    --card-foreground: #ffffff;
-    --popover: #141414;
-    --popover-foreground: #ffffff;
-    --primary: #ffffff;
-    --primary-foreground: #000000;
-    --secondary: #1f1f1f;
-    --secondary-foreground: #ffffff;
-    --muted: #1f1f1f;
-    --muted-foreground: #aaaaaa;
-    --accent: #2a2a2a;
-    --accent-foreground: #ffffff;
-    --destructive: #ffffff;
-    --border: #333333;
-    --input: #333333;
-    --ring: #ffffff;
-    --chart-1: #ffffff;
-    --chart-2: #cccccc;
-    --chart-3: #999999;
-    --chart-4: #666666;
-    --chart-5: #444444;
-    --sidebar: #141414;
-    --sidebar-foreground: #ffffff;
-    --sidebar-primary: #ffffff;
-    --sidebar-primary-foreground: #000000;
-    --sidebar-accent: #1f1f1f;
-    --sidebar-accent-foreground: #ffffff;
-    --sidebar-border: #333333;
-    --sidebar-ring: #ffffff;
+    /* ---------- Base ---------- */
+    --background: #080812;
+    --foreground: #f8fafc;
+
+    /* ---------- Cards ---------- */
+    --card: #11111c;
+    --card-foreground: #f8fafc;
+
+    /* ---------- Popovers ---------- */
+    --popover: #11111c;
+    --popover-foreground: #f8fafc;
+
+    /* ---------- Primary ---------- */
+    --primary: #a78bfa;
+    --primary-foreground: #18111f;
+
+    /* ---------- Secondary ---------- */
+    --secondary: #24143d;
+    --secondary-foreground: #ddd6fe;
+
+    /* ---------- Muted ---------- */
+    --muted: #181824;
+    --muted-foreground: #94a3b8;
+
+    /* ---------- Accent ---------- */
+    --accent: #2e1065;
+    --accent-foreground: #ede9fe;
+
+    /* ---------- Destructive ---------- */
+    --destructive: #fb7185;
+
+    /* ---------- Borders ---------- */
+    --border: #292638;
+    --input: #38334a;
+
+    /* ---------- Focus ---------- */
+    --ring: #a78bfa;
+
+    /* ---------- Charts ---------- */
+    --chart-1: #a78bfa;
+    --chart-2: #c084fc;
+    --chart-3: #22d3ee;
+    --chart-4: #34d399;
+    --chart-5: #fbbf24;
+
+    /* ---------- Sidebar ---------- */
+    --sidebar: #0c0c16;
+    --sidebar-foreground: #f8fafc;
+    --sidebar-primary: #a78bfa;
+    --sidebar-primary-foreground: #18111f;
+    --sidebar-accent: #24143d;
+    --sidebar-accent-foreground: #ddd6fe;
+    --sidebar-border: #292638;
+    --sidebar-ring: #a78bfa;
 }
+
+/* =========================================================
+   BASE
+   ========================================================= */
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-  html {
-    @apply font-sans;
-  }
+    * {
+        @apply border-border outline-ring/50;
+    }
+
+    html {
+        @apply font-sans;
+        scroll-behavior: smooth;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+        font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    }
+
+    ::selection {
+        background: #ddd6fe;
+        color: #4c1d95;
+    }
 }
 
-/* Animations */
+/* =========================================================
+   ANIMATIONS
+   ========================================================= */
+
 @layer utilities {
-  @keyframes fade-in-up {
-    from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  .animate-fade-in-up {
-    animation: fade-in-up 0.5s ease-out both;
-  }
-  .animate-fade-in {
-    animation: fade-in 0.4s ease-out both;
-  }
-  .hover-lift {
-    @apply transition-all duration-300 ease-out;
-  }
-  .hover-lift:hover {
-    @apply -translate-y-1 shadow-lg;
-  }
+    @keyframes fade-in-up {
+        from {
+            opacity: 0;
+            transform: translateY(12px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes fade-in {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes scale-in {
+        from {
+            opacity: 0;
+            transform: scale(0.96);
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @keyframes shimmer {
+        from {
+            background-position: -1000px 0;
+        }
+
+        to {
+            background-position: 1000px 0;
+        }
+    }
+
+    .animate-fade-in-up {
+        animation: fade-in-up 0.5s ease-out both;
+    }
+
+    .animate-fade-in {
+        animation: fade-in 0.4s ease-out both;
+    }
+
+    .animate-scale-in {
+        animation: scale-in 0.3s ease-out both;
+    }
+
+    .hover-lift {
+        @apply transition-all duration-300 ease-out;
+    }
+
+    .hover-lift:hover {
+        @apply -translate-y-1 shadow-lg;
+    }
+
+    .skeleton {
+        background: linear-gradient(
+            90deg,
+            #f1f5f9 25%,
+            #e2e8f0 50%,
+            #f1f5f9 75%
+        );
+
+        background-size: 1000px 100%;
+        animation: shimmer 2s infinite linear;
+    }
 }
