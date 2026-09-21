@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import Vendor from "../models/Vendor.js";
+import { escapeRegex } from "../utils/escapeRegex.js";
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -11,7 +12,7 @@ export const getAllUsers = async (req, res) => {
     }
 
     if (search.trim()) {
-      const searchText = search.trim();
+      const searchText = escapeRegex(search.trim());
       filter.$or = [
         { name: { $regex: searchText, $options: "i" } },
         { email: { $regex: searchText, $options: "i" } },

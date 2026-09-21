@@ -1,6 +1,7 @@
 import Product from "../models/Product.js";
 import Vendor from "../models/Vendor.js";
 import Category from "../models/Category.js";
+import { escapeRegex } from "../utils/escapeRegex.js";
 
 // Helper: get approved vendor profile of logged-in user
 const getVendorByUser = async (userId) => {
@@ -198,7 +199,7 @@ export const getProducts = async (req, res) => {
 
     // Search (prefer text index if available)
     if (search.trim()) {
-      const searchText = search.trim();
+      const searchText =escapeRegex(search.trim());
       filter.$or = [
         { title: { $regex: searchText, $options: "i" } },
         { description: { $regex: searchText, $options: "i" } },
