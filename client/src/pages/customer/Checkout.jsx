@@ -1,17 +1,121 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getFinalPrice } from "@/lib/utils";
+
 import {
   ArrowLeft,
   CheckCircle2,
   Loader2,
+  MapPin,
   ShoppingBag,
 } from "lucide-react";
+
+import {
+  MapContainer,
+  Marker,
+  Popup,
+  TileLayer,
+  useMapEvents,
+} from "react-leaflet";
+
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
+
+/*
+|--------------------------------------------------------------------------
+| Fix Leaflet marker icons for Vite
+|--------------------------------------------------------------------------
+*/
+
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+
+delete L.Icon.Default.prototype._getIconUrl;
+
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
+
+/*
+|--------------------------------------------------------------------------
+| Default Map Location
+|--------------------------------------------------------------------------
+|
+| Kathmandu is used only as the initial map center.
+| The customer can select any location.
+|
+*/
+
+const DEFAULT_MAP_POSITION = [27.7172, 85.324];
+
+const DEFAULT_ZOOM = 13;
+
+/*
+|--------------------------------------------------------------------------
+| Map Location Selector
+|--------------------------------------------------------------------------
+*/
+
+function LocationSelector({ position, setPosition, disabled }) {
+  useMapEvents({
+    click(event) {
+      if (disabled) {
+        return;
+      }
+
+      const { lat, lng } = event.latlng;
+
+      setPosition({
+        lat,
+        lng,
+      });
+    },
+  });
+
+  if (!position) {
+    return null;
+  }
+
+  return (
+    <Marker
+      position={[position.lat, position.lng]}
+      draggable={!disabled}
+      eventHandlers={{
+        dragend(event) {
+          if (disabled) {
+            return;
+          }
+
+          const marker = event.target;
+          const location = marker.getLatLng();
+
+          setPosition({
+            lat: location.lat,
+            lng: location.lng,
+          });
+        },
+      }}
+    >
+      <Popup>
+        <div className="text-sm">
+          <p className="font-semibold">Delivery Location</p>
+
+          <p className="mt-1 text-xs text-muted-foreground">
+            {position.lat.toFixed(6)}, {position.lng.toFixed(6)}
+          </p>
+        </div>
+      </Popup>
+    </Marker>
+  );
+}
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -24,6 +128,12 @@ export default function Checkout() {
     resetCart,
   } = useCart();
 
+  /*
+  |--------------------------------------------------------------------------
+  | Form
+  |--------------------------------------------------------------------------
+  */
+
   const [form, setForm] = useState({
     fullName: user?.name || "",
     phone: "",
@@ -33,13 +143,30 @@ export default function Checkout() {
     country: "Nepal",
   });
 
+  /*
+  |--------------------------------------------------------------------------
+  | Map Location
+  |--------------------------------------------------------------------------
+  */
+
+  const [location, setLocation] = useState(null);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Payment
+  |--------------------------------------------------------------------------
+  */
+
   const [paymentMethod, setPaymentMethod] = useState("cod");
+
+  /*
+  |--------------------------------------------------------------------------
+  | State
+  |--------------------------------------------------------------------------
+  */
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-
-
-
 
   /*
   |--------------------------------------------------------------------------
@@ -86,7 +213,7 @@ export default function Checkout() {
   const items = cart?.items || [];
 
   const total = items.reduce((sum, item) => {
-       const price = getFinalPrice(item.product);
+    const price = getFinalPrice(item.product);
     const quantity = Number(item.quantity || 0);
 
     return sum + price * quantity;
@@ -143,14 +270,25 @@ export default function Checkout() {
       return;
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Require Map Location
+    |--------------------------------------------------------------------------
+    */
+
+    if (!location) {
+      setError(
+        "Please select your delivery location on the map."
+      );
+      return;
+    }
+
     if (paymentMethod !== "cod") {
       setError(
         "Online payment is not available yet. Please select Cash on Delivery."
       );
       return;
     }
-
-
 
     try {
       setSubmitting(true);
@@ -166,7 +304,17 @@ export default function Checkout() {
             city: form.city.trim(),
             postalCode: form.postalCode.trim(),
             country: form.country.trim(),
+
+            /*
+            |--------------------------------------------------------------------------
+            | Delivery GPS Coordinates
+            |--------------------------------------------------------------------------
+            */
+
+            latitude: location.lat,
+            longitude: location.lng,
           },
+
           paymentMethod,
         }),
       });
@@ -177,10 +325,8 @@ export default function Checkout() {
         );
       }
 
-      // Clear the cart in React state
       resetCart();
 
-      // Go to order details
       navigate(`/orders/${order._id}`, {
         replace: true,
       });
@@ -247,7 +393,7 @@ export default function Checkout() {
 
   /*
   |--------------------------------------------------------------------------
-  | Checkout Page
+  | Checkout
   |--------------------------------------------------------------------------
   */
 
@@ -256,6 +402,7 @@ export default function Checkout() {
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
 
         {/* Header */}
+
         <div className="mb-6">
           <Button
             type="button"
@@ -273,11 +420,13 @@ export default function Checkout() {
           </h1>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Enter your delivery information and place your order.
+            Enter your delivery information and select your
+            delivery location.
           </p>
         </div>
 
         {/* Error */}
+
         {error && (
           <div
             role="alert"
@@ -297,6 +446,7 @@ export default function Checkout() {
             <div className="space-y-6 lg:col-span-2">
 
               {/* Shipping Address */}
+
               <section className="rounded-xl border bg-background p-5 shadow-sm sm:p-6">
                 <div className="mb-6">
                   <h2 className="text-lg font-semibold">
@@ -311,6 +461,7 @@ export default function Checkout() {
                 <div className="grid gap-4 sm:grid-cols-2">
 
                   {/* Full Name */}
+
                   <div className="sm:col-span-2">
                     <label
                       htmlFor="fullName"
@@ -333,6 +484,7 @@ export default function Checkout() {
                   </div>
 
                   {/* Phone */}
+
                   <div>
                     <label
                       htmlFor="phone"
@@ -355,6 +507,7 @@ export default function Checkout() {
                   </div>
 
                   {/* City */}
+
                   <div>
                     <label
                       htmlFor="city"
@@ -377,6 +530,7 @@ export default function Checkout() {
                   </div>
 
                   {/* Address */}
+
                   <div className="sm:col-span-2">
                     <label
                       htmlFor="address"
@@ -399,6 +553,7 @@ export default function Checkout() {
                   </div>
 
                   {/* Postal Code */}
+
                   <div>
                     <label
                       htmlFor="postalCode"
@@ -424,6 +579,7 @@ export default function Checkout() {
                   </div>
 
                   {/* Country */}
+
                   <div>
                     <label
                       htmlFor="country"
@@ -447,7 +603,96 @@ export default function Checkout() {
                 </div>
               </section>
 
+              {/* ============================================================
+                  DELIVERY MAP
+              ============================================================ */}
+
+              <section className="rounded-xl border bg-background p-5 shadow-sm sm:p-6">
+
+                <div className="mb-5">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5 text-primary" />
+
+                    <h2 className="text-lg font-semibold">
+                      Delivery Location
+                    </h2>
+                  </div>
+
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Click on the map to select your delivery
+                    location. You can also drag the marker.
+                  </p>
+                </div>
+
+                {/* Map */}
+
+                <div className="overflow-hidden rounded-xl border">
+                  <MapContainer
+                    center={DEFAULT_MAP_POSITION}
+                    zoom={DEFAULT_ZOOM}
+                    scrollWheelZoom={true}
+                    className="h-[350px] w-full sm:h-[450px]"
+                  >
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+
+                    <LocationSelector
+                      position={location}
+                      setPosition={setLocation}
+                      disabled={submitting}
+                    />
+                  </MapContainer>
+                </div>
+
+                {/* Location Information */}
+
+                <div className="mt-4">
+                  {location ? (
+                    <div className="rounded-lg border bg-muted/40 p-4">
+                      <div className="flex items-start gap-3">
+
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                          <MapPin className="h-4 w-4 text-primary" />
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">
+                            Delivery location selected
+                          </p>
+
+                          <p className="mt-1 break-all text-xs text-muted-foreground">
+                            Latitude:{" "}
+                            {location.lat.toFixed(6)}
+                          </p>
+
+                          <p className="text-xs text-muted-foreground">
+                            Longitude:{" "}
+                            {location.lng.toFixed(6)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed p-4 text-center">
+                      <MapPin className="mx-auto h-5 w-5 text-muted-foreground" />
+
+                      <p className="mt-2 text-sm font-medium">
+                        Select your delivery location
+                      </p>
+
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Click anywhere on the map to place your
+                        delivery marker.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </section>
+
               {/* Payment */}
+
               <section className="rounded-xl border bg-background p-5 shadow-sm sm:p-6">
                 <div className="mb-6">
                   <h2 className="text-lg font-semibold">
@@ -461,7 +706,8 @@ export default function Checkout() {
 
                 <div className="space-y-3">
 
-                  {/* Cash On Delivery */}
+                  {/* COD */}
+
                   <label
                     className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition ${
                       paymentMethod === "cod"
@@ -493,6 +739,7 @@ export default function Checkout() {
                   </label>
 
                   {/* Stripe */}
+
                   <div className="flex items-start gap-3 rounded-lg border p-4 opacity-60">
                     <input
                       type="radio"
@@ -514,6 +761,7 @@ export default function Checkout() {
                   </div>
 
                   {/* Razorpay */}
+
                   <div className="flex items-start gap-3 rounded-lg border p-4 opacity-60">
                     <input
                       type="radio"
@@ -550,6 +798,7 @@ export default function Checkout() {
                 </h2>
 
                 {/* Items */}
+
                 <div className="mt-5 space-y-4">
                   {items.map((item) => {
                     const product = item.product;
@@ -575,7 +824,6 @@ export default function Checkout() {
                         key={product._id}
                         className="flex gap-3"
                       >
-                        {/* Image */}
                         <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-muted">
                           {image ? (
                             <img
@@ -590,7 +838,6 @@ export default function Checkout() {
                           )}
                         </div>
 
-                        {/* Info */}
                         <div className="min-w-0 flex-1">
                           <p className="line-clamp-2 text-sm font-medium">
                             {product.title}
@@ -620,6 +867,7 @@ export default function Checkout() {
                 <div className="my-5 border-t" />
 
                 {/* Item Count */}
+
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
                     Items
@@ -629,6 +877,7 @@ export default function Checkout() {
                 </div>
 
                 {/* Subtotal */}
+
                 <div className="mt-3 flex justify-between text-sm">
                   <span className="text-muted-foreground">
                     Subtotal
@@ -638,6 +887,7 @@ export default function Checkout() {
                 </div>
 
                 {/* Shipping */}
+
                 <div className="mt-3 flex justify-between text-sm">
                   <span className="text-muted-foreground">
                     Shipping
@@ -649,6 +899,7 @@ export default function Checkout() {
                 <div className="my-5 border-t" />
 
                 {/* Total */}
+
                 <div className="flex items-center justify-between">
                   <span className="font-semibold">
                     Total
@@ -660,6 +911,7 @@ export default function Checkout() {
                 </div>
 
                 {/* Place Order */}
+
                 <Button
                   type="submit"
                   size="lg"
@@ -680,6 +932,7 @@ export default function Checkout() {
                 </Button>
 
                 {/* Return */}
+
                 <Button
                   type="button"
                   variant="outline"

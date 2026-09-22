@@ -83,32 +83,42 @@ const orderSchema = new mongoose.Schema(
       fullName: {
         type: String,
         required: true,
+        trim: true,
       },
 
       phone: {
         type: String,
         required: true,
+        trim: true,
       },
 
       address: {
         type: String,
         required: true,
+        trim: true,
       },
 
       city: {
         type: String,
         required: true,
+        trim: true,
       },
 
       postalCode: {
         type: String,
         default: "",
+        trim: true,
       },
 
       country: {
         type: String,
         default: "Nepal",
+        trim: true,
       },
+      longitude: {
+          type: Number,
+          // required: true,
+        },
     },
 
     totalAmount: {
