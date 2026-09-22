@@ -551,7 +551,8 @@ export default function Navbar() {
                   }`}
                 >
                   <div className="min-h-0">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted transition-transform duration-200 bg-[#f4f4f5] group-hover:scale-105">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted transition-transform duration-200 group-hover:scale-105">
+                    {/* <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted transition-transform duration-200 bg-[#f4f4f5] group-hover:scale-105">*/}
                       <Menu className="h-5 w-5 " />
                     </div>
                   </div>
