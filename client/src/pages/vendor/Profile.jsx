@@ -7,6 +7,7 @@ import { Upload, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 import { uploadImage } from "@/lib/upload";
+import DeleteAccountDialog from "@/components/DeleteAccountDialog";
 
 export default function VendorProfile() {
   const { accessToken } = useAuth();
@@ -425,6 +426,10 @@ export default function VendorProfile() {
           </Button>
         </div>
       </form>
+
+      <div className="mt-6">
+        <DeleteAccountDialog description="You'll need to remove your products first (or have an admin reassign them) before you can delete your vendor account. This can't be undone." />
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import DeleteAccountDialog from "@/components/DeleteAccountDialog";
 
 export default function Profile() {
   const { user, accessToken } = useAuth();
@@ -133,6 +134,10 @@ export default function Profile() {
         <Button asChild variant="outline">
           <Link to="/cart">My Cart</Link>
         </Button>
+      </div>
+
+      <div className="mt-10">
+        <DeleteAccountDialog description="This permanently deletes your account, cart and wishlist. Your past orders stay on record for your order history and the vendors you bought from. This can't be undone." />
       </div>
     </div>
   );

@@ -1,5 +1,9 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import Vendor from "../models/Vendor.js";
+import Product from "../models/Product.js";
+import Cart from "../models/Cart.js";
+import Wishlist from "../models/Wishlist.js";
 import crypto from "crypto";
 import { sendEmail } from "../utils/sendEmail.js";
 import {
@@ -232,6 +236,76 @@ export const updateMe = async (req, res) => {
   }
 };
 
+// Self-service account deletion. Users delete their own account whenever
+// they want; we just confirm their password first and clean up the data
+// that only makes sense while the account exists (cart, wishlist, vendor
+// storefront). Orders and reviews are left alone since they're shared
+// business records (other people's order/sales history depends on them).
+export const deleteMe = async (req, res) => {
+  try {
+    const { password } = req.body;
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Admins can't delete themselves through this endpoint — that could
+    // lock everyone out of the admin panel. Another admin has to do it.
+    if (user.role === "admin") {
+      return res.status(403).json({
+        message:
+          "Admin accounts can't be self-deleted. Ask another admin to remove your account.",
+      });
+    }
+
+    if (!password || typeof password !== "string") {
+      return res
+        .status(400)
+        .json({ message: "Please enter your password to confirm account deletion" });
+    }
+
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Incorrect password" });
+    }
+
+    if (user.role === "vendor") {
+      const vendor = await Vendor.findOne({ user: user._id });
+      if (vendor) {
+        const activeProducts = await Product.countDocuments({
+          vendor: vendor._id,
+        });
+        if (activeProducts > 0) {
+          return res.status(400).json({
+            message:
+              "You still have products listed. Remove them (or ask an admin to reassign them) before deleting your account.",
+          });
+        }
+        await Vendor.deleteOne({ _id: vendor._id });
+      }
+    }
+
+    await Promise.all([
+      Cart.deleteOne({ user: user._id }),
+      Wishlist.deleteOne({ user: user._id }),
+    ]);
+
+    await User.deleteOne({ _id: user._id });
+
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+    });
+
+    res.json({ message: "Your account has been deleted." });
+  } catch (error) {
+    console.error("Delete account error:", error);
+    res.status(500).json({ message: error.message || "Failed to delete account" });
+  }
+};
 
 export const forgotPassword = async (req, res) => {
   try {

@@ -56,8 +56,25 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Permanently deletes the signed-in user's own account. Throws on
+  // failure (e.g. wrong password) so callers can show the error; on
+  // success it clears the session the same way logout does.
+  const deleteAccount = async (password) => {
+    await api("/auth/me", {
+      method: "DELETE",
+      accessToken,
+      body: JSON.stringify({ password }),
+    });
+
+    setUser(null);
+    setAccessToken(null);
+    localStorage.removeItem("accessToken");
+  };
+
   return (
-    <AuthContext.Provider value={{ user, accessToken, loading, login, logout }}>
+    <AuthContext.Provider
+      value={{ user, accessToken, loading, login, logout, deleteAccount }}
+    >
       {children}
     </AuthContext.Provider>
   );
