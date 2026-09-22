@@ -846,7 +846,7 @@ export default function Categories() {
           ===================================================== */}
 
       {success && !dialogOpen && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div className="rounded-lg border border-success/20 bg-success/10 px-4 py-3 text-sm text-success-foreground">
           {success}
         </div>
       )}
@@ -856,7 +856,7 @@ export default function Categories() {
           ===================================================== */}
 
       {error && !dialogOpen && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       )}
@@ -1164,7 +1164,7 @@ export default function Categories() {
 
             {error && (
 
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {error}
               </div>
 
@@ -1379,7 +1379,7 @@ export default function Categories() {
 
             {formData.parentCategory && (
 
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              <div className="rounded-lg border border-warning/20 bg-warning/10 p-4 text-sm text-warning-foreground">
 
                 <div className="font-medium">
                   SVG icon unavailable

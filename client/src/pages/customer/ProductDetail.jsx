@@ -301,7 +301,7 @@ export default function ProductDetails() {
               <img
                 src={currentImage}
                 alt={product.title}
-                className="h-full w-full object-contain bg-white p-4"
+                className="h-full w-full object-contain bg-card p-4"
               />
             ) : (
               <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -321,7 +321,7 @@ export default function ProductDetails() {
                   aria-label={`View image ${index + 1} of ${product.title}`}
                   aria-current={index === activeImage}
                   className={cn(
-                    "h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 bg-white transition",
+                    "h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 bg-card transition",
                     index === activeImage
                       ? "border-primary"
                       : "border-transparent hover:border-muted-foreground/30"
@@ -380,7 +380,7 @@ export default function ProductDetails() {
               <button
                 type="button"
                 onClick={handleOpenChat}
-                className="inline-flex items-center gap-1.5 rounded-full border border-blue-600/30 bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700 transition hover:bg-blue-100"
+                className="inline-flex items-center gap-1.5 rounded-full border border-info/30 bg-info/10 px-3 py-1 text-sm font-medium text-info-foreground transition hover:bg-info/10"
               >
                 <MessageCircle className="h-3.5 w-3.5" />
                 Chat with us
@@ -427,7 +427,7 @@ export default function ProductDetails() {
               <Heart
                 className={
                   isWishlisted
-                    ? "fill-red-500 text-red-500"
+                    ? "fill-destructive text-destructive"
                     : ""
                 }
               />

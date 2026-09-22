@@ -37,27 +37,27 @@ const statusStyles = {
   pending: {
     label: "Pending",
     icon: Clock3,
-    className: "bg-yellow-100 text-yellow-800",
+    className: "bg-warning/10 text-warning-foreground",
   },
   processing: {
     label: "Processing",
     icon: Package,
-    className: "bg-blue-100 text-blue-800",
+    className: "bg-info/10 text-info-foreground",
   },
   shipped: {
     label: "Shipped",
     icon: Truck,
-    className: "bg-purple-100 text-purple-800",
+    className: "bg-secondary text-secondary-foreground",
   },
   delivered: {
     label: "Delivered",
     icon: CheckCircle2,
-    className: "bg-green-100 text-green-800",
+    className: "bg-success/10 text-success-foreground",
   },
   cancelled: {
     label: "Cancelled",
     icon: XCircle,
-    className: "bg-red-100 text-red-800",
+    className: "bg-destructive/10 text-destructive",
   },
 };
 
@@ -276,7 +276,7 @@ export default function Orders() {
 
       {/* Error */}
       {error && (
-        <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-destructive">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
 
           <div>
@@ -532,7 +532,7 @@ export default function Orders() {
 
                           {itemStatus === "cancelled" &&
                             item.cancellationReason && (
-                              <div className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">
+                              <div className="mt-3 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
                                 <span className="font-medium">
                                   Cancellation reason:
                                 </span>{" "}

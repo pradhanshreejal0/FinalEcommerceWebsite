@@ -20,21 +20,21 @@ export function ThemeToggle({ className }) {
       )}
     >
       {/* Decorative stars, only visible in dark mode */}
-      <span className="pointer-events-none absolute left-2.5 top-2 h-0.5 w-0.5 rounded-full bg-white opacity-0 transition-opacity duration-300 dark:opacity-80" />
-      <span className="pointer-events-none absolute left-5 top-4.5 h-1 w-1 rounded-full bg-white opacity-0 transition-opacity duration-300 dark:opacity-60" />
-      <span className="pointer-events-none absolute left-3.5 bottom-1.5 h-0.5 w-0.5 rounded-full bg-white opacity-0 transition-opacity duration-300 dark:opacity-70" />
+      <span className="pointer-events-none absolute left-2.5 top-2 h-0.5 w-0.5 rounded-full bg-primary-foreground opacity-0 transition-opacity duration-300 dark:opacity-80" />
+      <span className="pointer-events-none absolute left-5 top-4.5 h-1 w-1 rounded-full bg-primary-foreground opacity-0 transition-opacity duration-300 dark:opacity-60" />
+      <span className="pointer-events-none absolute left-3.5 bottom-1.5 h-0.5 w-0.5 rounded-full bg-primary-foreground opacity-0 transition-opacity duration-300 dark:opacity-70" />
 
       {/* Sliding knob */}
       <span
         className={cn(
-          "flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-black/5 transition-transform duration-300 ease-out",
-          "dark:bg-slate-900 dark:ring-white/10",
+          "flex h-7 w-7 items-center justify-center rounded-full bg-card shadow-md ring-1 ring-border/50 transition-transform duration-300 ease-out",
+          "dark:bg-card dark:ring-border",
           isDark ? "translate-x-7" : "translate-x-0"
         )}
       >
         <Sun
           className={cn(
-            "absolute h-4 w-4 text-amber-500 transition-all duration-300",
+            "absolute h-4 w-4 text-warning transition-all duration-300",
             isDark
               ? "scale-0 rotate-90 opacity-0"
               : "scale-100 rotate-0 opacity-100"
@@ -42,7 +42,7 @@ export function ThemeToggle({ className }) {
         />
         <Moon
           className={cn(
-            "absolute h-4 w-4 text-violet-300 transition-all duration-300",
+            "absolute h-4 w-4 text-primary transition-all duration-300",
             isDark
               ? "scale-100 rotate-0 opacity-100"
               : "scale-0 -rotate-90 opacity-0"

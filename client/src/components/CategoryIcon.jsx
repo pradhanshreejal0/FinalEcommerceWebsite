@@ -30,7 +30,7 @@ export function CategoryIcon({
 
   return (
     <div
-      className={`${sizeClass} ${className} flex items-center justify-center overflow-hidden rounded-full border bg-white`}
+      className={`${sizeClass} ${className} flex items-center justify-center overflow-hidden rounded-full border bg-[#f9fafb]`}
     >
       <img
         src={icon}

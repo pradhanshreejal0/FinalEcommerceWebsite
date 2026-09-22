@@ -35,7 +35,7 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
                   className="w-full h-40 object-cover transition duration-300 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent" />
-                <p className="absolute bottom-2 left-2 right-2 text-white text-sm font-medium line-clamp-2">
+                <p className="absolute bottom-2 left-2 right-2 text-primary-foreground text-sm font-medium line-clamp-2">
                   {ad.title}
                 </p>
               </Link>
@@ -47,7 +47,7 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
                   className="w-full h-40 object-cover"
                 />
                 <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent" />
-                <p className="absolute bottom-2 left-2 right-2 text-white text-sm font-medium line-clamp-2">
+                <p className="absolute bottom-2 left-2 right-2 text-primary-foreground text-sm font-medium line-clamp-2">
                   {ad.title}
                 </p>
               </>
@@ -71,7 +71,7 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
               className="w-full h-48 md:h-64 object-cover"
             />
             <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
-            <div className="absolute bottom-4 left-4 md:left-6 text-white">
+            <div className="absolute bottom-4 left-4 md:left-6 text-primary-foreground">
               <p className="text-xs uppercase tracking-widest opacity-80 mb-1">
                 Featured
               </p>
@@ -86,7 +86,7 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
               className="w-full h-48 md:h-64 object-cover"
             />
             <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
-            <div className="absolute bottom-4 left-4 md:left-6 text-white">
+            <div className="absolute bottom-4 left-4 md:left-6 text-primary-foreground">
               <p className="text-xs uppercase tracking-widest opacity-80 mb-1">
                 Featured
               </p>
@@ -104,7 +104,7 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
   const next = () => setCurrent((c) => (c + 1) % ads.length);
 
   return (
-    <div className="relative w-full overflow-hidden bg-black">
+    <div className="relative w-full overflow-hidden bg-background">
       <div
         className="flex transition-transform duration-500 ease-out"
         style={{ transform: `translateX(-${current * 100}%)` }}
@@ -127,7 +127,7 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
               />
             )}
             <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
-            <div className="absolute bottom-6 left-6 md:left-10 text-white pointer-events-none">
+            <div className="absolute bottom-6 left-6 md:left-10 text-primary-foreground pointer-events-none">
               <p className="text-xs uppercase tracking-widest mb-1 opacity-80">
                 Special Offer
               </p>
@@ -144,14 +144,14 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
         <>
           <button
             onClick={prev}
-            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 text-black flex items-center justify-center hover:bg-white transition shadow"
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-card/90 text-card-foreground flex items-center justify-center hover:bg-card transition shadow"
             aria-label="Previous"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <button
             onClick={next}
-            className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 text-black flex items-center justify-center hover:bg-white transition shadow"
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-card/90 text-card-foreground flex items-center justify-center hover:bg-card transition shadow"
             aria-label="Next"
           >
             <ChevronRight className="w-5 h-5" />
@@ -167,7 +167,7 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
               key={i}
               onClick={() => goTo(i)}
               className={`w-2.5 h-2.5 rounded-full transition ${
-                i === current ? "bg-white scale-110" : "bg-white/50"
+                i === current ? "bg-card scale-110" : "bg-card/50"
               }`}
               aria-label={`Go to slide ${i + 1}`}
             />

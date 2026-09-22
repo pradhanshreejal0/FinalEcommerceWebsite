@@ -51,7 +51,7 @@ export default function ForgotPassword() {
               />
             </div>
 
-            {message && <p className="text-sm text-green-600">{message}</p>}
+            {message && <p className="text-sm text-success">{message}</p>}
             {error && <p className="text-sm text-destructive">{error}</p>}
 
             <Button type="submit" className="w-full" disabled={loading}>

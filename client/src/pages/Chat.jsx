@@ -106,7 +106,7 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <p className="bg-orange-50 px-4 py-1.5 text-center text-xs text-orange-700">
+      <p className="bg-warning/10 px-4 py-1.5 text-center text-xs text-warning-foreground">
         ⏱ This chat will automatically disappear after 7 days
       </p>
 

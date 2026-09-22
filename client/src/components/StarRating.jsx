@@ -31,7 +31,7 @@ export function StarRating({
               size={size}
               className={
                 filled
-                  ? "fill-yellow-400 text-yellow-400"
+                  ? "fill-warning text-warning"
                   : "fill-none text-muted-foreground"
               }
             />

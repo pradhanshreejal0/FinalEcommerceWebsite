@@ -537,22 +537,22 @@ export default function Navbar() {
 
               <Link
                 to="/categories"
-                className={`group flex shrink-0 flex-col items-center justify-center transition-all duration-300 ${
+                className={`group  flex shrink-0 flex-col items-center justify-center transition-all duration-300 ${
                   showCategoryIcons
                     ? "gap-1"
                     : "gap-0"
                 }`}
               >
                 <div
-                  className={`grid overflow-hidden transition-all duration-300 ${
+                  className={`grid overflow-hidden transition-all duration-300  ${
                     showCategoryIcons
                       ? "grid-rows-[1fr] opacity-100"
                       : "grid-rows-[0fr] opacity-0"
                   }`}
                 >
                   <div className="min-h-0">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted transition-transform duration-200 group-hover:scale-105">
-                      <Menu className="h-5 w-5" />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted transition-transform duration-200 bg-[#f4f4f5] group-hover:scale-105">
+                      <Menu className="h-5 w-5 " />
                     </div>
                   </div>
                 </div>
@@ -579,11 +579,11 @@ export default function Navbar() {
                   <div
                     className={`grid overflow-hidden transition-all duration-300 ease-in-out ${
                       showCategoryIcons
-                        ? "grid-rows-[1fr] opacity-100"
+                        ? "grid-rows-[1fr]  opacity-100"
                         : "grid-rows-[0fr] opacity-0"
                     }`}
                   >
-                    <div className="min-h-0">
+                    <div className="min-h-0 ">
                       <div className="flex h-12 w-12 items-center justify-center transition-transform duration-200 group-hover:scale-105">
                         <CategoryIcon
                           category={cat}

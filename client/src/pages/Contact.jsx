@@ -38,7 +38,7 @@ export default function Contact() {
         </CardHeader>
         <CardContent>
           {sent ? (
-            <p className="text-sm text-green-600 dark:text-green-400">
+            <p className="text-sm text-success">
               Thank you! Your message has been received. We’ll respond soon.
             </p>
           ) : (

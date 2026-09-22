@@ -399,7 +399,7 @@ export default function VendorProfile() {
         )}
 
         {success && (
-          <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-600">
+          <div className="rounded-md border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
             {success}
           </div>
         )}

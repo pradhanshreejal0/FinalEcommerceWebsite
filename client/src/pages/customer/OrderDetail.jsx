@@ -21,31 +21,31 @@ const statusConfig = {
   pending: {
     label: "Pending",
     icon: Clock3,
-    className: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    className: "bg-warning/10 text-warning-foreground border-warning/20",
   },
 
   processing: {
     label: "Processing",
     icon: Package,
-    className: "bg-blue-100 text-blue-800 border-blue-200",
+    className: "bg-info/10 text-info-foreground border-info/20",
   },
 
   shipped: {
     label: "Shipped",
     icon: Truck,
-    className: "bg-purple-100 text-purple-800 border-purple-200",
+    className: "bg-secondary text-secondary-foreground border-secondary",
   },
 
   delivered: {
     label: "Delivered",
     icon: CheckCircle2,
-    className: "bg-green-100 text-green-800 border-green-200",
+    className: "bg-success/10 text-success-foreground border-success/20",
   },
 
   cancelled: {
     label: "Cancelled",
     icon: XCircle,
-    className: "bg-red-100 text-red-800 border-red-200",
+    className: "bg-destructive/10 text-destructive border-destructive/20",
   },
 };
 
@@ -364,7 +364,7 @@ export default function OrderDetail() {
                     {/* Cancellation reason */}
                     {itemStatus === "cancelled" &&
                       item.cancellationReason && (
-                        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                        <div className="mt-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
                           <p className="font-medium">
                             Cancellation reason
                           </p>
@@ -482,7 +482,7 @@ export default function OrderDetail() {
       {/* Overall cancellation */}
       {order.status === "cancelled" &&
         order.cancellationReason && (
-          <section className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-800 sm:p-6">
+          <section className="mt-6 rounded-2xl border border-destructive/20 bg-destructive/10 p-5 text-destructive sm:p-6">
             <div className="flex items-start gap-3">
               <XCircle className="mt-0.5 h-5 w-5 shrink-0" />
 
@@ -501,7 +501,7 @@ export default function OrderDetail() {
 
       {/* Completed receipt note */}
       {order.status === "delivered" && (
-        <section className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-5 text-green-800 sm:p-6">
+        <section className="mt-6 rounded-2xl border border-success/20 bg-success/10 p-5 text-success-foreground sm:p-6">
           <div className="flex items-start gap-3">
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
 

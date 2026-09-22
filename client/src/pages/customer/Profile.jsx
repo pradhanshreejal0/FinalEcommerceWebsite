@@ -119,7 +119,7 @@ export default function Profile() {
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {success && <p className="text-sm text-green-600">{success}</p>}
+        {success && <p className="text-sm text-success">{success}</p>}
 
         <Button type="submit" disabled={saving}>
           {saving ? "Saving..." : "Save changes"}
