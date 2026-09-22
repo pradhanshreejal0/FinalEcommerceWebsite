@@ -1,6 +1,6 @@
 import User from "../models/User.js";
 import Vendor from "../models/Vendor.js";
-import { escapeRegex } from "../utils/escapeRegex.js";
+// import { escapeRegex } from "../utils/escapeRegex.js";
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -11,12 +11,9 @@ export const getAllUsers = async (req, res) => {
       filter.role = role;
     }
 
-    if (search.trim()) {
-      const searchText = escapeRegex(search.trim());
-      filter.$or = [
-        { name: { $regex: searchText, $options: "i" } },
-        { email: { $regex: searchText, $options: "i" } },
-      ];
+    const searchTerm = search.trim();
+    if (searchTerm) {
+      filter.$text = { $search: searchTerm };
     }
 
     const users = await User.find(filter)

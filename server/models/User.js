@@ -25,6 +25,10 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Text index so admin can search users by name/email without a full
+// collection scan on every search.
+userSchema.index({ name: "text", email: "text" });
+
 // Hash password before saving
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;

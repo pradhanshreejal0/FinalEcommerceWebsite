@@ -1,7 +1,7 @@
 import Product from "../models/Product.js";
 import Vendor from "../models/Vendor.js";
 import Category from "../models/Category.js";
-import { escapeRegex } from "../utils/escapeRegex.js";
+// import { escapeRegex } from "../utils/escapeRegex.js";
 
 // Helper: get approved vendor profile of logged-in user
 const getVendorByUser = async (userId) => {
@@ -197,13 +197,13 @@ export const getProducts = async (req, res) => {
       isPublished: true,
     };
 
-    // Search (prefer text index if available)
-    if (search.trim()) {
-      const searchText =escapeRegex(search.trim());
-      filter.$or = [
-        { title: { $regex: searchText, $options: "i" } },
-        { description: { $regex: searchText, $options: "i" } },
-      ];
+    // Full-text search using the text index already defined on the schema
+    // (`{ title: "text", description: "text" }`). Uses the index, gives
+    // relevance ranking (via textScore) and basic word-stemming
+    // (e.g. "shoe" also matches "shoes").
+    const searchTerm = search.trim();
+    if (searchTerm) {
+      filter.$text = { $search: searchTerm };
     }
 
     // Category filter
@@ -246,8 +246,16 @@ export const getProducts = async (req, res) => {
       }
     }
 
-    // Sorting
+    // Sorting — default to relevance when searching (unless the caller
+    // explicitly asked for a price/oldest sort, which still wins).
     let sortOption = { createdAt: -1 };
+    let projection = null;
+
+    if (searchTerm) {
+      projection = { score: { $meta: "textScore" } };
+      sortOption = { score: { $meta: "textScore" } };
+    }
+
     if (sort === "price_asc") sortOption = { price: 1 };
     if (sort === "price_desc") sortOption = { price: -1 };
     if (sort === "oldest") sortOption = { createdAt: 1 };
@@ -255,7 +263,7 @@ export const getProducts = async (req, res) => {
     // Run count + find in parallel for speed
     const [total, products] = await Promise.all([
       Product.countDocuments(filter),
-      Product.find(filter)
+      Product.find(filter, projection)
         .populate("category", "name parentCategory")
         .populate({
           path: "vendor",
@@ -264,7 +272,7 @@ export const getProducts = async (req, res) => {
         .sort(sortOption)
         .skip(skip)
         .limit(limitNum)
-        .lean(), // lean() is faster (plain JS objects)
+        .lean(),
     ]);
 
     res.json({
