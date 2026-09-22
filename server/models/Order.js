@@ -115,10 +115,20 @@ const orderSchema = new mongoose.Schema(
         default: "Nepal",
         trim: true,
       },
+
+      latitude: {
+        type: Number,
+        required: true,
+        min: -90,
+        max: 90,
+      },
+
       longitude: {
-          type: Number,
-          // required: true,
-        },
+        type: Number,
+        required: true,
+        min: -180,
+        max: 180,
+      },
     },
 
     totalAmount: {
@@ -163,5 +173,7 @@ const orderSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+
 
 export default mongoose.model("Order", orderSchema);

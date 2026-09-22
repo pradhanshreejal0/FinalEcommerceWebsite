@@ -8,21 +8,85 @@ const vendorSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-    storeName: { type: String, required: true },
-    storeSlug: { type: String, required: true, unique: true },
-    storeDescription: { type: String, default: "" },
-    logo: { type: String, default: "" },
-    banner: { type: String, default: "" },
-    // WhatsApp contact number in international format, digits only
-    // (no "+", spaces or dashes), e.g. "9779812345678".
-    phone: { type: String,required: true, default: "" },
+
+    storeName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    storeSlug: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+    },
+
+    storeDescription: {
+      type: String,
+      default: "",
+    },
+
+    logo: {
+      type: String,
+      default: "",
+    },
+
+    banner: {
+      type: String,
+      default: "",
+    },
+
+    phone: {
+      type: String,
+      required: true,
+      default: "",
+    },
+
+    // Vendor store location
+    location: {
+      latitude: {
+        type: Number,
+        required: true,
+        min: -90,
+        max: 90,
+      },
+
+      longitude: {
+        type: Number,
+        required: true,
+        min: -180,
+        max: 180,
+      },
+
+      address: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+
+      city: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+
+      country: {
+        type: String,
+        default: "Nepal",
+        trim: true,
+      },
+    },
+
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
       default: "pending",
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 export default mongoose.model("Vendor", vendorSchema);

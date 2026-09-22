@@ -8,6 +8,7 @@ import {
   Loader2,
   MapPin,
   ShoppingBag,
+  Truck,
 } from "lucide-react";
 
 import {
@@ -21,6 +22,10 @@ import {
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
@@ -31,10 +36,6 @@ import { Button } from "@/components/ui/button";
 | Fix Leaflet marker icons for Vite
 |--------------------------------------------------------------------------
 */
-
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
 delete L.Icon.Default.prototype._getIconUrl;
 
@@ -49,8 +50,8 @@ L.Icon.Default.mergeOptions({
 | Default Map Location
 |--------------------------------------------------------------------------
 |
-| Kathmandu is used only as the initial map center.
-| The customer can select any location.
+| Kathmandu is only the initial map center.
+| The customer must select their actual delivery location.
 |
 */
 
@@ -64,7 +65,11 @@ const DEFAULT_ZOOM = 13;
 |--------------------------------------------------------------------------
 */
 
-function LocationSelector({ position, setPosition, disabled }) {
+function LocationSelector({
+  position,
+  setPosition,
+  disabled,
+}) {
   useMapEvents({
     click(event) {
       if (disabled) {
@@ -86,7 +91,10 @@ function LocationSelector({ position, setPosition, disabled }) {
 
   return (
     <Marker
-      position={[position.lat, position.lng]}
+      position={[
+        position.lat,
+        position.lng,
+      ]}
       draggable={!disabled}
       eventHandlers={{
         dragend(event) {
@@ -95,7 +103,9 @@ function LocationSelector({ position, setPosition, disabled }) {
           }
 
           const marker = event.target;
-          const location = marker.getLatLng();
+
+          const location =
+            marker.getLatLng();
 
           setPosition({
             lat: location.lat,
@@ -106,10 +116,18 @@ function LocationSelector({ position, setPosition, disabled }) {
     >
       <Popup>
         <div className="text-sm">
-          <p className="font-semibold">Delivery Location</p>
+          <p className="font-semibold">
+            Delivery Location
+          </p>
 
           <p className="mt-1 text-xs text-muted-foreground">
-            {position.lat.toFixed(6)}, {position.lng.toFixed(6)}
+            Latitude:{" "}
+            {position.lat.toFixed(6)}
+          </p>
+
+          <p className="text-xs text-muted-foreground">
+            Longitude:{" "}
+            {position.lng.toFixed(6)}
           </p>
         </div>
       </Popup>
@@ -117,10 +135,19 @@ function LocationSelector({ position, setPosition, disabled }) {
   );
 }
 
+/*
+|--------------------------------------------------------------------------
+| Checkout
+|--------------------------------------------------------------------------
+*/
+
 export default function Checkout() {
   const navigate = useNavigate();
 
-  const { user, accessToken } = useAuth();
+  const {
+    user,
+    accessToken,
+  } = useAuth();
 
   const {
     cart,
@@ -130,26 +157,33 @@ export default function Checkout() {
 
   /*
   |--------------------------------------------------------------------------
-  | Form
+  | Shipping Form
   |--------------------------------------------------------------------------
   */
 
   const [form, setForm] = useState({
-    fullName: user?.name || "",
+    fullName:
+      user?.name || "",
+
     phone: "",
+
     address: "",
+
     city: "",
+
     postalCode: "",
+
     country: "Nepal",
   });
 
   /*
   |--------------------------------------------------------------------------
-  | Map Location
+  | Delivery Location
   |--------------------------------------------------------------------------
   */
 
-  const [location, setLocation] = useState(null);
+  const [location, setLocation] =
+    useState(null);
 
   /*
   |--------------------------------------------------------------------------
@@ -157,16 +191,34 @@ export default function Checkout() {
   |--------------------------------------------------------------------------
   */
 
-  const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [paymentMethod, setPaymentMethod] =
+    useState("cod");
 
   /*
   |--------------------------------------------------------------------------
-  | State
+  | Delivery Quote
   |--------------------------------------------------------------------------
   */
 
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [deliveryQuote, setDeliveryQuote] =
+    useState(null);
+
+  const [
+    calculatingDelivery,
+    setCalculatingDelivery,
+  ] = useState(false);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Submission
+  |--------------------------------------------------------------------------
+  */
+
+  const [submitting, setSubmitting] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
 
   /*
   |--------------------------------------------------------------------------
@@ -176,28 +228,45 @@ export default function Checkout() {
 
   useEffect(() => {
     if (!user) {
-      navigate("/login", { replace: true });
+      navigate("/login", {
+        replace: true,
+      });
+
       return;
     }
 
-    if (user.role !== "customer") {
-      navigate("/", { replace: true });
+    if (
+      user.role !== "customer"
+    ) {
+      navigate("/", {
+        replace: true,
+      });
     }
-  }, [user, navigate]);
+  }, [
+    user,
+    navigate,
+  ]);
 
   /*
   |--------------------------------------------------------------------------
-  | Form Change
+  | Update Form
   |--------------------------------------------------------------------------
   */
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
+  const handleChange = (
+    event
+  ) => {
+    const {
+      name,
+      value,
+    } = event.target;
 
-    setForm((previous) => ({
-      ...previous,
-      [name]: value,
-    }));
+    setForm(
+      (previous) => ({
+        ...previous,
+        [name]: value,
+      })
+    );
 
     if (error) {
       setError("");
@@ -206,23 +275,195 @@ export default function Checkout() {
 
   /*
   |--------------------------------------------------------------------------
-  | Calculate Total
+  | Cart Items
   |--------------------------------------------------------------------------
   */
 
-  const items = cart?.items || [];
+  const items =
+    cart?.items || [];
 
-  const total = items.reduce((sum, item) => {
-    const price = getFinalPrice(item.product);
-    const quantity = Number(item.quantity || 0);
+  /*
+  |--------------------------------------------------------------------------
+  | Subtotal
+  |--------------------------------------------------------------------------
+  */
 
-    return sum + price * quantity;
-  }, 0);
+  const subtotal =
+    items.reduce(
+      (
+        sum,
+        item
+      ) => {
+        if (!item.product) {
+          return sum;
+        }
 
-  const itemCount = items.reduce(
-    (sum, item) => sum + Number(item.quantity || 0),
-    0
-  );
+        const price =
+          getFinalPrice(
+            item.product
+          );
+
+        const quantity =
+          Number(
+            item.quantity || 0
+          );
+
+        return (
+          sum +
+          price *
+            quantity
+        );
+      },
+      0
+    );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Item Count
+  |--------------------------------------------------------------------------
+  */
+
+  const itemCount =
+    items.reduce(
+      (
+        sum,
+        item
+      ) =>
+        sum +
+        Number(
+          item.quantity || 0
+        ),
+      0
+    );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Delivery Fee
+  |--------------------------------------------------------------------------
+  */
+
+  const deliveryFee =
+    Number(
+      deliveryQuote?.deliveryFee ||
+        0
+    );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Grand Total
+  |--------------------------------------------------------------------------
+  */
+
+  const grandTotal =
+    subtotal +
+    deliveryFee;
+
+  /*
+  |--------------------------------------------------------------------------
+  | Calculate Delivery Quote
+  |--------------------------------------------------------------------------
+  |
+  | This calls the backend.
+  |
+  | The frontend never calculates the actual
+  | delivery fee itself.
+  |
+  */
+
+  useEffect(() => {
+    if (
+      !accessToken ||
+      !location ||
+      items.length === 0
+    ) {
+      setDeliveryQuote(
+        null
+      );
+
+      setCalculatingDelivery(
+        false
+      );
+
+      return;
+    }
+
+    let cancelled =
+      false;
+
+    const fetchDeliveryQuote =
+      async () => {
+        try {
+          setCalculatingDelivery(
+            true
+          );
+
+          setError("");
+
+          const quote =
+            await api(
+              "/orders/delivery-quote",
+              {
+                method:
+                  "POST",
+
+                accessToken,
+
+                body: JSON.stringify({
+                  latitude:
+                    location.lat,
+
+                  longitude:
+                    location.lng,
+                }),
+              }
+            );
+
+          if (
+            !cancelled
+          ) {
+            setDeliveryQuote(
+              quote
+            );
+          }
+        } catch (err) {
+          console.error(
+            "Delivery quote error:",
+            err
+          );
+
+          if (
+            !cancelled
+          ) {
+            setDeliveryQuote(
+              null
+            );
+
+            setError(
+              err?.message ||
+                "Unable to calculate delivery fee."
+            );
+          }
+        } finally {
+          if (
+            !cancelled
+          ) {
+            setCalculatingDelivery(
+              false
+            );
+          }
+        }
+      };
+
+    fetchDeliveryQuote();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    location,
+    accessToken,
+    items.length,
+  ]);
 
   /*
   |--------------------------------------------------------------------------
@@ -230,117 +471,276 @@ export default function Checkout() {
   |--------------------------------------------------------------------------
   */
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleSubmit =
+    async (
+      event
+    ) => {
+      event.preventDefault();
 
-    setError("");
+      setError("");
 
-    if (!accessToken) {
-      setError("Your session has expired. Please login again.");
-      return;
-    }
+      /*
+      |--------------------------------------------------------------------------
+      | Authentication
+      |--------------------------------------------------------------------------
+      */
 
-    if (items.length === 0) {
-      setError("Your cart is empty.");
-      return;
-    }
-
-    if (!form.fullName.trim()) {
-      setError("Please enter your full name.");
-      return;
-    }
-
-    if (!form.phone.trim()) {
-      setError("Please enter your phone number.");
-      return;
-    }
-
-    if (!form.address.trim()) {
-      setError("Please enter your address.");
-      return;
-    }
-
-    if (!form.city.trim()) {
-      setError("Please enter your city.");
-      return;
-    }
-
-    if (!form.country.trim()) {
-      setError("Please enter your country.");
-      return;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Require Map Location
-    |--------------------------------------------------------------------------
-    */
-
-    if (!location) {
-      setError(
-        "Please select your delivery location on the map."
-      );
-      return;
-    }
-
-    if (paymentMethod !== "cod") {
-      setError(
-        "Online payment is not available yet. Please select Cash on Delivery."
-      );
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-
-      const order = await api("/orders", {
-        method: "POST",
-        accessToken,
-        body: JSON.stringify({
-          shippingAddress: {
-            fullName: form.fullName.trim(),
-            phone: form.phone.trim(),
-            address: form.address.trim(),
-            city: form.city.trim(),
-            postalCode: form.postalCode.trim(),
-            country: form.country.trim(),
-
-            /*
-            |--------------------------------------------------------------------------
-            | Delivery GPS Coordinates
-            |--------------------------------------------------------------------------
-            */
-
-            latitude: location.lat,
-            longitude: location.lng,
-          },
-
-          paymentMethod,
-        }),
-      });
-
-      if (!order?._id) {
-        throw new Error(
-          "Order was created, but the order ID was not returned."
+      if (!accessToken) {
+        setError(
+          "Your session has expired. Please login again."
         );
+
+        return;
       }
 
-      resetCart();
+      /*
+      |--------------------------------------------------------------------------
+      | Cart
+      |--------------------------------------------------------------------------
+      */
 
-      navigate(`/orders/${order._id}`, {
-        replace: true,
-      });
-    } catch (err) {
-      console.error("Place order error:", err);
+      if (
+        items.length === 0
+      ) {
+        setError(
+          "Your cart is empty."
+        );
 
-      setError(
-        err?.message ||
-          "Unable to place your order. Please try again."
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
+        return;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Full Name
+      |--------------------------------------------------------------------------
+      */
+
+      if (
+        !form.fullName.trim()
+      ) {
+        setError(
+          "Please enter your full name."
+        );
+
+        return;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Phone
+      |--------------------------------------------------------------------------
+      */
+
+      if (
+        !form.phone.trim()
+      ) {
+        setError(
+          "Please enter your phone number."
+        );
+
+        return;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Address
+      |--------------------------------------------------------------------------
+      */
+
+      if (
+        !form.address.trim()
+      ) {
+        setError(
+          "Please enter your address."
+        );
+
+        return;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | City
+      |--------------------------------------------------------------------------
+      */
+
+      if (
+        !form.city.trim()
+      ) {
+        setError(
+          "Please enter your city."
+        );
+
+        return;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Country
+      |--------------------------------------------------------------------------
+      */
+
+      if (
+        !form.country.trim()
+      ) {
+        setError(
+          "Please enter your country."
+        );
+
+        return;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Map Location
+      |--------------------------------------------------------------------------
+      */
+
+      if (!location) {
+        setError(
+          "Please select your delivery location on the map."
+        );
+
+        return;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Delivery Calculation
+      |--------------------------------------------------------------------------
+      */
+
+      if (
+        calculatingDelivery
+      ) {
+        setError(
+          "Please wait while we calculate your delivery fee."
+        );
+
+        return;
+      }
+
+      if (!deliveryQuote) {
+        setError(
+          "Please select your delivery location and wait for the delivery fee to be calculated."
+        );
+
+        return;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Payment
+      |--------------------------------------------------------------------------
+      */
+
+      if (
+        paymentMethod !== "cod"
+      ) {
+        setError(
+          "Online payment is not available yet. Please select Cash on Delivery."
+        );
+
+        return;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Submit
+      |--------------------------------------------------------------------------
+      */
+
+      try {
+        setSubmitting(true);
+
+        const order =
+          await api(
+            "/orders",
+            {
+              method:
+                "POST",
+
+              accessToken,
+
+              body: JSON.stringify({
+                shippingAddress: {
+                  fullName:
+                    form.fullName.trim(),
+
+                  phone:
+                    form.phone.trim(),
+
+                  address:
+                    form.address.trim(),
+
+                  city:
+                    form.city.trim(),
+
+                  postalCode:
+                    form.postalCode.trim(),
+
+                  country:
+                    form.country.trim(),
+
+                  latitude:
+                    location.lat,
+
+                  longitude:
+                    location.lng,
+                },
+
+                paymentMethod,
+              }),
+            }
+          );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Validate Response
+        |--------------------------------------------------------------------------
+        */
+
+        if (!order?._id) {
+          throw new Error(
+            "Order was created, but the order ID was not returned."
+          );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Clear Cart
+        |--------------------------------------------------------------------------
+        */
+
+        resetCart();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Go To Order
+        |--------------------------------------------------------------------------
+        */
+
+        navigate(
+          `/orders/${order._id}`,
+          {
+            replace: true,
+          }
+        );
+      } catch (err) {
+        console.error(
+          "Place order error:",
+          err
+        );
+
+        setError(
+          err?.message ||
+            "Unable to place your order. Please try again."
+        );
+      } finally {
+        setSubmitting(
+          false
+        );
+      }
+    };
 
   /*
   |--------------------------------------------------------------------------
@@ -348,12 +748,18 @@ export default function Checkout() {
   |--------------------------------------------------------------------------
   */
 
-  if (!user || cartLoading) {
+  if (
+    !user ||
+    cartLoading
+  ) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center px-4">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Loading checkout...</span>
+
+          <span>
+            Loading checkout...
+          </span>
         </div>
       </div>
     );
@@ -365,7 +771,9 @@ export default function Checkout() {
   |--------------------------------------------------------------------------
   */
 
-  if (items.length === 0) {
+  if (
+    items.length === 0
+  ) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center px-4">
         <div className="w-full max-w-md text-center">
@@ -378,10 +786,14 @@ export default function Checkout() {
           </h1>
 
           <p className="mt-2 text-muted-foreground">
-            Add some products before going to checkout.
+            Add some products before
+            going to checkout.
           </p>
 
-          <Button asChild className="mt-6">
+          <Button
+            asChild
+            className="mt-6"
+          >
             <Link to="/products">
               Continue Shopping
             </Link>
@@ -393,7 +805,7 @@ export default function Checkout() {
 
   /*
   |--------------------------------------------------------------------------
-  | Checkout
+  | Checkout UI
   |--------------------------------------------------------------------------
   */
 
@@ -401,17 +813,24 @@ export default function Checkout() {
     <div className="min-h-screen bg-muted/30 py-6 sm:py-10">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
 
-        {/* Header */}
+        {/* ============================================================
+            HEADER
+        ============================================================ */}
 
         <div className="mb-6">
           <Button
             type="button"
             variant="ghost"
             className="-ml-2 mb-3"
-            onClick={() => navigate("/cart")}
-            disabled={submitting}
+            onClick={() =>
+              navigate("/cart")
+            }
+            disabled={
+              submitting
+            }
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
+
             Back to Cart
           </Button>
 
@@ -420,12 +839,15 @@ export default function Checkout() {
           </h1>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Enter your delivery information and select your
-            delivery location.
+            Enter your delivery information,
+            select your location, and review
+            your delivery fee.
           </p>
         </div>
 
-        {/* Error */}
+        {/* ============================================================
+            ERROR
+        ============================================================ */}
 
         {error && (
           <div
@@ -436,25 +858,33 @@ export default function Checkout() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={
+            handleSubmit
+          }
+        >
           <div className="grid gap-6 lg:grid-cols-3">
 
-            {/* ============================================================
+            {/* ========================================================
                 LEFT
-            ============================================================ */}
+            ======================================================== */}
 
             <div className="space-y-6 lg:col-span-2">
 
-              {/* Shipping Address */}
+              {/* ======================================================
+                  SHIPPING ADDRESS
+              ====================================================== */}
 
               <section className="rounded-xl border bg-background p-5 shadow-sm sm:p-6">
+
                 <div className="mb-6">
                   <h2 className="text-lg font-semibold">
                     Shipping Address
                   </h2>
 
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Where should we deliver your order?
+                    Where should we deliver
+                    your order?
                   </p>
                 </div>
 
@@ -474,11 +904,17 @@ export default function Checkout() {
                       id="fullName"
                       name="fullName"
                       type="text"
-                      value={form.fullName}
-                      onChange={handleChange}
+                      value={
+                        form.fullName
+                      }
+                      onChange={
+                        handleChange
+                      }
                       placeholder="Enter your full name"
                       autoComplete="name"
-                      disabled={submitting}
+                      disabled={
+                        submitting
+                      }
                       className="w-full rounded-md border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
@@ -497,11 +933,17 @@ export default function Checkout() {
                       id="phone"
                       name="phone"
                       type="tel"
-                      value={form.phone}
-                      onChange={handleChange}
+                      value={
+                        form.phone
+                      }
+                      onChange={
+                        handleChange
+                      }
                       placeholder="98XXXXXXXX"
                       autoComplete="tel"
-                      disabled={submitting}
+                      disabled={
+                        submitting
+                      }
                       className="w-full rounded-md border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
@@ -520,11 +962,17 @@ export default function Checkout() {
                       id="city"
                       name="city"
                       type="text"
-                      value={form.city}
-                      onChange={handleChange}
+                      value={
+                        form.city
+                      }
+                      onChange={
+                        handleChange
+                      }
                       placeholder="Kathmandu"
                       autoComplete="address-level2"
-                      disabled={submitting}
+                      disabled={
+                        submitting
+                      }
                       className="w-full rounded-md border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
@@ -543,11 +991,17 @@ export default function Checkout() {
                       id="address"
                       name="address"
                       rows={3}
-                      value={form.address}
-                      onChange={handleChange}
+                      value={
+                        form.address
+                      }
+                      onChange={
+                        handleChange
+                      }
                       placeholder="Street, house number, area..."
                       autoComplete="street-address"
-                      disabled={submitting}
+                      disabled={
+                        submitting
+                      }
                       className="w-full resize-none rounded-md border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
@@ -569,11 +1023,17 @@ export default function Checkout() {
                       id="postalCode"
                       name="postalCode"
                       type="text"
-                      value={form.postalCode}
-                      onChange={handleChange}
+                      value={
+                        form.postalCode
+                      }
+                      onChange={
+                        handleChange
+                      }
                       placeholder="44600"
                       autoComplete="postal-code"
-                      disabled={submitting}
+                      disabled={
+                        submitting
+                      }
                       className="w-full rounded-md border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
@@ -592,20 +1052,26 @@ export default function Checkout() {
                       id="country"
                       name="country"
                       type="text"
-                      value={form.country}
-                      onChange={handleChange}
+                      value={
+                        form.country
+                      }
+                      onChange={
+                        handleChange
+                      }
                       placeholder="Nepal"
                       autoComplete="country-name"
-                      disabled={submitting}
+                      disabled={
+                        submitting
+                      }
                       className="w-full rounded-md border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
                 </div>
               </section>
 
-              {/* ============================================================
+              {/* ======================================================
                   DELIVERY MAP
-              ============================================================ */}
+              ====================================================== */}
 
               <section className="rounded-xl border bg-background p-5 shadow-sm sm:p-6">
 
@@ -619,34 +1085,36 @@ export default function Checkout() {
                   </div>
 
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Click on the map to select your delivery
-                    location. You can also drag the marker.
+                    Click on the map to select
+                    your delivery location.
+                    You can also drag the
+                    marker.
                   </p>
                 </div>
 
                 {/* Map */}
 
-                <div className="overflow-hidden rounded-xl border">
+                <div className="relative z-0 w-full overflow-hidden rounded-xl border">
                   <MapContainer
-                    center={DEFAULT_MAP_POSITION}
-                    zoom={DEFAULT_ZOOM}
+                    center={[27.7172, 85.324]}
+                    zoom={13}
                     scrollWheelZoom={true}
-                    className="h-[350px] w-full sm:h-[450px]"
+                    className="h-87 w-full"
+                    style={{ height: "350px", width: "100%" }}
                   >
                     <TileLayer
-                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                      attribution='&copy; OpenStreetMap contributors'
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
 
                     <LocationSelector
-                      position={location}
-                      setPosition={setLocation}
-                      disabled={submitting}
+                      location={location}
+                      setLocation={setLocation}
                     />
                   </MapContainer>
                 </div>
 
-                {/* Location Information */}
+                {/* Location Info */}
 
                 <div className="mt-4">
                   {location ? (
@@ -657,19 +1125,24 @@ export default function Checkout() {
                           <MapPin className="h-4 w-4 text-primary" />
                         </div>
 
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium">
-                            Delivery location selected
+                            Delivery location
+                            selected
                           </p>
 
-                          <p className="mt-1 break-all text-xs text-muted-foreground">
+                          <p className="mt-1 break-all text-xs text-muted-foreground z-[-2]">
                             Latitude:{" "}
-                            {location.lat.toFixed(6)}
+                            {location.lat.toFixed(
+                              6
+                            )}
                           </p>
 
                           <p className="text-xs text-muted-foreground">
                             Longitude:{" "}
-                            {location.lng.toFixed(6)}
+                            {location.lng.toFixed(
+                              6
+                            )}
                           </p>
                         </div>
                       </div>
@@ -679,28 +1152,156 @@ export default function Checkout() {
                       <MapPin className="mx-auto h-5 w-5 text-muted-foreground" />
 
                       <p className="mt-2 text-sm font-medium">
-                        Select your delivery location
+                        Select your delivery
+                        location
                       </p>
 
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Click anywhere on the map to place your
+                        Click anywhere on the
+                        map to place your
                         delivery marker.
                       </p>
                     </div>
                   )}
                 </div>
+
+                {/* Delivery Calculation */}
+
+                {location && (
+                  <div className="mt-4 rounded-lg border bg-background p-4">
+
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                        <Truck className="h-4 w-4 text-primary" />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium">
+                          Delivery fee
+                        </p>
+
+                        {calculatingDelivery ? (
+                          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+
+                            Calculating delivery
+                            distance and fee...
+                          </div>
+                        ) : deliveryQuote ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Delivery from{" "}
+                            {
+                              deliveryQuote
+                                ?.delivery
+                                ?.vendors
+                                ?.length || 0
+                            } vendor
+                            {(
+                              deliveryQuote
+                                ?.delivery
+                                ?.vendors
+                                ?.length || 0
+                            ) !== 1
+                              ? "s"
+                              : ""}
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-xs text-destructive">
+                            Unable to calculate
+                            delivery fee.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="text-right">
+                        {calculatingDelivery ? (
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        ) : deliveryQuote ? (
+                          <span className="font-semibold">
+                            NPR{" "}
+                            {deliveryFee.toFixed(
+                              2
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            —
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Vendor Breakdown */}
+
+                    {deliveryQuote
+                      ?.delivery
+                      ?.vendors
+                      ?.length >
+                      0 && (
+                      <div className="mt-4 border-t pt-4">
+                        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Delivery breakdown
+                        </p>
+
+                        <div className="space-y-2">
+                          {deliveryQuote.delivery.vendors.map(
+                            (
+                              vendorDelivery,
+                              index
+                            ) => (
+                              <div
+                                key={`${vendorDelivery.vendor?._id || index}`}
+                                className="flex items-center justify-between gap-3 text-sm"
+                              >
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium">
+                                    {vendorDelivery
+                                      .vendor
+                                      ?.storeName ||
+                                      `Vendor ${index + 1}`}
+                                  </p>
+
+                                  <p className="text-xs text-muted-foreground">
+                                    {
+                                      vendorDelivery.distanceKm
+                                    }{" "}
+                                    km away
+                                  </p>
+                                </div>
+
+                                <span className="shrink-0 font-medium">
+                                  NPR{" "}
+                                  {Number(
+                                    vendorDelivery.fee ||
+                                      0
+                                  ).toFixed(
+                                    2
+                                  )}
+                                </span>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </section>
 
-              {/* Payment */}
+              {/* ======================================================
+                  PAYMENT
+              ====================================================== */}
 
               <section className="rounded-xl border bg-background p-5 shadow-sm sm:p-6">
+
                 <div className="mb-6">
                   <h2 className="text-lg font-semibold">
                     Payment Method
                   </h2>
 
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Select your preferred payment method.
+                    Select your preferred
+                    payment method.
                   </p>
                 </div>
 
@@ -710,7 +1311,8 @@ export default function Checkout() {
 
                   <label
                     className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition ${
-                      paymentMethod === "cod"
+                      paymentMethod ===
+                      "cod"
                         ? "border-primary bg-primary/5"
                         : "hover:bg-muted/50"
                     }`}
@@ -719,11 +1321,21 @@ export default function Checkout() {
                       type="radio"
                       name="paymentMethod"
                       value="cod"
-                      checked={paymentMethod === "cod"}
-                      onChange={(event) =>
-                        setPaymentMethod(event.target.value)
+                      checked={
+                        paymentMethod ===
+                        "cod"
                       }
-                      disabled={submitting}
+                      onChange={(
+                        event
+                      ) =>
+                        setPaymentMethod(
+                          event.target
+                            .value
+                        )
+                      }
+                      disabled={
+                        submitting
+                      }
                       className="mt-1"
                     />
 
@@ -733,7 +1345,8 @@ export default function Checkout() {
                       </p>
 
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Pay when your order arrives.
+                        Pay when your order
+                        arrives.
                       </p>
                     </div>
                   </label>
@@ -755,7 +1368,8 @@ export default function Checkout() {
                       </p>
 
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Online card payment — coming soon.
+                        Online card payment —
+                        coming soon.
                       </p>
                     </div>
                   </div>
@@ -777,18 +1391,18 @@ export default function Checkout() {
                       </p>
 
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Online payment — coming soon.
+                        Online payment —
+                        coming soon.
                       </p>
                     </div>
                   </div>
-
                 </div>
               </section>
             </div>
 
-            {/* ============================================================
+            {/* ========================================================
                 RIGHT - ORDER SUMMARY
-            ============================================================ */}
+            ======================================================== */}
 
             <aside className="lg:col-span-1">
               <div className="sticky top-6 rounded-xl border bg-background p-5 shadow-sm sm:p-6">
@@ -800,68 +1414,99 @@ export default function Checkout() {
                 {/* Items */}
 
                 <div className="mt-5 space-y-4">
-                  {items.map((item) => {
-                    const product = item.product;
+                  {items.map(
+                    (item) => {
+                      const product =
+                        item.product;
 
-                    if (!product) {
-                      return null;
-                    }
+                      if (!product) {
+                        return null;
+                      }
 
-                    const image =
-                      product.images?.[0] || "";
+                      const image =
+                        product
+                          .images?.[0] ||
+                        "";
 
-                    const price = getFinalPrice(product);
+                      const price =
+                        getFinalPrice(
+                          product
+                        );
 
-                    const quantity = Number(
-                      item.quantity || 0
-                    );
+                      const quantity =
+                        Number(
+                          item.quantity ||
+                            0
+                        );
 
-                    const subtotal =
-                      price * quantity;
+                      const itemSubtotal =
+                        price *
+                        quantity;
 
-                    return (
-                      <div
-                        key={product._id}
-                        className="flex gap-3"
-                      >
-                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-muted">
-                          {image ? (
-                            <img
-                              src={image}
-                              alt={product.title}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center">
-                              <ShoppingBag className="h-5 w-5 text-muted-foreground" />
-                            </div>
-                          )}
-                        </div>
+                      return (
+                        <div
+                          key={
+                            product._id
+                          }
+                          className="flex gap-3"
+                        >
+                          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-muted">
+                            {image ? (
+                              <img
+                                src={
+                                  image
+                                }
+                                alt={
+                                  product.title
+                                }
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center">
+                                <ShoppingBag className="h-5 w-5 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
 
-                        <div className="min-w-0 flex-1">
-                          <p className="line-clamp-2 text-sm font-medium">
-                            {product.title}
-                          </p>
-
-                          {product.vendor?.storeName && (
-                            <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                              {product.vendor.storeName}
+                          <div className="min-w-0 flex-1">
+                            <p className="line-clamp-2 text-sm font-medium">
+                              {
+                                product.title
+                              }
                             </p>
-                          )}
 
-                          <div className="mt-1 flex items-center justify-between gap-2">
-                            <span className="text-xs text-muted-foreground">
-                              Qty: {quantity}
-                            </span>
+                            {product
+                              .vendor
+                              ?.storeName && (
+                              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                                {
+                                  product
+                                    .vendor
+                                    .storeName
+                                }
+                              </p>
+                            )}
 
-                            <span className="text-sm font-medium">
-                              ${subtotal.toFixed(2)}
-                            </span>
+                            <div className="mt-1 flex items-center justify-between gap-2">
+                              <span className="text-xs text-muted-foreground">
+                                Qty:{" "}
+                                {
+                                  quantity
+                                }
+                              </span>
+
+                              <span className="text-sm font-medium">
+                                NPR{" "}
+                                {itemSubtotal.toFixed(
+                                  2
+                                )}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    }
+                  )}
                 </div>
 
                 <div className="my-5 border-t" />
@@ -873,7 +1518,11 @@ export default function Checkout() {
                     Items
                   </span>
 
-                  <span>{itemCount}</span>
+                  <span>
+                    {
+                      itemCount
+                    }
+                  </span>
                 </div>
 
                 {/* Subtotal */}
@@ -883,17 +1532,36 @@ export default function Checkout() {
                     Subtotal
                   </span>
 
-                  <span>${total.toFixed(2)}</span>
+                  <span>
+                    NPR{" "}
+                    {subtotal.toFixed(
+                      2
+                    )}
+                  </span>
                 </div>
 
-                {/* Shipping */}
+                {/* Delivery */}
 
                 <div className="mt-3 flex justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Shipping
+                    Delivery
                   </span>
 
-                  <span>Calculated later</span>
+                  <span>
+                    {calculatingDelivery ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+
+                        Calculating...
+                      </span>
+                    ) : deliveryQuote ? (
+                      `NPR ${deliveryFee.toFixed(
+                        2
+                      )}`
+                    ) : (
+                      "Select location"
+                    )}
+                  </span>
                 </div>
 
                 <div className="my-5 border-t" />
@@ -906,7 +1574,10 @@ export default function Checkout() {
                   </span>
 
                   <span className="text-xl font-bold">
-                    ${total.toFixed(2)}
+                    NPR{" "}
+                    {grandTotal.toFixed(
+                      2
+                    )}
                   </span>
                 </div>
 
@@ -916,16 +1587,40 @@ export default function Checkout() {
                   type="submit"
                   size="lg"
                   className="mt-6 w-full"
-                  disabled={submitting}
+                  disabled={
+                    submitting ||
+                    calculatingDelivery ||
+                    !deliveryQuote
+                  }
                 >
                   {submitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+
                       Placing Order...
+                    </>
+                  ) : calculatingDelivery ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+
+                      Calculating Delivery...
+                    </>
+                  ) : !location ? (
+                    <>
+                      <MapPin className="mr-2 h-4 w-4" />
+
+                      Select Location
+                    </>
+                  ) : !deliveryQuote ? (
+                    <>
+                      <Truck className="mr-2 h-4 w-4" />
+
+                      Calculate Delivery
                     </>
                   ) : (
                     <>
                       <CheckCircle2 className="mr-2 h-4 w-4" />
+
                       Place Order
                     </>
                   )}
@@ -937,15 +1632,23 @@ export default function Checkout() {
                   type="button"
                   variant="outline"
                   className="mt-3 w-full"
-                  onClick={() => navigate("/cart")}
-                  disabled={submitting}
+                  onClick={() =>
+                    navigate(
+                      "/cart"
+                    )
+                  }
+                  disabled={
+                    submitting
+                  }
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" />
+
                   Return to Cart
                 </Button>
 
                 <p className="mt-4 text-center text-xs text-muted-foreground">
-                  Your order will be placed using Cash on Delivery.
+                  Your order will be placed
+                  using Cash on Delivery.
                 </p>
               </div>
             </aside>
