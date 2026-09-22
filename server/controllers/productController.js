@@ -1,7 +1,7 @@
 import Product from "../models/Product.js";
 import Vendor from "../models/Vendor.js";
 import Category from "../models/Category.js";
-// import { escapeRegex } from "../utils/escapeRegex.js";
+import { escapeRegex } from "../utils/escapeRegex.js";
 
 // Helper: get approved vendor profile of logged-in user
 const getVendorByUser = async (userId) => {
@@ -172,6 +172,56 @@ export const getMyProducts = async (req, res) => {
 
     res.status(500).json({
       message: error.message || "Failed to load products",
+    });
+  }
+};
+
+// Public: "Search as you type" suggestions for the navbar search box.
+// Returns a small handful of best matches plus the total match count,
+// so the UI can show "See all N results" once there are more matches
+// than fit in the dropdown.
+export const getSearchSuggestions = async (req, res) => {
+  try {
+    const { q = "" } = req.query;
+    const term = String(q).trim();
+
+    // Skip 1-character queries — they'd match almost everything and
+    // fire an expensive, mostly-useless request on every keystroke.
+    if (term.length < 2) {
+      return res.json({ query: term, results: [], total: 0 });
+    }
+
+    const SUGGESTION_LIMIT = 4;
+
+    // The main product listing uses $text search (see getProducts below)
+    // because it's fast and index-backed, but $text only matches whole
+    // (stemmed) words. Typeahead needs *partial*-word matching — typing
+    // "sun" should already match "Sunglasses" — so we use a regex here
+    // instead. escapeRegex keeps user input safe to drop into a RegExp,
+    // and capping the result set with .limit() keeps each query cheap
+    // even without an index behind it.
+    const safeTerm = escapeRegex(term);
+    const pattern = new RegExp(safeTerm, "i");
+
+    const filter = {
+      isPublished: true,
+      $or: [{ title: pattern }, { description: pattern }],
+    };
+
+    const [total, results] = await Promise.all([
+      Product.countDocuments(filter),
+      Product.find(filter)
+        .select("title price discountPercentage images")
+        .sort({ createdAt: -1 })
+        .limit(SUGGESTION_LIMIT)
+        .lean(),
+    ]);
+
+    res.json({ query: term, results, total });
+  } catch (error) {
+    console.error("Search suggestions error:", error);
+    res.status(500).json({
+      message: error.message || "Failed to load search suggestions",
     });
   }
 };

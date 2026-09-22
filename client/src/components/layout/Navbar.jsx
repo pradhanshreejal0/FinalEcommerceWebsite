@@ -1,12 +1,10 @@
-
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 import {
   ShoppingCart,
   Menu,
   User,
-  Search,
   Heart,
   Package,
   MessageCircle,
@@ -15,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import SearchBox from "@/components/SearchBox";
 
 import {
   Sheet,
@@ -41,32 +39,14 @@ import { CategoryIcon } from "../CategoryIcon";
 
 export default function Navbar() {
   const [categories, setCategories] = useState([]);
-  const [search, setSearch] = useState("");
   const [showCategoryIcons, setShowCategoryIcons] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const { user, logout } = useAuth();
   const { itemCount } = useCart();
 
-  const navigate = useNavigate();
-
   const messagesLink =
     user?.role === "vendor" ? "/vendor/chats" : "/chats";
-
-  // =========================================================
-  // SEARCH
-  // =========================================================
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-
-    const q = search.trim();
-
-    if (q) {
-      navigate(`/products?search=${encodeURIComponent(q)}`);
-    } else {
-      navigate("/products");
-    }
-  };
 
   // =========================================================
   // LOAD CATEGORIES
@@ -166,7 +146,7 @@ export default function Navbar() {
               MOBILE MENU
           ================================================= */}
 
-          <Sheet>
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
               <Button
                 variant="ghost"
@@ -204,30 +184,12 @@ export default function Navbar() {
 
                 {/* Mobile Search */}
 
-                <form
-                  onSubmit={handleSearch}
-                  className="mb-6"
-                >
-                  <div className="flex items-center rounded-lg border bg-muted/30 px-3">
-                    <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-
-                    <Input
-                      value={search}
-                      onChange={(e) =>
-                        setSearch(e.target.value)
-                      }
-                      placeholder="Search products..."
-                      className="border-0 bg-transparent shadow-none focus-visible:ring-0"
-                    />
-                  </div>
-
-                  <Button
-                    type="submit"
-                    className="mt-2 w-full rounded-lg"
-                  >
-                    Search
-                  </Button>
-                </form>
+                <div className="mb-6">
+                  <SearchBox
+                    variant="mobile"
+                    onNavigate={() => setMobileMenuOpen(false)}
+                  />
+                </div>
 
                 {/* Mobile Navigation */}
 
@@ -369,31 +331,7 @@ export default function Navbar() {
               SEARCH
           ================================================= */}
 
-          <form
-            onSubmit={handleSearch}
-            className="flex min-w-0 flex-1"
-          >
-            <div className="flex h-10 w-full items-center rounded-lg bg-muted/50 transition focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/20 sm:h-11">
-              <Search className="ml-3 h-4 w-4 shrink-0 text-muted-foreground sm:ml-4" />
-
-              <Input
-                value={search}
-                onChange={(e) =>
-                  setSearch(e.target.value)
-                }
-                placeholder="Search for products, brands and more"
-                className="h-full min-w-0 border-0 bg-transparent px-2 shadow-none focus-visible:ring-0 sm:px-3"
-              />
-
-              <button
-                type="submit"
-                className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Search"
-              >
-                <Search className="h-4 w-4" />
-              </button>
-            </div>
-          </form>
+          <SearchBox variant="desktop" />
 
           {/* =================================================
               DESKTOP ACTIONS
@@ -552,7 +490,6 @@ export default function Navbar() {
                 >
                   <div className="min-h-0">
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted transition-transform duration-200 group-hover:scale-105">
-                    {/* <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted transition-transform duration-200 bg-[#f4f4f5] group-hover:scale-105">*/}
                       <Menu className="h-5 w-5 " />
                     </div>
                   </div>
