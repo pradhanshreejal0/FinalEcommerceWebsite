@@ -233,35 +233,27 @@
    BASE
    ========================================================= */
 
-@layer base {
-    * {
-        @apply border-border outline-ring/50;
-    }
+   @layer base {
+       * {
+           border-color: var(--border);
+           outline-color: color-mix(in srgb, var(--ring) 50%, transparent);
+       }
 
-    html {
-        @apply font-sans;
-        scroll-behavior: smooth;
-    }
+       html {
+           font-family: var(--font-sans);
+           scroll-behavior: smooth;
+       }
 
-    body {
-        @apply bg-background text-foreground;
+       body {
+           background-color: var(--background);
+           color: var(--foreground);
 
-        font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-        text-rendering: optimizeLegibility;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-    }
-
-    ::selection {
-        background: var(--accent);
-        color: var(--accent-foreground);
-    }
-
-    .dark ::selection {
-        background: var(--accent);
-        color: var(--accent-foreground);
-    }
-}
+           font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+           text-rendering: optimizeLegibility;
+           -webkit-font-smoothing: antialiased;
+           -moz-osx-font-smoothing: grayscale;
+       }
+   }
 
 /* =========================================================
    ANIMATIONS
@@ -337,11 +329,16 @@
     /* ---------- Hover Lift ---------- */
 
     .hover-lift {
-        @apply transition-all duration-300 ease-out;
+        transition-property: all;
+        transition-duration: 300ms;
+        transition-timing-function: ease-out;
     }
 
     .hover-lift:hover {
-        @apply -translate-y-1 shadow-lg;
+        transform: translateY(-0.25rem);
+        box-shadow:
+            0 10px 15px -3px rgb(0 0 0 / 0.1),
+            0 4px 6px -4px rgb(0 0 0 / 0.1);
     }
 
     /* ---------- Skeleton ---------- */

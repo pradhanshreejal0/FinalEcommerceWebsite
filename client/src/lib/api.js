@@ -3,66 +3,95 @@ const API_BASE =
   "https://finalecommercewebsite-backend.onrender.com/api";
 
 /**
- * Main API helper
+ * Main API helper.
  *
- * Used for normal JSON requests:
+ * Supports:
  * GET
  * POST
  * PUT
  * PATCH
  * DELETE
+ *
+ * Supports both:
+ * JSON
+ * FormData
  */
 export async function api(path, options = {}) {
   const {
     accessToken,
-    headers: customHeaders,
+    headers: customHeaders = {},
     body,
     ...rest
   } = options;
 
   const headers = {
-    "Content-Type": "application/json",
     ...customHeaders,
   };
+
+  /*
+   * Never manually set Content-Type when using FormData.
+   *
+   * The browser must generate:
+   *
+   * multipart/form-data; boundary=...
+   */
+  const isFormData =
+    typeof FormData !== "undefined" &&
+    body instanceof FormData;
+
+  if (!isFormData) {
+    headers["Content-Type"] =
+      headers["Content-Type"] ||
+      "application/json";
+  }
 
   if (accessToken) {
     headers.Authorization =
       `Bearer ${accessToken}`;
   }
 
-  /*
-   * Convert normal JavaScript objects
-   * into JSON.
-   *
-   * If body is already a string,
-   * leave it alone.
-   */
-  let finalBody;
+  let finalBody = body;
 
-  if (body !== undefined && body !== null) {
-    finalBody =
-      typeof body === "string"
-        ? body
-        : JSON.stringify(body);
+  /*
+   * Convert JavaScript objects to JSON.
+   *
+   * Leave these untouched:
+   *
+   * - FormData
+   * - strings
+   * - null
+   * - undefined
+   */
+  if (
+    body !== undefined &&
+    body !== null &&
+    !isFormData &&
+    typeof body !== "string"
+  ) {
+    finalBody = JSON.stringify(body);
   }
 
-  const res = await fetch(
+  const response = await fetch(
     `${API_BASE}${path}`,
     {
+      ...rest,
       credentials: "include",
       headers,
       body: finalBody,
-      ...rest,
     }
   );
 
   /*
-   * Read response as text first.
+   * Read as text first.
    *
-   * This prevents JSON parsing errors
-   * when the server returns an empty response.
+   * This prevents:
+   *
+   * Unexpected end of JSON input
+   *
+   * when the backend returns an empty response.
    */
-  const text = await res.text();
+  const text =
+    await response.text();
 
   let data = null;
 
@@ -76,16 +105,16 @@ export async function api(path, options = {}) {
     }
   }
 
-  if (!res.ok) {
-    const message =
+  if (!response.ok) {
+    const error = new Error(
       data?.message ||
-      res.statusText ||
-      "Request failed";
+        response.statusText ||
+        "Request failed"
+    );
 
-    const error =
-      new Error(message);
+    error.status =
+      response.status;
 
-    error.status = res.status;
     error.data = data;
 
     throw error;
@@ -95,15 +124,7 @@ export async function api(path, options = {}) {
 }
 
 /**
- * Upload a parent-category SVG icon.
- *
- * IMPORTANT:
- * Do NOT set Content-Type manually.
- *
- * The browser automatically creates:
- *
- * multipart/form-data;
- * boundary=....
+ * Upload parent-category SVG icon.
  */
 export async function uploadCategoryIcon(
   file,
@@ -115,10 +136,6 @@ export async function uploadCategoryIcon(
     );
   }
 
-  /*
-   * Make sure the browser identifies
-   * this as an SVG.
-   */
   if (
     file.type !==
     "image/svg+xml"
@@ -150,35 +167,24 @@ export async function uploadCategoryIcon(
 
   const headers = {};
 
-  /*
-   * Only Authorization is added.
-   *
-   * DO NOT add:
-   *
-   * Content-Type:
-   * multipart/form-data
-   *
-   * The browser must set the boundary.
-   */
   if (accessToken) {
     headers.Authorization =
       `Bearer ${accessToken}`;
   }
 
-  const res = await fetch(
-    `${API_BASE}/category-icons`,
-    {
-      method: "POST",
+  const response =
+    await fetch(
+      `${API_BASE}/category-icons`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: formData,
+      }
+    );
 
-      credentials: "include",
-
-      headers,
-
-      body: formData,
-    }
-  );
-
-  const text = await res.text();
+  const text =
+    await response.text();
 
   let data = null;
 
@@ -192,16 +198,16 @@ export async function uploadCategoryIcon(
     }
   }
 
-  if (!res.ok) {
-    const message =
+  if (!response.ok) {
+    const error = new Error(
       data?.message ||
-      res.statusText ||
-      "SVG upload failed";
+        response.statusText ||
+        "SVG upload failed"
+    );
 
-    const error =
-      new Error(message);
+    error.status =
+      response.status;
 
-    error.status = res.status;
     error.data = data;
 
     throw error;
@@ -210,7 +216,4 @@ export async function uploadCategoryIcon(
   return data;
 }
 
-/**
- * Export API base URL
- */
 export { API_BASE };

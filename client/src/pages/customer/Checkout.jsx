@@ -561,9 +561,7 @@ export default function Checkout() {
                     const image =
                       product.images?.[0] || "";
 
-                    const price = Number(
-                      product.price || 0
-                    );
+                    const price = getFinalPrice(product);
 
                     const quantity = Number(
                       item.quantity || 0
