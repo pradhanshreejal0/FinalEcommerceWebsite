@@ -53,14 +53,51 @@ export default function Navbar() {
   // LOAD CATEGORIES
   // =========================================================
 
-    useEffect(() => {
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCategories = async () => {
+      try {
+        const data = await api("/categories");
+
+        if (cancelled) {
+          return;
+        }
+
+        const parentCategories = data
+          .filter((category) => !category.parentCategory)
+          .slice(0, 8);
+
+        setCategories(parentCategories);
+      } catch (error) {
+        console.error("Failed to load categories:", error);
+
+        if (!cancelled) {
+          setCategories([]);
+        }
+      }
+    };
+
+    loadCategories();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // =========================================================
+  // CATEGORY ICON SCROLL BEHAVIOR
+  // Shows instantly on any upward scroll; only hides after
+  // 40px of sustained downward scroll (avoids flicker from
+  // momentum bounce / tiny back-and-forth jitter).
+  // =========================================================
+
+  useEffect(() => {
     let lastScrollY = Math.max(window.scrollY, 0);
     let downAccum = 0;
-    let upAccum = 0;
     let ticking = false;
 
     const HIDE_AFTER = 40; // px of sustained downward scroll before hiding
-    const SHOW_AFTER = 12; // px of sustained upward scroll before showing
 
     const updateScrollDirection = () => {
       // Clamp to guard against iOS/Android overscroll bounce reporting
@@ -71,7 +108,6 @@ export default function Navbar() {
         setShowCategoryIcons((prev) => (prev ? prev : true));
         lastScrollY = currentScrollY;
         downAccum = 0;
-        upAccum = 0;
         ticking = false;
         return;
       }
@@ -79,78 +115,20 @@ export default function Navbar() {
       const delta = currentScrollY - lastScrollY;
       lastScrollY = currentScrollY;
 
-      if (delta > 0) {
-        // scrolling down
+      if (delta < 0) {
+        // Any upward scroll reveals it immediately.
+        downAccum = 0;
+        setShowCategoryIcons((prev) => (prev ? prev : true));
+      } else if (delta > 0) {
+        // Downward scroll needs to accumulate past the threshold
+        // before hiding, so brief/jittery downward blips don't hide it.
         downAccum += delta;
-        upAccum = 0;
 
         if (downAccum > HIDE_AFTER) {
           setShowCategoryIcons((prev) => (prev ? false : prev));
         }
-      } else if (delta < 0) {
-        // scrolling up
-        upAccum += -delta;
-        downAccum = 0;
-
-        if (upAccum > SHOW_AFTER) {
-          setShowCategoryIcons((prev) => (prev ? prev : true));
-        }
       }
 
-      ticking = false;
-    };
-
-    const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(updateScrollDirection);
-        ticking = true;
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll, {
-      passive: true,
-    });
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
-  }, []);
-  // =========================================================
-  // CATEGORY ICON SCROLL BEHAVIOR
-  // Throttled via requestAnimationFrame + minimum scroll
-  // threshold so small jitters don't cause flicker.
-  // =========================================================
-
-  useEffect(() => {
-    let lastScrollY = window.scrollY;
-    let ticking = false;
-    const THRESHOLD = 8; // px of movement required before reacting
-
-    const updateScrollDirection = () => {
-      const currentScrollY = window.scrollY;
-
-      if (currentScrollY <= 10) {
-        setShowCategoryIcons((prev) => (prev ? prev : true));
-        lastScrollY = currentScrollY;
-        ticking = false;
-        return;
-      }
-
-      const delta = currentScrollY - lastScrollY;
-
-      if (Math.abs(delta) < THRESHOLD) {
-        ticking = false;
-        return;
-      }
-
-      const scrollingDown = delta > 0;
-
-      setShowCategoryIcons((prev) => {
-        const next = !scrollingDown;
-        return prev === next ? prev : next;
-      });
-
-      lastScrollY = currentScrollY;
       ticking = false;
     };
 
@@ -393,7 +371,11 @@ export default function Navbar() {
           ================================================= */}
 
           <div className="hidden items-center gap-2 md:flex">
+            {/* Theme Toggle */}
+
             <ThemeToggle className="mr-1" />
+
+            {/* Wishlist */}
 
             <Button
               asChild
@@ -403,9 +385,13 @@ export default function Navbar() {
             >
               <Link to="/wishlist">
                 <Heart className="h-4 w-4" />
-                <span className="hidden lg:inline">Wishlist</span>
+                <span className="hidden lg:inline">
+                  Wishlist
+                </span>
               </Link>
             </Button>
+
+            {/* Cart */}
 
             <Button
               asChild
@@ -415,7 +401,11 @@ export default function Navbar() {
             >
               <Link to="/cart">
                 <ShoppingCart className="h-4 w-4" />
-                <span className="hidden lg:inline">Cart</span>
+
+                <span className="hidden lg:inline">
+                  Cart
+                </span>
+
                 {itemCount > 0 && (
                   <Badge className="absolute -right-1 -top-2 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
                     {itemCount}
@@ -423,6 +413,8 @@ export default function Navbar() {
                 )}
               </Link>
             </Button>
+
+            {/* Account / Auth */}
 
             {user ? (
               <DropdownMenu>
@@ -433,11 +425,16 @@ export default function Navbar() {
                     className="gap-1.5 rounded-lg"
                   >
                     <User className="h-4 w-4" />
-                    <span className="hidden lg:inline">Account</span>
+                    <span className="hidden lg:inline">
+                      Account
+                    </span>
                   </Button>
                 </DropdownMenuTrigger>
 
-                <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuContent
+                  align="end"
+                  className="w-52"
+                >
                   <DropdownMenuItem asChild>
                     <Link to="/profile">
                       <User className="mr-2 h-4 w-4" />
@@ -479,11 +476,20 @@ export default function Navbar() {
               </DropdownMenu>
             ) : (
               <div className="flex items-center gap-2">
-                <Button asChild variant="ghost" size="sm" className="rounded-lg">
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-lg"
+                >
                   <Link to="/login">Sign In</Link>
                 </Button>
 
-                <Button asChild size="sm" className="rounded-lg">
+                <Button
+                  asChild
+                  size="sm"
+                  className="rounded-lg"
+                >
                   <Link to="/signup">
                     <User className="mr-1.5 h-4 w-4" />
                     Sign Up
@@ -513,7 +519,11 @@ export default function Navbar() {
                 </Link>
               </Button>
             ) : (
-              <Button asChild size="sm" className="rounded-lg">
+              <Button
+                asChild
+                size="sm"
+                className="rounded-lg"
+              >
                 <Link to="/login">Sign In</Link>
               </Button>
             )}
@@ -538,17 +548,23 @@ export default function Navbar() {
           <div className="mx-auto max-w-7xl px-3 sm:px-4">
             <div
               className={`scrollbar-hide flex overflow-x-auto transition-all duration-300 ${
-                showCategoryIcons ? "gap-5 py-2.5" : "gap-6 py-1.5"
+                showCategoryIcons
+                  ? "gap-5 py-2.5"
+                  : "gap-6 py-1.5"
               }`}
             >
+              {/* All Categories */}
+
               <Link
                 to="/categories"
-                className={`group flex shrink-0 flex-col items-center justify-center transition-all duration-300 ${
-                  showCategoryIcons ? "gap-1" : "gap-0"
+                className={`group  flex shrink-0 flex-col items-center justify-center transition-all duration-300 ${
+                  showCategoryIcons
+                    ? "gap-1"
+                    : "gap-0"
                 }`}
               >
                 <div
-                  className={`grid overflow-hidden transition-all duration-300 ${
+                  className={`grid overflow-hidden transition-all duration-300  ${
                     showCategoryIcons
                       ? "grid-rows-[1fr] opacity-100"
                       : "grid-rows-[0fr] opacity-0"
@@ -556,7 +572,7 @@ export default function Navbar() {
                 >
                   <div className="min-h-0">
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted transition-transform duration-200 group-hover:scale-105">
-                      <Menu className="h-5 w-5" />
+                      <Menu className="h-5 w-5 " />
                     </div>
                   </div>
                 </div>
@@ -566,27 +582,38 @@ export default function Navbar() {
                 </span>
               </Link>
 
+              {/* Categories */}
+
               {categories.map((cat) => (
                 <Link
                   key={cat._id}
                   to={`/products?category=${cat._id}`}
                   className={`group flex shrink-0 flex-col items-center justify-center transition-all duration-300 ${
-                    showCategoryIcons ? "gap-1" : "gap-0"
+                    showCategoryIcons
+                      ? "gap-1"
+                      : "gap-0"
                   }`}
                 >
+                  {/* Icon */}
+
                   <div
                     className={`grid overflow-hidden transition-all duration-300 ease-in-out ${
                       showCategoryIcons
-                        ? "grid-rows-[1fr] opacity-100"
+                        ? "grid-rows-[1fr]  opacity-100"
                         : "grid-rows-[0fr] opacity-0"
                     }`}
                   >
-                    <div className="min-h-0">
+                    <div className="min-h-0 ">
                       <div className="flex h-12 w-12 items-center justify-center transition-transform duration-200 group-hover:scale-105">
-                        <CategoryIcon category={cat} size="sm" />
+                        <CategoryIcon
+                          category={cat}
+                          size="sm"
+                        />
                       </div>
                     </div>
                   </div>
+
+                  {/* Name */}
 
                   <span className="max-w-20 truncate whitespace-nowrap text-[11px] font-medium text-foreground/80 group-hover:text-foreground">
                     {cat.name}
