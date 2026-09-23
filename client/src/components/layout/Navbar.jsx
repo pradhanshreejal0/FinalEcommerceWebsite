@@ -101,7 +101,7 @@ export default function Navbar() {
   // =========================================================
 
   return (
-    <header className="sticky top-0 z-5000 w-full bg-background shadow-sm">
+    <header className="sticky top-0 z-50 w-full bg-background shadow-sm">
       {/* =====================================================
           MAIN NAVBAR
       ===================================================== */}
