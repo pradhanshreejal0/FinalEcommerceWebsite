@@ -117,18 +117,14 @@ const orderSchema = new mongoose.Schema(
       },
 
       latitude: {
-        type: Number,
-        required: true,
-        min: -90,
-        max: 90,
-      },
+          type: Number,
+          required: true,
+        },
 
-      longitude: {
-        type: Number,
-        required: true,
-        min: -180,
-        max: 180,
-      },
+        longitude: {
+          type: Number,
+          required: true,
+        },
     },
 
     totalAmount: {
