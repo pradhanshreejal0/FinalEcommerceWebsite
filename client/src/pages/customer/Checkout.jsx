@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getFinalPrice } from "@/lib/utils";
 
@@ -34,11 +34,9 @@ import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
 
-/*
-|--------------------------------------------------------------------------
-| Fix Leaflet marker icons for Vite
-|--------------------------------------------------------------------------
-*/
+/* ============================================================
+   LEAFLET ICON FIX
+============================================================ */
 
 delete L.Icon.Default.prototype._getIconUrl;
 
@@ -48,30 +46,52 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-/*
-|--------------------------------------------------------------------------
-| Default Map Location
-|--------------------------------------------------------------------------
-*/
+/* ============================================================
+   CONSTANTS
+============================================================ */
 
-const DEFAULT_MAP_POSITION = [27.7172, 85.324];
+const DEFAULT_MAP_POSITION = {
+  lat: 27.7172,
+  lng: 85.324,
+};
+
 const DEFAULT_ZOOM = 13;
 
-/*
-|--------------------------------------------------------------------------
-| Map Location Selector
-|--------------------------------------------------------------------------
-|
-| Allows:
-| - Clicking map
-| - Dragging marker
-|
-*/
+const NOMINATIM_URL =
+  "https://nominatim.openstreetmap.org/search";
+
+/* ============================================================
+   MAP CONTROLLER
+============================================================ */
+
+function MapController({ location }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!location) {
+      return;
+    }
+
+    map.flyTo(
+      [location.lat, location.lng],
+      Math.max(map.getZoom(), 16),
+      {
+        duration: 0.8,
+      }
+    );
+  }, [location, map]);
+
+  return null;
+}
+
+/* ============================================================
+   LOCATION SELECTOR
+============================================================ */
 
 function LocationSelector({
   location,
   setLocation,
-  disabled,
+  disabled = false,
 }) {
   useMapEvents({
     click(event) {
@@ -103,17 +123,17 @@ function LocationSelector({
           }
 
           const marker = event.target;
-          const newLocation = marker.getLatLng();
+          const newPosition = marker.getLatLng();
 
           setLocation({
-            lat: newLocation.lat,
-            lng: newLocation.lng,
+            lat: newPosition.lat,
+            lng: newPosition.lng,
           });
         },
       }}
     >
       <Popup>
-        <div className="text-sm">
+        <div className="min-w-45 text-sm">
           <p className="font-semibold">
             Delivery Location
           </p>
@@ -131,41 +151,9 @@ function LocationSelector({
   );
 }
 
-/*
-|--------------------------------------------------------------------------
-| Map Controller
-|--------------------------------------------------------------------------
-|
-| Moves the map when a search result is selected.
-|
-*/
-
-function MapController({ location }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!location) {
-      return;
-    }
-
-    map.flyTo(
-      [location.lat, location.lng],
-      17,
-      {
-        animate: true,
-        duration: 1.2,
-      }
-    );
-  }, [location, map]);
-
-  return null;
-}
-
-/*
-|--------------------------------------------------------------------------
-| Checkout
-|--------------------------------------------------------------------------
-*/
+/* ============================================================
+   CHECKOUT
+============================================================ */
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -181,82 +169,42 @@ export default function Checkout() {
     resetCart,
   } = useCart();
 
-  /*
-  |--------------------------------------------------------------------------
-  | Shipping Form
-  |--------------------------------------------------------------------------
-  */
-
-  const [form, setForm] = useState({
-    fullName: user?.name || "",
-    phone: "",
-    address: "",
-    city: "",
-    postalCode: "",
-    country: "Nepal",
-  });
+  /* ============================================================
+     AUTH STATE
+  ============================================================ */
 
   /*
-  |--------------------------------------------------------------------------
-  | Delivery Location
-  |--------------------------------------------------------------------------
-  */
+   * Important:
+   *
+   * We do NOT immediately redirect when user is falsy.
+   *
+   * Some AuthContext implementations start with:
+   *
+   *     user = null
+   *
+   * while they are checking the existing session.
+   *
+   * Redirecting immediately can therefore send the customer
+   * to /login while checkout is still loading.
+   */
 
-  const [location, setLocation] = useState(null);
-
-  /*
-  |--------------------------------------------------------------------------
-  | Location Search
-  |--------------------------------------------------------------------------
-  */
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchingLocation, setSearchingLocation] = useState(false);
-  const [searchError, setSearchError] = useState("");
-
-  /*
-  |--------------------------------------------------------------------------
-  | Payment
-  |--------------------------------------------------------------------------
-  */
-
-  const [paymentMethod, setPaymentMethod] =
-    useState("cod");
-
-  /*
-  |--------------------------------------------------------------------------
-  | Delivery Quote
-  |--------------------------------------------------------------------------
-  */
-
-  const [deliveryQuote, setDeliveryQuote] =
-    useState(null);
-
-  const [
-    calculatingDelivery,
-    setCalculatingDelivery,
-  ] = useState(false);
-
-  /*
-  |--------------------------------------------------------------------------
-  | Submission
-  |--------------------------------------------------------------------------
-  */
-
-  const [submitting, setSubmitting] =
-    useState(false);
-
-  const [error, setError] =
-    useState("");
-
-  /*
-  |--------------------------------------------------------------------------
-  | Protect Checkout
-  |--------------------------------------------------------------------------
-  */
+  const [authChecking, setAuthChecking] = useState(true);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setAuthChecking(false);
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (authChecking) {
+      return;
+    }
+
     if (!user) {
       navigate("/login", {
         replace: true,
@@ -270,31 +218,120 @@ export default function Checkout() {
         replace: true,
       });
     }
-  }, [user, navigate]);
+  }, [
+    authChecking,
+    user,
+    navigate,
+  ]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | Set User Name After Auth Loads
-  |--------------------------------------------------------------------------
-  */
+  /* ============================================================
+     SHIPPING FORM
+  ============================================================ */
+
+  const [form, setForm] = useState({
+    fullName: user?.name || "",
+    phone: "",
+    address: "",
+    city: "",
+    postalCode: "",
+    country: "Nepal",
+  });
 
   useEffect(() => {
-    if (!user?.name) {
+    if (!user) {
       return;
     }
 
     setForm((previous) => ({
       ...previous,
       fullName:
-        previous.fullName || user.name,
+        previous.fullName ||
+        user.name ||
+        "",
     }));
   }, [user]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | Update Form
-  |--------------------------------------------------------------------------
-  */
+  /* ============================================================
+     LOCATION
+  ============================================================ */
+
+  const [location, setLocation] = useState(null);
+
+  /* ============================================================
+     SEARCH
+  ============================================================ */
+
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [
+    searchResults,
+    setSearchResults,
+  ] = useState([]);
+
+  const [
+    searchingLocation,
+    setSearchingLocation,
+  ] = useState(false);
+
+  const [
+    showSearchResults,
+    setShowSearchResults,
+  ] = useState(false);
+
+  const [
+    searchError,
+    setSearchError,
+  ] = useState("");
+
+  /* ============================================================
+     PAYMENT
+  ============================================================ */
+
+  const [
+    paymentMethod,
+    setPaymentMethod,
+  ] = useState("cod");
+
+  /* ============================================================
+     DELIVERY QUOTE
+  ============================================================ */
+
+  const [
+    deliveryQuote,
+    setDeliveryQuote,
+  ] = useState(null);
+
+  const [
+    calculatingDelivery,
+    setCalculatingDelivery,
+  ] = useState(false);
+
+  /* ============================================================
+     SUBMIT
+  ============================================================ */
+
+  const [
+    submitting,
+    setSubmitting,
+  ] = useState(false);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+  /* ============================================================
+     CART ITEMS
+  ============================================================ */
+
+  const items = useMemo(
+    () => cart?.items || [],
+    [cart]
+  );
+
+  /* ============================================================
+     FORM CHANGE
+  ============================================================ */
 
   const handleChange = (event) => {
     const {
@@ -312,118 +349,99 @@ export default function Checkout() {
     }
   };
 
-  /*
-  |--------------------------------------------------------------------------
-  | Cart Items
-  |--------------------------------------------------------------------------
-  */
+  /* ============================================================
+     SUBTOTAL
+  ============================================================ */
 
-  const items = cart?.items || [];
+  const subtotal = useMemo(() => {
+    return items.reduce(
+      (sum, item) => {
+        if (!item?.product) {
+          return sum;
+        }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Subtotal
-  |--------------------------------------------------------------------------
-  */
+        const price = Number(
+          getFinalPrice(item.product) || 0
+        );
 
-  const subtotal = items.reduce(
-    (sum, item) => {
-      if (!item.product) {
-        return sum;
-      }
+        const quantity = Number(
+          item.quantity || 0
+        );
 
-      const price = getFinalPrice(
-        item.product
-      );
+        return (
+          sum +
+          price * quantity
+        );
+      },
+      0
+    );
+  }, [items]);
 
-      const quantity = Number(
-        item.quantity || 0
-      );
+  /* ============================================================
+     ITEM COUNT
+  ============================================================ */
 
-      return sum + price * quantity;
-    },
-    0
-  );
+  const itemCount = useMemo(() => {
+    return items.reduce(
+      (sum, item) =>
+        sum +
+        Number(item?.quantity || 0),
+      0
+    );
+  }, [items]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | Item Count
-  |--------------------------------------------------------------------------
-  */
-
-  const itemCount = items.reduce(
-    (sum, item) =>
-      sum +
-      Number(item.quantity || 0),
-    0
-  );
-
-  /*
-  |--------------------------------------------------------------------------
-  | Delivery Fee
-  |--------------------------------------------------------------------------
-  */
+  /* ============================================================
+     DELIVERY FEE
+  ============================================================ */
 
   const deliveryFee = Number(
     deliveryQuote?.deliveryFee || 0
   );
 
-  /*
-  |--------------------------------------------------------------------------
-  | Grand Total
-  |--------------------------------------------------------------------------
-  */
+  /* ============================================================
+     GRAND TOTAL
+  ============================================================ */
 
   const grandTotal =
-    subtotal + deliveryFee;
+    subtotal +
+    deliveryFee;
 
-  /*
-  |--------------------------------------------------------------------------
-  | Search Location
-  |--------------------------------------------------------------------------
-  |
-  | Uses OpenStreetMap Nominatim to find:
-  | - Places
-  | - Addresses
-  | - Landmarks
-  | - Buildings
-  | - Areas
-  |
-  */
+  /* ============================================================
+     SEARCH LOCATION
+  ============================================================ */
 
-  const searchLocation = async (
-    event
-  ) => {
-    event?.preventDefault();
-
+  const searchLocation = async () => {
     const query =
       searchQuery.trim();
 
     if (!query) {
+      setSearchResults([]);
       setSearchError(
-        "Enter a place, address, or landmark."
+        "Enter a place name or landmark."
       );
-
+      setShowSearchResults(true);
       return;
     }
 
     try {
       setSearchingLocation(true);
       setSearchError("");
-      setSearchResults([]);
+      setShowSearchResults(true);
 
-      const params = new URLSearchParams({
-        q: query,
-        format: "json",
-        addressdetails: "1",
-        limit: "5",
-        countrycodes: "np",
-      });
+      const params =
+        new URLSearchParams({
+          q: query,
+          format: "json",
+          addressdetails: "1",
+          limit: "5",
+          countrycodes: "np",
+        });
 
       const response =
         await fetch(
-          `https://nominatim.openstreetmap.org/search?${params.toString()}`,
+          `${NOMINATIM_URL}?${params.toString()}`,
           {
+            method: "GET",
             headers: {
               Accept:
                 "application/json",
@@ -440,9 +458,13 @@ export default function Checkout() {
       const results =
         await response.json();
 
-      if (!results.length) {
+      if (
+        !Array.isArray(results) ||
+        results.length === 0
+      ) {
+        setSearchResults([]);
         setSearchError(
-          "No locations found. Try a nearby landmark, area, street, or place name."
+          "No location found. Try a nearby landmark, street, or place name."
         );
 
         return;
@@ -455,30 +477,43 @@ export default function Checkout() {
         err
       );
 
+      setSearchResults([]);
+
       setSearchError(
-        "Unable to search for that location. Please try again."
+        err?.message ||
+          "Unable to search for this location."
       );
     } finally {
       setSearchingLocation(false);
     }
   };
 
-  /*
-  |--------------------------------------------------------------------------
-  | Select Search Result
-  |--------------------------------------------------------------------------
-  */
+  /* ============================================================
+     SEARCH KEY DOWN
+  ============================================================ */
+
+  const handleSearchKeyDown = (
+    event
+  ) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+
+      searchLocation();
+    }
+  };
+
+  /* ============================================================
+     SELECT SEARCH RESULT
+  ============================================================ */
 
   const selectSearchResult = (
     result
   ) => {
-    const lat = Number(
-      result.lat
-    );
+    const lat =
+      Number(result.lat);
 
-    const lng = Number(
-      result.lon
-    );
+    const lng =
+      Number(result.lon);
 
     if (
       !Number.isFinite(lat) ||
@@ -492,79 +527,132 @@ export default function Checkout() {
       lng,
     });
 
-    /*
-    | Automatically populate address fields
-    | when possible.
-    */
-
     const address =
       result.address || {};
 
-    const detectedCity =
+    const displayName =
+      result.display_name || "";
+
+    /*
+     * Automatically fill address fields when
+     * Nominatim provides them.
+     */
+
+    const road =
+      address.road ||
+      address.pedestrian ||
+      address.footway ||
+      "";
+
+    const houseNumber =
+      address.house_number ||
+      "";
+
+    const neighbourhood =
+      address.neighbourhood ||
+      address.suburb ||
+      address.quarter ||
+      "";
+
+    const city =
       address.city ||
       address.town ||
       address.municipality ||
       address.village ||
-      address.county ||
       "";
 
-    const detectedPostalCode =
-      address.postcode || "";
+    const postcode =
+      address.postcode ||
+      "";
+
+    let generatedAddress = "";
+
+    if (
+      houseNumber ||
+      road
+    ) {
+      generatedAddress = [
+        houseNumber,
+        road,
+      ]
+        .filter(Boolean)
+        .join(" ");
+    }
+
+    if (neighbourhood) {
+      generatedAddress = [
+        generatedAddress,
+        neighbourhood,
+      ]
+        .filter(Boolean)
+        .join(", ");
+    }
+
+    if (!generatedAddress) {
+      generatedAddress =
+        displayName;
+    }
 
     setForm((previous) => ({
       ...previous,
 
       address:
-        previous.address ||
-        result.display_name ||
-        "",
+        generatedAddress ||
+        previous.address,
 
       city:
-        previous.city ||
-        detectedCity,
+        city ||
+        previous.city,
 
       postalCode:
-        previous.postalCode ||
-        detectedPostalCode,
+        postcode ||
+        previous.postalCode,
 
       country:
-        previous.country ||
         "Nepal",
     }));
 
     setSearchQuery(
-      result.display_name || ""
+      displayName
     );
 
     setSearchResults([]);
+    setShowSearchResults(false);
     setSearchError("");
     setError("");
   };
 
-  /*
-  |--------------------------------------------------------------------------
-  | Clear Search
-  |--------------------------------------------------------------------------
-  */
+  /* ============================================================
+     CLEAR SEARCH
+  ============================================================ */
 
   const clearSearch = () => {
     setSearchQuery("");
     setSearchResults([]);
     setSearchError("");
+    setShowSearchResults(false);
   };
 
-  /*
-  |--------------------------------------------------------------------------
-  | Calculate Delivery Quote
-  |--------------------------------------------------------------------------
-  */
+  /* ============================================================
+     DELIVERY QUOTE
+  ============================================================ */
 
   useEffect(() => {
     if (
-      !accessToken ||
       !location ||
       items.length === 0
     ) {
+      setDeliveryQuote(null);
+      setCalculatingDelivery(false);
+      return;
+    }
+
+    /*
+     * Do not call the delivery endpoint until
+     * authentication has finished loading.
+     */
+
+    if (!accessToken) {
       setDeliveryQuote(null);
       setCalculatingDelivery(false);
 
@@ -580,7 +668,15 @@ export default function Checkout() {
             true
           );
 
-          setError("");
+          setDeliveryQuote(null);
+
+          /*
+           * IMPORTANT:
+           *
+           * If this request returns 401, the checkout
+           * should show the error instead of blindly
+           * navigating to /login.
+           */
 
           const quote =
             await api(
@@ -599,25 +695,45 @@ export default function Checkout() {
               }
             );
 
-          if (!cancelled) {
-            setDeliveryQuote(
-              quote
+          if (cancelled) {
+            return;
+          }
+
+          if (!quote) {
+            throw new Error(
+              "The server did not return a delivery quote."
             );
           }
+
+          setDeliveryQuote(
+            quote
+          );
+
+          setError("");
         } catch (err) {
           console.error(
             "Delivery quote error:",
             err
           );
 
-          if (!cancelled) {
-            setDeliveryQuote(null);
-
-            setError(
-              err?.message ||
-                "Unable to calculate delivery fee."
-            );
+          if (cancelled) {
+            return;
           }
+
+          setDeliveryQuote(null);
+
+          /*
+           * Do not call navigate("/login") here.
+           *
+           * This is important because a delivery quote
+           * failure should not automatically destroy
+           * the checkout session.
+           */
+
+          setError(
+            err?.message ||
+              "Unable to calculate delivery fee."
+          );
         } finally {
           if (!cancelled) {
             setCalculatingDelivery(
@@ -638,11 +754,9 @@ export default function Checkout() {
     items.length,
   ]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | Place Order
-  |--------------------------------------------------------------------------
-  */
+  /* ============================================================
+     SUBMIT ORDER
+  ============================================================ */
 
   const handleSubmit =
     async (event) => {
@@ -650,13 +764,11 @@ export default function Checkout() {
 
       setError("");
 
-      /*
-      |--------------------------------------------------------------------------
-      | Authentication
-      |--------------------------------------------------------------------------
-      */
+      /* --------------------------------------------------------
+         AUTH
+      -------------------------------------------------------- */
 
-      if (!accessToken) {
+      if (!user) {
         setError(
           "Your session has expired. Please login again."
         );
@@ -664,11 +776,17 @@ export default function Checkout() {
         return;
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | Cart
-      |--------------------------------------------------------------------------
-      */
+      if (!accessToken) {
+        setError(
+          "Your session is still loading. Please wait a moment and try again."
+        );
+
+        return;
+      }
+
+      /* --------------------------------------------------------
+         CART
+      -------------------------------------------------------- */
 
       if (items.length === 0) {
         setError(
@@ -678,13 +796,13 @@ export default function Checkout() {
         return;
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | Full Name
-      |--------------------------------------------------------------------------
-      */
+      /* --------------------------------------------------------
+         FULL NAME
+      -------------------------------------------------------- */
 
-      if (!form.fullName.trim()) {
+      if (
+        !form.fullName.trim()
+      ) {
         setError(
           "Please enter your full name."
         );
@@ -692,11 +810,9 @@ export default function Checkout() {
         return;
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | Phone
-      |--------------------------------------------------------------------------
-      */
+      /* --------------------------------------------------------
+         PHONE
+      -------------------------------------------------------- */
 
       if (!form.phone.trim()) {
         setError(
@@ -706,13 +822,13 @@ export default function Checkout() {
         return;
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | Address
-      |--------------------------------------------------------------------------
-      */
+      /* --------------------------------------------------------
+         ADDRESS
+      -------------------------------------------------------- */
 
-      if (!form.address.trim()) {
+      if (
+        !form.address.trim()
+      ) {
         setError(
           "Please enter your address."
         );
@@ -720,11 +836,9 @@ export default function Checkout() {
         return;
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | City
-      |--------------------------------------------------------------------------
-      */
+      /* --------------------------------------------------------
+         CITY
+      -------------------------------------------------------- */
 
       if (!form.city.trim()) {
         setError(
@@ -734,13 +848,13 @@ export default function Checkout() {
         return;
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | Country
-      |--------------------------------------------------------------------------
-      */
+      /* --------------------------------------------------------
+         COUNTRY
+      -------------------------------------------------------- */
 
-      if (!form.country.trim()) {
+      if (
+        !form.country.trim()
+      ) {
         setError(
           "Please enter your country."
         );
@@ -748,40 +862,25 @@ export default function Checkout() {
         return;
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | Location
-      |--------------------------------------------------------------------------
-      */
+      /* --------------------------------------------------------
+         LOCATION
+      -------------------------------------------------------- */
 
       if (!location) {
         setError(
-          "Please select your delivery location on the map."
+          "Please search for your location or click on the map."
         );
 
         return;
       }
 
-      if (
-        !Number.isFinite(location.lat) ||
-        !Number.isFinite(location.lng)
-      ) {
-        setError(
-          "The selected map location is invalid."
-        );
-
-        return;
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | Delivery Calculation
-      |--------------------------------------------------------------------------
-      */
+      /* --------------------------------------------------------
+         DELIVERY
+      -------------------------------------------------------- */
 
       if (calculatingDelivery) {
         setError(
-          "Please wait while we calculate your delivery fee."
+          "Please wait while the delivery fee is calculated."
         );
 
         return;
@@ -789,19 +888,19 @@ export default function Checkout() {
 
       if (!deliveryQuote) {
         setError(
-          "Please select a delivery location and wait for the delivery fee to be calculated."
+          "Please select a delivery location and wait for the delivery fee."
         );
 
         return;
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | Payment
-      |--------------------------------------------------------------------------
-      */
+      /* --------------------------------------------------------
+         PAYMENT
+      -------------------------------------------------------- */
 
-      if (paymentMethod !== "cod") {
+      if (
+        paymentMethod !== "cod"
+      ) {
         setError(
           "Online payment is not available yet. Please select Cash on Delivery."
         );
@@ -809,50 +908,51 @@ export default function Checkout() {
         return;
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | Submit
-      |--------------------------------------------------------------------------
-      */
+      /* --------------------------------------------------------
+         PLACE ORDER
+      -------------------------------------------------------- */
 
       try {
         setSubmitting(true);
 
         const order =
-          await api("/orders", {
-            method: "POST",
-            accessToken,
+          await api(
+            "/orders",
+            {
+              method: "POST",
+              accessToken,
 
-            body: JSON.stringify({
-              shippingAddress: {
-                fullName:
-                  form.fullName.trim(),
+              body: JSON.stringify({
+                shippingAddress: {
+                  fullName:
+                    form.fullName.trim(),
 
-                phone:
-                  form.phone.trim(),
+                  phone:
+                    form.phone.trim(),
 
-                address:
-                  form.address.trim(),
+                  address:
+                    form.address.trim(),
 
-                city:
-                  form.city.trim(),
+                  city:
+                    form.city.trim(),
 
-                postalCode:
-                  form.postalCode.trim(),
+                  postalCode:
+                    form.postalCode.trim(),
 
-                country:
-                  form.country.trim(),
+                  country:
+                    form.country.trim(),
 
-                latitude:
-                  location.lat,
+                  latitude:
+                    location.lat,
 
-                longitude:
-                  location.lng,
-              },
+                  longitude:
+                    location.lng,
+                },
 
-              paymentMethod,
-            }),
-          });
+                paymentMethod,
+              }),
+            }
+          );
 
         if (!order?._id) {
           throw new Error(
@@ -883,13 +983,14 @@ export default function Checkout() {
       }
     };
 
-  /*
-  |--------------------------------------------------------------------------
-  | Loading
-  |--------------------------------------------------------------------------
-  */
+  /* ============================================================
+     LOADING
+  ============================================================ */
 
-  if (!user || cartLoading) {
+  if (
+    authChecking ||
+    cartLoading
+  ) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center px-4">
         <div className="flex items-center gap-2 text-muted-foreground">
@@ -903,11 +1004,27 @@ export default function Checkout() {
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Empty Cart
-  |--------------------------------------------------------------------------
-  */
+  /* ============================================================
+     NOT AUTHENTICATED
+  ============================================================ */
+
+  if (!user) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center px-4">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+
+          <p className="mt-3 text-sm text-muted-foreground">
+            Checking your account...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /* ============================================================
+     EMPTY CART
+  ============================================================ */
 
   if (items.length === 0) {
     return (
@@ -939,17 +1056,17 @@ export default function Checkout() {
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Checkout UI
-  |--------------------------------------------------------------------------
-  */
+  /* ============================================================
+     UI
+  ============================================================ */
 
   return (
     <div className="min-h-screen bg-muted/30 py-6 sm:py-10">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
 
-        {/* Header */}
+        {/* ======================================================
+            HEADER
+        ====================================================== */}
 
         <div className="mb-6">
           <Button
@@ -971,13 +1088,15 @@ export default function Checkout() {
           </h1>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Enter your delivery information
-            and select your exact delivery
-            location.
+            Enter your delivery information,
+            choose your location, and review
+            your delivery fee.
           </p>
         </div>
 
-        {/* Error */}
+        {/* ======================================================
+            ERROR
+        ====================================================== */}
 
         {error && (
           <div
@@ -993,27 +1112,25 @@ export default function Checkout() {
         >
           <div className="grid gap-6 lg:grid-cols-3">
 
-            {/* ==========================================================
+            {/* ==================================================
                 LEFT
-            ========================================================== */}
+            ================================================== */}
 
-            <div className="min-w-0 space-y-6 lg:col-span-2">
+            <div className="space-y-6 lg:col-span-2">
 
-              {/* ========================================================
+              {/* ==================================================
                   SHIPPING ADDRESS
-              ======================================================== */}
+              ================================================== */}
 
               <section className="rounded-xl border bg-background p-5 shadow-sm sm:p-6">
-
                 <div className="mb-6">
                   <h2 className="text-lg font-semibold">
                     Shipping Address
                   </h2>
 
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Enter the address where
-                    your order should be
-                    delivered.
+                    Where should we deliver
+                    your order?
                   </p>
                 </div>
 
@@ -1159,15 +1276,14 @@ export default function Checkout() {
                       className="w-full rounded-md border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
-
                 </div>
               </section>
 
-              {/* ========================================================
+              {/* ==================================================
                   DELIVERY LOCATION
-              ======================================================== */}
+              ================================================== */}
 
-              <section className="relative z-0 overflow-visible rounded-xl border bg-background p-5 shadow-sm sm:p-6">
+              <section className="rounded-xl border bg-background p-5 shadow-sm sm:p-6">
 
                 <div className="mb-5">
                   <div className="flex items-center gap-2">
@@ -1179,61 +1295,62 @@ export default function Checkout() {
                   </div>
 
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Search for your address or
-                    landmark, select the result,
-                    then adjust the marker if
-                    necessary.
+                    Search for a place or landmark,
+                    select a result, or click directly
+                    on the map.
                   </p>
                 </div>
 
-                {/* ======================================================
-                    LOCATION SEARCH
-                ====================================================== */}
+                {/* ==================================================
+                    SEARCH
+                ================================================== */}
 
-                <div className="relative z-[1001]">
+                <div className="relative z-1000">
 
-                  <form
-                    onSubmit={
-                      searchLocation
-                    }
-                    className="flex gap-2"
-                  >
-                    <div className="relative min-w-0 flex-1">
+                  <div className="flex gap-2">
+
+                    <div className="relative flex-1">
                       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
                       <input
                         type="text"
-                        value={
-                          searchQuery
-                        }
+                        value={searchQuery}
                         onChange={(event) => {
                           setSearchQuery(
-                            event.target
-                              .value
+                            event.target.value
                           );
 
+                          setSearchError("");
+
                           if (
-                            searchError
+                            event.target.value.trim()
                           ) {
-                            setSearchError(
-                              ""
+                            setShowSearchResults(
+                              true
                             );
                           }
                         }}
-                        placeholder="Search place, address or landmark..."
-                        disabled={
-                          submitting ||
-                          searchingLocation
+                        onKeyDown={
+                          handleSearchKeyDown
                         }
-                        className="h-11 w-full rounded-md border bg-background pl-9 pr-9 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
+                        onFocus={() => {
+                          if (
+                            searchResults.length > 0
+                          ) {
+                            setShowSearchResults(
+                              true
+                            );
+                          }
+                        }}
+                        placeholder="Search place or landmark..."
+                        disabled={submitting}
+                        className="w-full rounded-md border bg-background py-2.5 pl-9 pr-10 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
                       />
 
                       {searchQuery && (
                         <button
                           type="button"
-                          onClick={
-                            clearSearch
-                          }
+                          onClick={clearSearch}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                           aria-label="Clear search"
                         >
@@ -1243,119 +1360,142 @@ export default function Checkout() {
                     </div>
 
                     <Button
-                      type="submit"
+                      type="button"
+                      onClick={
+                        searchLocation
+                      }
                       disabled={
                         searchingLocation ||
-                        submitting ||
-                        !searchQuery.trim()
+                        submitting
                       }
-                      className="h-11 shrink-0"
                     >
                       {searchingLocation ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       ) : (
-                        <>
-                          <Search className="mr-2 h-4 w-4" />
-                          Search
-                        </>
+                        <Search className="mr-2 h-4 w-4" />
                       )}
+
+                      Search
                     </Button>
-                  </form>
+                  </div>
 
-                  {/* Search Error */}
+                  {/* Search Examples */}
 
-                  {searchError && (
-                    <p className="mt-2 text-xs text-destructive">
-                      {searchError}
-                    </p>
-                  )}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {[
+                      "Boudhanath Stupa",
+                      "Thamel",
+                      "Patan Durbar Square",
+                      "Kathmandu Mall",
+                    ].map(
+                      (example) => (
+                        <button
+                          key={example}
+                          type="button"
+                          onClick={() => {
+                            setSearchQuery(
+                              example
+                            );
+
+                            setTimeout(
+                              () => {
+                                searchLocation();
+                              },
+                              0
+                            );
+                          }}
+                          className="rounded-full border bg-background px-3 py-1 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                        >
+                          {example}
+                        </button>
+                      )
+                    )}
+                  </div>
 
                   {/* Search Results */}
 
-                  {searchResults.length >
-                    0 && (
-                    <div className="absolute left-0 right-0 top-[52px] z-[2000] overflow-hidden rounded-lg border bg-background shadow-xl">
+                  {showSearchResults && (
+                    <div className="absolute left-0 right-0 top-full z-2000 mt-2 overflow-hidden rounded-lg border bg-background shadow-xl">
 
-                      <div className="border-b px-3 py-2">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          Search results
-                        </p>
-                      </div>
+                      {searchingLocation && (
+                        <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
 
-                      <div className="max-h-72 overflow-y-auto">
-                        {searchResults.map(
-                          (
-                            result,
-                            index
-                          ) => (
-                            <button
-                              key={`${result.place_id}-${index}`}
-                              type="button"
-                              onClick={() =>
-                                selectSearchResult(
-                                  result
-                                )
-                              }
-                              className="flex w-full items-start gap-3 border-b px-4 py-3 text-left last:border-b-0 hover:bg-muted/60"
-                            >
-                              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                          Searching locations...
+                        </div>
+                      )}
 
-                              <div className="min-w-0">
-                                <p className="line-clamp-2 text-sm font-medium">
-                                  {result.name ||
-                                    result.display_name}
-                                </p>
-
-                                <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                                  {
-                                    result.display_name
-                                  }
-                                </p>
-                              </div>
-                            </button>
-                          )
+                      {!searchingLocation &&
+                        searchError && (
+                          <div className="px-4 py-3 text-sm text-destructive">
+                            {searchError}
+                          </div>
                         )}
-                      </div>
+
+                      {!searchingLocation &&
+                        !searchError &&
+                        searchResults.length >
+                          0 && (
+                          <div className="max-h-72 overflow-y-auto">
+
+                            {searchResults.map(
+                              (
+                                result,
+                                index
+                              ) => (
+                                <button
+                                  key={`${result.place_id}-${index}`}
+                                  type="button"
+                                  onClick={() =>
+                                    selectSearchResult(
+                                      result
+                                    )
+                                  }
+                                  className="flex w-full items-start gap-3 border-b px-4 py-3 text-left last:border-b-0 hover:bg-muted"
+                                >
+                                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium">
+                                      {result.name ||
+                                        result.display_name?.split(
+                                          ","
+                                        )[0] ||
+                                        "Location"}
+                                    </p>
+
+                                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                                      {
+                                        result.display_name
+                                      }
+                                    </p>
+                                  </div>
+                                </button>
+                              )
+                            )}
+                          </div>
+                        )}
                     </div>
                   )}
                 </div>
 
-                {/* ======================================================
-                    SEARCH HELP
-                ====================================================== */}
-
-                <div className="mt-3 rounded-lg bg-muted/50 px-3 py-2.5 text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">
-                    Example:
-                  </span>{" "}
-                  Boudhanath Stupa, Kathmandu,
-                  Thamel, Patan Durbar Square,
-                  Kathmandu Mall, or your street
-                  address.
-                </div>
-
-                {/* ======================================================
+                {/* ==================================================
                     MAP
-                ====================================================== */}
+                ================================================== */}
 
-                <div className="relative z-0 mt-4 w-full overflow-hidden rounded-xl border">
+                <div className="relative z-0 mt-5 overflow-hidden rounded-xl border">
+
                   <MapContainer
-                    center={
-                      DEFAULT_MAP_POSITION
-                    }
-                    zoom={
-                      DEFAULT_ZOOM
-                    }
-                    scrollWheelZoom={
-                      true
-                    }
+                    center={[
+                      DEFAULT_MAP_POSITION.lat,
+                      DEFAULT_MAP_POSITION.lng,
+                    ]}
+                    zoom={DEFAULT_ZOOM}
+                    scrollWheelZoom
                     className="w-full"
                     style={{
                       height: "400px",
                       width: "100%",
-                      position:
-                        "relative",
-                      zIndex: 0,
                     }}
                   >
                     <TileLayer
@@ -1364,15 +1504,11 @@ export default function Checkout() {
                     />
 
                     <MapController
-                      location={
-                        location
-                      }
+                      location={location}
                     />
 
                     <LocationSelector
-                      location={
-                        location
-                      }
+                      location={location}
                       setLocation={
                         setLocation
                       }
@@ -1383,50 +1519,9 @@ export default function Checkout() {
                   </MapContainer>
                 </div>
 
-                {/* ======================================================
-                    MAP INSTRUCTIONS
-                ====================================================== */}
-
-                <div className="mt-3 grid gap-2 sm:grid-cols-3">
-
-                  <div className="rounded-lg border bg-muted/30 p-3">
-                    <p className="text-xs font-semibold">
-                      1. Search
-                    </p>
-
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Search your address or
-                      nearby landmark.
-                    </p>
-                  </div>
-
-                  <div className="rounded-lg border bg-muted/30 p-3">
-                    <p className="text-xs font-semibold">
-                      2. Select
-                    </p>
-
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Select a result or click
-                      directly on the map.
-                    </p>
-                  </div>
-
-                  <div className="rounded-lg border bg-muted/30 p-3">
-                    <p className="text-xs font-semibold">
-                      3. Adjust
-                    </p>
-
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Drag the marker to your
-                      exact delivery point.
-                    </p>
-                  </div>
-
-                </div>
-
-                {/* ======================================================
-                    SELECTED LOCATION
-                ====================================================== */}
+                {/* ==================================================
+                    LOCATION INFO
+                ================================================== */}
 
                 <div className="mt-4">
 
@@ -1442,18 +1537,17 @@ export default function Checkout() {
                         <div className="min-w-0 flex-1">
 
                           <p className="text-sm font-medium">
-                            Delivery location
-                            selected
+                            Delivery location selected
                           </p>
 
-                          <p className="mt-1 break-all text-xs text-muted-foreground">
+                          <p className="mt-1 text-xs text-muted-foreground">
                             Latitude:{" "}
                             {location.lat.toFixed(
                               6
                             )}
                           </p>
 
-                          <p className="break-all text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                             Longitude:{" "}
                             {location.lng.toFixed(
                               6
@@ -1463,7 +1557,6 @@ export default function Checkout() {
                         </div>
 
                       </div>
-
                     </div>
                   ) : (
                     <div className="rounded-lg border border-dashed p-4 text-center">
@@ -1471,13 +1564,12 @@ export default function Checkout() {
                       <MapPin className="mx-auto h-5 w-5 text-muted-foreground" />
 
                       <p className="mt-2 text-sm font-medium">
-                        No delivery location
-                        selected
+                        Select your delivery location
                       </p>
 
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Search for a place or
-                        click on the map.
+                        Search for a place, select
+                        a result, or click the map.
                       </p>
 
                     </div>
@@ -1485,9 +1577,9 @@ export default function Checkout() {
 
                 </div>
 
-                {/* ======================================================
-                    DELIVERY CALCULATION
-                ====================================================== */}
+                {/* ==================================================
+                    DELIVERY FEE
+                ================================================== */}
 
                 {location && (
                   <div className="mt-4 rounded-lg border bg-background p-4">
@@ -1518,16 +1610,14 @@ export default function Checkout() {
                               deliveryQuote
                                 ?.delivery
                                 ?.vendors
-                                ?.length ||
-                              0
+                                ?.length || 0
                             }{" "}
                             vendor
                             {(
                               deliveryQuote
                                 ?.delivery
                                 ?.vendors
-                                ?.length ||
-                              0
+                                ?.length || 0
                             ) !== 1
                               ? "s"
                               : ""}
@@ -1559,7 +1649,6 @@ export default function Checkout() {
                         )}
 
                       </div>
-
                     </div>
 
                     {/* Vendor Breakdown */}
@@ -1590,6 +1679,7 @@ export default function Checkout() {
                                 }
                                 className="flex items-center justify-between gap-3 text-sm"
                               >
+
                                 <div className="min-w-0">
 
                                   <p className="truncate font-medium">
@@ -1603,9 +1693,12 @@ export default function Checkout() {
                                   </p>
 
                                   <p className="text-xs text-muted-foreground">
-                                    {
-                                      vendorDelivery.distanceKm
-                                    }{" "}
+                                    {Number(
+                                      vendorDelivery.distanceKm ||
+                                        0
+                                    ).toFixed(
+                                      2
+                                    )}{" "}
                                     km away
                                   </p>
 
@@ -1631,16 +1724,16 @@ export default function Checkout() {
 
                   </div>
                 )}
-
               </section>
 
-              {/* ========================================================
+              {/* ==================================================
                   PAYMENT
-              ======================================================== */}
+              ================================================== */}
 
               <section className="rounded-xl border bg-background p-5 shadow-sm sm:p-6">
 
                 <div className="mb-6">
+
                   <h2 className="text-lg font-semibold">
                     Payment Method
                   </h2>
@@ -1649,6 +1742,7 @@ export default function Checkout() {
                     Select your preferred
                     payment method.
                   </p>
+
                 </div>
 
                 <div className="space-y-3">
@@ -1657,12 +1751,12 @@ export default function Checkout() {
 
                   <label
                     className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition ${
-                      paymentMethod ===
-                      "cod"
+                      paymentMethod === "cod"
                         ? "border-primary bg-primary/5"
                         : "hover:bg-muted/50"
                     }`}
                   >
+
                     <input
                       type="radio"
                       name="paymentMethod"
@@ -1692,11 +1786,13 @@ export default function Checkout() {
                         arrives.
                       </p>
                     </div>
+
                   </label>
 
                   {/* Stripe */}
 
                   <div className="flex items-start gap-3 rounded-lg border p-4 opacity-60">
+
                     <input
                       type="radio"
                       disabled
@@ -1713,11 +1809,13 @@ export default function Checkout() {
                         coming soon.
                       </p>
                     </div>
+
                   </div>
 
                   {/* Razorpay */}
 
                   <div className="flex items-start gap-3 rounded-lg border p-4 opacity-60">
+
                     <input
                       type="radio"
                       disabled
@@ -1734,18 +1832,18 @@ export default function Checkout() {
                         coming soon.
                       </p>
                     </div>
+
                   </div>
 
                 </div>
               </section>
-
             </div>
 
-            {/* ==========================================================
-                RIGHT - ORDER SUMMARY
-            ========================================================== */}
+            {/* ==================================================
+                ORDER SUMMARY
+            ================================================== */}
 
-            <aside className="min-w-0 lg:col-span-1">
+            <aside className="lg:col-span-1">
 
               <div className="sticky top-6 rounded-xl border bg-background p-5 shadow-sm sm:p-6">
 
@@ -1757,105 +1855,110 @@ export default function Checkout() {
 
                 <div className="mt-5 space-y-4">
 
-                  {items.map((item) => {
-                    const product =
-                      item.product;
+                  {items.map(
+                    (item) => {
+                      const product =
+                        item?.product;
 
-                    if (!product) {
-                      return null;
-                    }
+                      if (!product) {
+                        return null;
+                      }
 
-                    const image =
-                      product.images?.[0] ||
-                      "";
+                      const image =
+                        product.images?.[0] ||
+                        "";
 
-                    const price =
-                      getFinalPrice(
-                        product
-                      );
+                      const price =
+                        Number(
+                          getFinalPrice(
+                            product
+                          ) || 0
+                        );
 
-                    const quantity =
-                      Number(
-                        item.quantity || 0
-                      );
+                      const quantity =
+                        Number(
+                          item.quantity ||
+                            0
+                        );
 
-                    const itemSubtotal =
-                      price * quantity;
+                      const itemSubtotal =
+                        price *
+                        quantity;
 
-                    return (
-                      <div
-                        key={
-                          product._id
-                        }
-                        className="flex gap-3"
-                      >
+                      return (
+                        <div
+                          key={
+                            product._id
+                          }
+                          className="flex gap-3"
+                        >
 
-                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-muted">
+                          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-muted">
 
-                          {image ? (
-                            <img
-                              src={image}
-                              alt={
-                                product.title
-                              }
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center">
-                              <ShoppingBag className="h-5 w-5 text-muted-foreground" />
-                            </div>
-                          )}
-
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-
-                          <p className="line-clamp-2 text-sm font-medium">
-                            {
-                              product.title
-                            }
-                          </p>
-
-                          {product.vendor
-                            ?.storeName && (
-                            <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                              {
-                                product
-                                  .vendor
-                                  .storeName
-                              }
-                            </p>
-                          )}
-
-                          <div className="mt-1 flex items-center justify-between gap-2">
-
-                            <span className="text-xs text-muted-foreground">
-                              Qty:{" "}
-                              {
-                                quantity
-                              }
-                            </span>
-
-                            <span className="text-sm font-medium">
-                              NPR{" "}
-                              {itemSubtotal.toFixed(
-                                2
-                              )}
-                            </span>
+                            {image ? (
+                              <img
+                                src={image}
+                                alt={
+                                  product.title
+                                }
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center">
+                                <ShoppingBag className="h-5 w-5 text-muted-foreground" />
+                              </div>
+                            )}
 
                           </div>
 
-                        </div>
+                          <div className="min-w-0 flex-1">
 
-                      </div>
-                    );
-                  })}
+                            <p className="line-clamp-2 text-sm font-medium">
+                              {
+                                product.title
+                              }
+                            </p>
+
+                            {product.vendor
+                              ?.storeName && (
+                              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                                {
+                                  product
+                                    .vendor
+                                    .storeName
+                                }
+                              </p>
+                            )}
+
+                            <div className="mt-1 flex items-center justify-between gap-2">
+
+                              <span className="text-xs text-muted-foreground">
+                                Qty:{" "}
+                                {
+                                  quantity
+                                }
+                              </span>
+
+                              <span className="text-sm font-medium">
+                                NPR{" "}
+                                {itemSubtotal.toFixed(
+                                  2
+                                )}
+                              </span>
+
+                            </div>
+
+                          </div>
+                        </div>
+                      );
+                    }
+                  )}
 
                 </div>
 
                 <div className="my-5 border-t" />
 
-                {/* Item Count */}
+                {/* Items */}
 
                 <div className="flex justify-between text-sm">
 
@@ -1911,7 +2014,6 @@ export default function Checkout() {
                     )}
 
                   </span>
-
                 </div>
 
                 <div className="my-5 border-t" />
@@ -1945,6 +2047,7 @@ export default function Checkout() {
                     !deliveryQuote
                   }
                 >
+
                   {submitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1976,6 +2079,7 @@ export default function Checkout() {
                       Place Order
                     </>
                   )}
+
                 </Button>
 
                 {/* Return */}
@@ -1985,9 +2089,7 @@ export default function Checkout() {
                   variant="outline"
                   className="mt-3 w-full"
                   onClick={() =>
-                    navigate(
-                      "/cart"
-                    )
+                    navigate("/cart")
                   }
                   disabled={
                     submitting
@@ -2004,7 +2106,6 @@ export default function Checkout() {
                 </p>
 
               </div>
-
             </aside>
 
           </div>
