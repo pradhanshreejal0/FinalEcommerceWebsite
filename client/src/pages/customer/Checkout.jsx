@@ -836,7 +836,7 @@ export default function Checkout() {
 
                   {/* Results dropdown */}
                   {showSearchResults && (
-                    <div className="absolute left-0 right-0 top-full z-2000 mt-2 overflow-hidden rounded-lg border bg-background shadow-xl">
+                    <div className="absolute left-0 right-0 top-full z-0 mt-2 overflow-hidden rounded-lg border bg-background shadow-xl">
                       {searchingLocation && (
                         <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
                           <Loader2 className="h-4 w-4 animate-spin" />
