@@ -87,7 +87,6 @@ function LocationSelector({ location, setLocation, disabled = false }) {
   useMapEvents({
     click(event) {
       if (disabled) return;
-
       const { lat, lng } = event.latlng;
       setLocation({ lat, lng });
     },
@@ -102,10 +101,8 @@ function LocationSelector({ location, setLocation, disabled = false }) {
       eventHandlers={{
         dragend(event) {
           if (disabled) return;
-
           const marker = event.target;
           const newPosition = marker.getLatLng();
-
           setLocation({
             lat: newPosition.lat,
             lng: newPosition.lng,
@@ -134,41 +131,10 @@ function LocationSelector({ location, setLocation, disabled = false }) {
 
 export default function Checkout() {
   const navigate = useNavigate();
-
   const { user, accessToken } = useAuth();
   const { cart, loading: cartLoading, resetCart } = useCart();
 
-  /* ============================================================
-     AUTH STATE
-  ============================================================ */
-
   const [authChecking, setAuthChecking] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setAuthChecking(false);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    if (authChecking) return;
-
-    if (!user) {
-      navigate("/login", { replace: true });
-      return;
-    }
-
-    if (user.role !== "customer") {
-      navigate("/", { replace: true });
-    }
-  }, [authChecking, user, navigate]);
-
-  /* ============================================================
-     SHIPPING FORM
-  ============================================================ */
-
   const [form, setForm] = useState({
     fullName: user?.name || "",
     phone: "",
@@ -178,25 +144,8 @@ export default function Checkout() {
     country: "Nepal",
   });
 
-  useEffect(() => {
-    if (!user) return;
-
-    setForm((previous) => ({
-      ...previous,
-      fullName: previous.fullName || user.name || "",
-    }));
-  }, [user]);
-
-  /* ============================================================
-     LOCATION
-  ============================================================ */
-
   const [location, setLocation] = useState(null);
   const [locating, setLocating] = useState(false);
-
-  /* ============================================================
-     SEARCH
-  ============================================================ */
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -204,92 +153,85 @@ export default function Checkout() {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchError, setSearchError] = useState("");
 
-  /* ============================================================
-     PAYMENT
-  ============================================================ */
-
   const [paymentMethod, setPaymentMethod] = useState("cod");
-
-  /* ============================================================
-     DELIVERY QUOTE
-  ============================================================ */
-
   const [deliveryQuote, setDeliveryQuote] = useState(null);
   const [calculatingDelivery, setCalculatingDelivery] = useState(false);
-
-  /* ============================================================
-     SUBMIT
-  ============================================================ */
-
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  /* ============================================================
-     CART ITEMS
-  ============================================================ */
-
   const items = useMemo(() => cart?.items || [], [cart]);
 
-  /* ============================================================
-     FORM CHANGE
-  ============================================================ */
+  // Auth check
+  useEffect(() => {
+    const timer = setTimeout(() => setAuthChecking(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
+  useEffect(() => {
+    if (authChecking) return;
+    if (!user) {
+      navigate("/login", { replace: true });
+      return;
+    }
+    if (user.role !== "customer") {
+      navigate("/", { replace: true });
+    }
+  }, [authChecking, user, navigate]);
 
-    setForm((previous) => ({
-      ...previous,
-      [name]: value,
+  useEffect(() => {
+    if (!user) return;
+    setForm((prev) => ({
+      ...prev,
+      fullName: prev.fullName || user.name || "",
     }));
+  }, [user]);
 
+  // ========== AUTO LOCATE ON PAGE LOAD ==========
+  useEffect(() => {
+    // Only try once when component mounts
+    if (!navigator.geolocation) return;
+
+    // Check if permission is already granted
+    navigator.permissions
+      ?.query({ name: "geolocation" })
+      .then((result) => {
+        if (result.state === "granted") {
+          // Automatically get location if already allowed
+          useCurrentLocation(true); // silent = true
+        }
+      })
+      .catch(() => {
+        // permissions API not supported → do nothing
+      });
+  }, []);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
     if (error) setError("");
   };
-
-  /* ============================================================
-     SUBTOTAL
-  ============================================================ */
 
   const subtotal = useMemo(() => {
     return items.reduce((sum, item) => {
       if (!item?.product) return sum;
-
       const price = Number(getFinalPrice(item.product) || 0);
       const quantity = Number(item.quantity || 0);
-
       return sum + price * quantity;
     }, 0);
   }, [items]);
 
-  /* ============================================================
-     ITEM COUNT
-  ============================================================ */
-
   const itemCount = useMemo(() => {
-    return items.reduce(
-      (sum, item) => sum + Number(item?.quantity || 0),
-      0
-    );
+    return items.reduce((sum, item) => sum + Number(item?.quantity || 0), 0);
   }, [items]);
 
-  /* ============================================================
-     DELIVERY FEE
-  ============================================================ */
-
   const deliveryFee = Number(deliveryQuote?.deliveryFee || 0);
-
-  /* ============================================================
-     GRAND TOTAL
-  ============================================================ */
-
   const grandTotal = subtotal + deliveryFee;
 
   /* ============================================================
      SEARCH LOCATION
   ============================================================ */
-
   const searchLocation = async () => {
     const query = searchQuery.trim();
-
     if (!query) {
       setSearchResults([]);
       setSearchError("Enter a place name or landmark.");
@@ -312,12 +254,13 @@ export default function Checkout() {
 
       const response = await fetch(`${NOMINATIM_URL}?${params.toString()}`, {
         method: "GET",
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "MarketplaceApp/1.0",
+        },
       });
 
-      if (!response.ok) {
-        throw new Error("Location search failed.");
-      }
+      if (!response.ok) throw new Error("Location search failed.");
 
       const results = await response.json();
 
@@ -331,7 +274,7 @@ export default function Checkout() {
 
       setSearchResults(results);
     } catch (err) {
-      console.error("Location search error:", err);
+      console.error(err);
       setSearchResults([]);
       setSearchError(err?.message || "Unable to search for this location.");
     } finally {
@@ -339,13 +282,9 @@ export default function Checkout() {
     }
   };
 
-  /* ============================================================
-     SEARCH KEY DOWN
-  ============================================================ */
-
-  const handleSearchKeyDown = (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
       searchLocation();
     }
   };
@@ -353,7 +292,6 @@ export default function Checkout() {
   /* ============================================================
      SELECT SEARCH RESULT
   ============================================================ */
-
   const selectSearchResult = (result) => {
     const lat = Number(result.lat);
     const lng = Number(result.lon);
@@ -365,8 +303,7 @@ export default function Checkout() {
     const address = result.address || {};
     const displayName = result.display_name || "";
 
-    const road =
-      address.road || address.pedestrian || address.footway || "";
+    const road = address.road || address.pedestrian || address.footway || "";
     const houseNumber = address.house_number || "";
     const neighbourhood =
       address.neighbourhood || address.suburb || address.quarter || "";
@@ -379,26 +316,21 @@ export default function Checkout() {
     const postcode = address.postcode || "";
 
     let generatedAddress = "";
-
     if (houseNumber || road) {
       generatedAddress = [houseNumber, road].filter(Boolean).join(" ");
     }
-
     if (neighbourhood) {
       generatedAddress = [generatedAddress, neighbourhood]
         .filter(Boolean)
         .join(", ");
     }
+    if (!generatedAddress) generatedAddress = displayName;
 
-    if (!generatedAddress) {
-      generatedAddress = displayName;
-    }
-
-    setForm((previous) => ({
-      ...previous,
-      address: generatedAddress || previous.address,
-      city: city || previous.city,
-      postalCode: postcode || previous.postalCode,
+    setForm((prev) => ({
+      ...prev,
+      address: generatedAddress || prev.address,
+      city: city || prev.city,
+      postalCode: postcode || prev.postalCode,
       country: "Nepal",
     }));
 
@@ -409,10 +341,6 @@ export default function Checkout() {
     setError("");
   };
 
-  /* ============================================================
-     CLEAR SEARCH
-  ============================================================ */
-
   const clearSearch = () => {
     setSearchQuery("");
     setSearchResults([]);
@@ -421,19 +349,22 @@ export default function Checkout() {
   };
 
   /* ============================================================
-     USE CURRENT LOCATION (Auto Locate)
+     USE CURRENT LOCATION (FIXED)
   ============================================================ */
-
-  const useCurrentLocation = () => {
+  const useCurrentLocation = (silent = false) => {
     if (!navigator.geolocation) {
-      setSearchError("Geolocation is not supported by your browser.");
-      setShowSearchResults(true);
+      if (!silent) {
+        setSearchError("Geolocation is not supported by your browser.");
+        setShowSearchResults(true);
+      }
       return;
     }
 
     setLocating(true);
-    setSearchError("");
-    setShowSearchResults(false);
+    if (!silent) {
+      setSearchError("");
+      setShowSearchResults(false);
+    }
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
@@ -441,6 +372,7 @@ export default function Checkout() {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
 
+          // Reverse Geocode
           const params = new URLSearchParams({
             lat: String(lat),
             lon: String(lng),
@@ -452,7 +384,10 @@ export default function Checkout() {
             `${NOMINATIM_REVERSE_URL}?${params.toString()}`,
             {
               method: "GET",
-              headers: { Accept: "application/json" },
+              headers: {
+                Accept: "application/json",
+                "User-Agent": "MarketplaceApp/1.0",
+              },
             }
           );
 
@@ -464,30 +399,35 @@ export default function Checkout() {
           selectSearchResult(result);
         } catch (err) {
           console.error("Current location error:", err);
-          setSearchError(
-            err?.message || "Unable to get address for your location."
-          );
-          setShowSearchResults(true);
+          if (!silent) {
+            setSearchError(
+              err?.message || "Unable to get address for your location."
+            );
+            setShowSearchResults(true);
+          }
         } finally {
           setLocating(false);
         }
       },
       (err) => {
         setLocating(false);
+        if (silent) return; // don't show error if it was automatic
+
         let message = "Unable to get your location.";
         if (err.code === 1)
           message =
-            "Location permission denied. Please allow location access.";
+            "Location permission denied. Please allow location access in your browser.";
         if (err.code === 2)
           message = "Location unavailable. Please try again.";
         if (err.code === 3)
           message = "Location request timed out. Please try again.";
+
         setSearchError(message);
         setShowSearchResults(true);
       },
       {
         enableHighAccuracy: true,
-        timeout: 12000,
+        timeout: 15000,
         maximumAge: 0,
       }
     );
@@ -496,7 +436,6 @@ export default function Checkout() {
   /* ============================================================
      DELIVERY QUOTE
   ============================================================ */
-
   useEffect(() => {
     if (!location || items.length === 0) {
       setDeliveryQuote(null);
@@ -527,29 +466,21 @@ export default function Checkout() {
         });
 
         if (cancelled) return;
-
-        if (!quote) {
-          throw new Error("The server did not return a delivery quote.");
-        }
+        if (!quote) throw new Error("The server did not return a delivery quote.");
 
         setDeliveryQuote(quote);
         setError("");
       } catch (err) {
         console.error("Delivery quote error:", err);
-
         if (cancelled) return;
-
         setDeliveryQuote(null);
         setError(err?.message || "Unable to calculate delivery fee.");
       } finally {
-        if (!cancelled) {
-          setCalculatingDelivery(false);
-        }
+        if (!cancelled) setCalculatingDelivery(false);
       }
     };
 
     fetchDeliveryQuote();
-
     return () => {
       cancelled = true;
     };
@@ -558,76 +489,27 @@ export default function Checkout() {
   /* ============================================================
      SUBMIT ORDER
   ============================================================ */
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setError("");
 
-    if (!user) {
-      setError("Your session has expired. Please login again.");
-      return;
-    }
-
-    if (!accessToken) {
-      setError(
-        "Your session is still loading. Please wait a moment and try again."
-      );
-      return;
-    }
-
-    if (items.length === 0) {
-      setError("Your cart is empty.");
-      return;
-    }
-
-    if (!form.fullName.trim()) {
-      setError("Please enter your full name.");
-      return;
-    }
-
-    if (!form.phone.trim()) {
-      setError("Please enter your phone number.");
-      return;
-    }
-
-    if (!form.address.trim()) {
-      setError("Please enter your address.");
-      return;
-    }
-
-    if (!form.city.trim()) {
-      setError("Please enter your city.");
-      return;
-    }
-
-    if (!form.country.trim()) {
-      setError("Please enter your country.");
-      return;
-    }
-
-    if (!location) {
-      setError("Please search for your location or click on the map.");
-      return;
-    }
-
-    if (calculatingDelivery) {
-      setError("Please wait while the delivery fee is calculated.");
-      return;
-    }
-
-    if (!deliveryQuote) {
-      setError(
-        "Please select a delivery location and wait for the delivery fee."
-      );
-      return;
-    }
-
-    if (paymentMethod !== "cod") {
-      setError(
-        "Online payment is not available yet. Please select Cash on Delivery."
-      );
-      return;
-    }
+    if (!user) return setError("Your session has expired. Please login again.");
+    if (!accessToken)
+      return setError("Your session is still loading. Please wait a moment.");
+    if (items.length === 0) return setError("Your cart is empty.");
+    if (!form.fullName.trim()) return setError("Please enter your full name.");
+    if (!form.phone.trim()) return setError("Please enter your phone number.");
+    if (!form.address.trim()) return setError("Please enter your address.");
+    if (!form.city.trim()) return setError("Please enter your city.");
+    if (!form.country.trim()) return setError("Please enter your country.");
+    if (!location)
+      return setError("Please select your delivery location.");
+    if (calculatingDelivery)
+      return setError("Please wait while the delivery fee is calculated.");
+    if (!deliveryQuote)
+      return setError("Please wait for the delivery fee to be calculated.");
+    if (paymentMethod !== "cod")
+      return setError("Online payment is not available yet.");
 
     try {
       setSubmitting(true);
@@ -650,28 +532,19 @@ export default function Checkout() {
         }),
       });
 
-      if (!order?._id) {
-        throw new Error(
-          "Order was created, but the order ID was not returned."
-        );
-      }
+      if (!order?._id) throw new Error("Order ID was not returned.");
 
       resetCart();
       navigate(`/orders/${order._id}`, { replace: true });
     } catch (err) {
-      console.error("Place order error:", err);
-      setError(
-        err?.message || "Unable to place your order. Please try again."
-      );
+      console.error(err);
+      setError(err?.message || "Unable to place your order. Please try again.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  /* ============================================================
-     LOADING
-  ============================================================ */
-
+  // Loading states
   if (authChecking || cartLoading) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center px-4">
@@ -682,10 +555,6 @@ export default function Checkout() {
       </div>
     );
   }
-
-  /* ============================================================
-     NOT AUTHENTICATED
-  ============================================================ */
 
   if (!user) {
     return (
@@ -700,10 +569,6 @@ export default function Checkout() {
     );
   }
 
-  /* ============================================================
-     EMPTY CART
-  ============================================================ */
-
   if (items.length === 0) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center px-4">
@@ -711,13 +576,10 @@ export default function Checkout() {
           <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
             <ShoppingBag className="h-8 w-8 text-muted-foreground" />
           </div>
-
           <h1 className="text-2xl font-bold">Your cart is empty</h1>
-
           <p className="mt-2 text-muted-foreground">
             Add some products before going to checkout.
           </p>
-
           <Button asChild className="mt-6">
             <Link to="/products">Continue Shopping</Link>
           </Button>
@@ -726,14 +588,9 @@ export default function Checkout() {
     );
   }
 
-  /* ============================================================
-     UI
-  ============================================================ */
-
   return (
     <div className="min-h-screen bg-muted/30 py-6 sm:py-10">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* HEADER */}
         <div className="mb-6">
           <Button
             type="button"
@@ -749,14 +606,12 @@ export default function Checkout() {
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
             Checkout
           </h1>
-
           <p className="mt-1 text-sm text-muted-foreground">
             Enter your delivery information, choose your location, and review
             your delivery fee.
           </p>
         </div>
 
-        {/* ERROR */}
         {error && (
           <div
             role="alert"
@@ -768,7 +623,7 @@ export default function Checkout() {
 
         <form onSubmit={handleSubmit}>
           <div className="grid gap-6 lg:grid-cols-3">
-            {/* LEFT COLUMN */}
+            {/* LEFT */}
             <div className="space-y-6 lg:col-span-2">
               {/* SHIPPING ADDRESS */}
               <section className="rounded-xl border bg-background p-5 shadow-sm sm:p-6">
@@ -781,10 +636,7 @@ export default function Checkout() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="sm:col-span-2">
-                    <label
-                      htmlFor="fullName"
-                      className="mb-1.5 block text-sm font-medium"
-                    >
+                    <label htmlFor="fullName" className="mb-1.5 block text-sm font-medium">
                       Full Name
                     </label>
                     <input
@@ -794,17 +646,13 @@ export default function Checkout() {
                       value={form.fullName}
                       onChange={handleChange}
                       placeholder="Enter your full name"
-                      autoComplete="name"
                       disabled={submitting}
-                      className="w-full rounded-md border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-md border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
                     />
                   </div>
 
                   <div>
-                    <label
-                      htmlFor="phone"
-                      className="mb-1.5 block text-sm font-medium"
-                    >
+                    <label htmlFor="phone" className="mb-1.5 block text-sm font-medium">
                       Phone Number
                     </label>
                     <input
@@ -814,17 +662,13 @@ export default function Checkout() {
                       value={form.phone}
                       onChange={handleChange}
                       placeholder="98XXXXXXXX"
-                      autoComplete="tel"
                       disabled={submitting}
-                      className="w-full rounded-md border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-md border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
                     />
                   </div>
 
                   <div>
-                    <label
-                      htmlFor="city"
-                      className="mb-1.5 block text-sm font-medium"
-                    >
+                    <label htmlFor="city" className="mb-1.5 block text-sm font-medium">
                       City
                     </label>
                     <input
@@ -834,17 +678,13 @@ export default function Checkout() {
                       value={form.city}
                       onChange={handleChange}
                       placeholder="Kathmandu"
-                      autoComplete="address-level2"
                       disabled={submitting}
-                      className="w-full rounded-md border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-md border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
                     />
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label
-                      htmlFor="address"
-                      className="mb-1.5 block text-sm font-medium"
-                    >
+                    <label htmlFor="address" className="mb-1.5 block text-sm font-medium">
                       Address
                     </label>
                     <textarea
@@ -854,21 +694,14 @@ export default function Checkout() {
                       value={form.address}
                       onChange={handleChange}
                       placeholder="Street, house number, area..."
-                      autoComplete="street-address"
                       disabled={submitting}
-                      className="w-full resize-none rounded-md border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full resize-none rounded-md border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
                     />
                   </div>
 
                   <div>
-                    <label
-                      htmlFor="postalCode"
-                      className="mb-1.5 block text-sm font-medium"
-                    >
-                      Postal Code
-                      <span className="ml-1 font-normal text-muted-foreground">
-                        (Optional)
-                      </span>
+                    <label htmlFor="postalCode" className="mb-1.5 block text-sm font-medium">
+                      Postal Code <span className="text-muted-foreground">(Optional)</span>
                     </label>
                     <input
                       id="postalCode"
@@ -877,17 +710,13 @@ export default function Checkout() {
                       value={form.postalCode}
                       onChange={handleChange}
                       placeholder="44600"
-                      autoComplete="postal-code"
                       disabled={submitting}
-                      className="w-full rounded-md border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-md border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
                     />
                   </div>
 
                   <div>
-                    <label
-                      htmlFor="country"
-                      className="mb-1.5 block text-sm font-medium"
-                    >
+                    <label htmlFor="country" className="mb-1.5 block text-sm font-medium">
                       Country
                     </label>
                     <input
@@ -897,9 +726,8 @@ export default function Checkout() {
                       value={form.country}
                       onChange={handleChange}
                       placeholder="Nepal"
-                      autoComplete="country-name"
                       disabled={submitting}
-                      className="w-full rounded-md border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-md border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
                     />
                   </div>
                 </div>
@@ -910,110 +738,102 @@ export default function Checkout() {
                 <div className="mb-5">
                   <div className="flex items-center gap-2">
                     <MapPin className="h-5 w-5 text-primary" />
-                    <h2 className="text-lg font-semibold">
-                      Delivery Location
-                    </h2>
+                    <h2 className="text-lg font-semibold">Delivery Location</h2>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Search for a place, click on the map, or use your current
-                    location.
+                    Search for a place, click on the map, or use your current location.
                   </p>
                 </div>
 
                 {/* SEARCH + AUTO LOCATE */}
                 <div className="relative z-1000">
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <div className="relative flex-1">
                       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-
                       <input
                         type="text"
                         value={searchQuery}
-                        onChange={(event) => {
-                          setSearchQuery(event.target.value);
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
                           setSearchError("");
-                          if (event.target.value.trim()) {
-                            setShowSearchResults(true);
-                          }
+                          if (e.target.value.trim()) setShowSearchResults(true);
                         }}
                         onKeyDown={handleSearchKeyDown}
                         onFocus={() => {
-                          if (searchResults.length > 0) {
-                            setShowSearchResults(true);
-                          }
+                          if (searchResults.length > 0) setShowSearchResults(true);
                         }}
                         placeholder="Search place or landmark..."
                         disabled={submitting || locating}
-                        className="w-full rounded-md border bg-background py-2.5 pl-9 pr-10 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-md border bg-background py-2.5 pl-9 pr-10 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
                       />
-
                       {searchQuery && (
                         <button
                           type="button"
                           onClick={clearSearch}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                          aria-label="Clear search"
                         >
                           <X className="h-4 w-4" />
                         </button>
                       )}
                     </div>
 
-                    <Button
-                      type="button"
-                      onClick={searchLocation}
-                      disabled={searchingLocation || submitting || locating}
-                    >
-                      {searchingLocation ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Search className="mr-2 h-4 w-4" />
-                      )}
-                      Search
-                    </Button>
-
-                    {/* AUTO LOCATE BUTTON */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={useCurrentLocation}
-                      disabled={locating || searchingLocation || submitting}
-                      title="Use my current location"
-                    >
-                      {locating ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <LocateFixed className="h-4 w-4" />
-                      )}
-                      <span className="ml-2 hidden sm:inline">
-                        {locating ? "Locating..." : "Use my location"}
-                      </span>
-                    </Button>
-                  </div>
-
-                  {/* Search Examples */}
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {[
-                      "Boudhanath Stupa",
-                      "Thamel",
-                      "Patan Durbar Square",
-                      "Kathmandu Mall",
-                    ].map((example) => (
-                      <button
-                        key={example}
+                    <div className="flex gap-2">
+                      <Button
                         type="button"
-                        onClick={() => {
-                          setSearchQuery(example);
-                          setTimeout(() => searchLocation(), 0);
-                        }}
-                        className="rounded-full border bg-background px-3 py-1 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                        onClick={searchLocation}
+                        disabled={searchingLocation || submitting || locating}
                       >
-                        {example}
-                      </button>
-                    ))}
+                        {searchingLocation ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Search className="mr-2 h-4 w-4" />
+                        )}
+                        Search
+                      </Button>
+
+                      {/* ========== LIVE LOCATION BUTTON ========== */}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => useCurrentLocation(false)}
+                        disabled={locating || searchingLocation || submitting}
+                        className="min-w-35"
+                      >
+                        {locating ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Locating...
+                          </>
+                        ) : (
+                          <>
+                            <LocateFixed className="mr-2 h-4 w-4" />
+                            Use my location
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
 
-                  {/* Search Results */}
+                  {/* Examples */}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {["Boudhanath Stupa", "Thamel", "Patan Durbar Square", "Kathmandu Mall"].map(
+                      (example) => (
+                        <button
+                          key={example}
+                          type="button"
+                          onClick={() => {
+                            setSearchQuery(example);
+                            setTimeout(() => searchLocation(), 0);
+                          }}
+                          className="rounded-full border bg-background px-3 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          {example}
+                        </button>
+                      )
+                    )}
+                  </div>
+
+                  {/* Results dropdown */}
                   {showSearchResults && (
                     <div className="absolute left-0 right-0 top-full z-2000 mt-2 overflow-hidden rounded-lg border bg-background shadow-xl">
                       {searchingLocation && (
@@ -1022,39 +842,33 @@ export default function Checkout() {
                           Searching locations...
                         </div>
                       )}
-
                       {!searchingLocation && searchError && (
                         <div className="px-4 py-3 text-sm text-destructive">
                           {searchError}
                         </div>
                       )}
-
-                      {!searchingLocation &&
-                        !searchError &&
-                        searchResults.length > 0 && (
-                          <div className="max-h-72 overflow-y-auto">
-                            {searchResults.map((result, index) => (
-                              <button
-                                key={`${result.place_id}-${index}`}
-                                type="button"
-                                onClick={() => selectSearchResult(result)}
-                                className="flex w-full items-start gap-3 border-b px-4 py-3 text-left last:border-b-0 hover:bg-muted"
-                              >
-                                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium">
-                                    {result.name ||
-                                      result.display_name?.split(",")[0] ||
-                                      "Location"}
-                                  </p>
-                                  <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                                    {result.display_name}
-                                  </p>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                      {!searchingLocation && !searchError && searchResults.length > 0 && (
+                        <div className="max-h-72 overflow-y-auto">
+                          {searchResults.map((result, index) => (
+                            <button
+                              key={`${result.place_id}-${index}`}
+                              type="button"
+                              onClick={() => selectSearchResult(result)}
+                              className="flex w-full items-start gap-3 border-b px-4 py-3 text-left last:border-b-0 hover:bg-muted"
+                            >
+                              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium">
+                                  {result.name || result.display_name?.split(",")[0] || "Location"}
+                                </p>
+                                <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                                  {result.display_name}
+                                </p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1062,17 +876,13 @@ export default function Checkout() {
                 {/* MAP */}
                 <div className="relative z-0 mt-5 overflow-hidden rounded-xl border">
                   <MapContainer
-                    center={[
-                      DEFAULT_MAP_POSITION.lat,
-                      DEFAULT_MAP_POSITION.lng,
-                    ]}
+                    center={[DEFAULT_MAP_POSITION.lat, DEFAULT_MAP_POSITION.lng]}
                     zoom={DEFAULT_ZOOM}
                     scrollWheelZoom
-                    className="w-full"
                     style={{ height: "400px", width: "100%" }}
                   >
                     <TileLayer
-                      attribution="&copy; OpenStreetMap contributors"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
                     <MapController location={location} />
@@ -1084,7 +894,7 @@ export default function Checkout() {
                   </MapContainer>
                 </div>
 
-                {/* LOCATION INFO */}
+                {/* Location status */}
                 <div className="mt-4">
                   {location ? (
                     <div className="rounded-lg border bg-muted/40 p-4">
@@ -1092,15 +902,10 @@ export default function Checkout() {
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
                           <MapPin className="h-4 w-4 text-primary" />
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium">
-                            Delivery location selected
-                          </p>
+                        <div>
+                          <p className="text-sm font-medium">Delivery location selected</p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            Latitude: {location.lat.toFixed(6)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Longitude: {location.lng.toFixed(6)}
+                            Lat: {location.lat.toFixed(6)} | Lng: {location.lng.toFixed(6)}
                           </p>
                         </div>
                       </div>
@@ -1108,164 +913,73 @@ export default function Checkout() {
                   ) : (
                     <div className="rounded-lg border border-dashed p-4 text-center">
                       <MapPin className="mx-auto h-5 w-5 text-muted-foreground" />
-                      <p className="mt-2 text-sm font-medium">
-                        Select your delivery location
-                      </p>
+                      <p className="mt-2 text-sm font-medium">Select your delivery location</p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Search for a place, select a result, click the map, or
-                        use your current location.
+                        Click “Use my location” or search / click on the map
                       </p>
                     </div>
                   )}
                 </div>
 
-                {/* DELIVERY FEE */}
+                {/* Delivery Fee Box */}
                 {location && (
-                  <div className="mt-4 rounded-lg border bg-background p-4">
+                  <div className="mt-4 rounded-lg border p-4">
                     <div className="flex items-center gap-3">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
                         <Truck className="h-4 w-4 text-primary" />
                       </div>
-
-                      <div className="min-w-0 flex-1">
+                      <div className="flex-1">
                         <p className="text-sm font-medium">Delivery fee</p>
-
                         {calculatingDelivery ? (
                           <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            Calculating delivery distance and fee...
+                            Calculating...
                           </div>
                         ) : deliveryQuote ? (
                           <p className="mt-1 text-xs text-muted-foreground">
-                            Delivery from{" "}
-                            {deliveryQuote?.delivery?.vendors?.length || 0}{" "}
-                            vendor
-                            {(deliveryQuote?.delivery?.vendors?.length || 0) !==
-                            1
-                              ? "s"
-                              : ""}
+                            From {deliveryQuote?.delivery?.vendors?.length || 0} vendor(s)
                           </p>
                         ) : (
-                          <p className="mt-1 text-xs text-destructive">
-                            Unable to calculate delivery fee.
-                          </p>
+                          <p className="mt-1 text-xs text-destructive">Unable to calculate</p>
                         )}
                       </div>
-
-                      <div className="text-right">
+                      <div className="text-right font-semibold">
                         {calculatingDelivery ? (
-                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          <Loader2 className="h-5 w-5 animate-spin" />
                         ) : deliveryQuote ? (
-                          <span className="font-semibold">
-                            RS {deliveryFee.toFixed(2)}
-                          </span>
+                          `RS ${deliveryFee.toFixed(2)}`
                         ) : (
-                          <span className="text-sm text-muted-foreground">
-                            —
-                          </span>
+                          "—"
                         )}
                       </div>
                     </div>
-
-                    {/* Vendor Breakdown */}
-                    {deliveryQuote?.delivery?.vendors?.length > 0 && (
-                      <div className="mt-4 border-t pt-4">
-                        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Delivery breakdown
-                        </p>
-
-                        <div className="space-y-2">
-                          {deliveryQuote.delivery.vendors.map(
-                            (vendorDelivery, index) => (
-                              <div
-                                key={
-                                  vendorDelivery.vendor?._id || index
-                                }
-                                className="flex items-center justify-between gap-3 text-sm"
-                              >
-                                <div className="min-w-0">
-                                  <p className="truncate font-medium">
-                                    {vendorDelivery.vendor?.storeName ||
-                                      `Vendor ${index + 1}`}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {Number(
-                                      vendorDelivery.distanceKm || 0
-                                    ).toFixed(2)}{" "}
-                                    km away
-                                  </p>
-                                </div>
-
-                                <span className="shrink-0 font-medium">
-                                  RS{" "}
-                                  {Number(vendorDelivery.fee || 0).toFixed(2)}
-                                </span>
-                              </div>
-                            )
-                          )}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )}
               </section>
 
               {/* PAYMENT */}
               <section className="rounded-xl border bg-background p-5 shadow-sm sm:p-6">
-                <div className="mb-6">
-                  <h2 className="text-lg font-semibold">Payment Method</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Select your preferred payment method.
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <label
-                    className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition ${
-                      paymentMethod === "cod"
-                        ? "border-primary bg-primary/5"
-                        : "hover:bg-muted/50"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="cod"
-                      checked={paymentMethod === "cod"}
-                      onChange={(event) =>
-                        setPaymentMethod(event.target.value)
-                      }
-                      disabled={submitting}
-                      className="mt-1"
-                    />
-                    <div>
-                      <p className="font-medium">Cash on Delivery</p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Pay when your order arrives.
-                      </p>
-                    </div>
-                  </label>
-
-                  <div className="flex items-start gap-3 rounded-lg border p-4 opacity-60">
-                    <input type="radio" disabled className="mt-1" />
-                    <div>
-                      <p className="font-medium">Stripe</p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Online card payment — coming soon.
-                      </p>
-                    </div>
+                <h2 className="mb-4 text-lg font-semibold">Payment Method</h2>
+                <label
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 ${
+                    paymentMethod === "cod" ? "border-primary bg-primary/5" : ""
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="cod"
+                    checked={paymentMethod === "cod"}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="mt-1"
+                  />
+                  <div>
+                    <p className="font-medium">Cash on Delivery</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Pay when your order arrives.
+                    </p>
                   </div>
-
-                  <div className="flex items-start gap-3 rounded-lg border p-4 opacity-60">
-                    <input type="radio" disabled className="mt-1" />
-                    <div>
-                      <p className="font-medium">Razorpay</p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Online payment — coming soon.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                </label>
               </section>
             </div>
 
@@ -1278,18 +992,14 @@ export default function Checkout() {
                   {items.map((item) => {
                     const product = item?.product;
                     if (!product) return null;
-
-                    const image = product.images?.[0] || "";
                     const price = Number(getFinalPrice(product) || 0);
                     const quantity = Number(item.quantity || 0);
-                    const itemSubtotal = price * quantity;
-
                     return (
                       <div key={product._id} className="flex gap-3">
                         <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-muted">
-                          {image ? (
+                          {product.images?.[0] ? (
                             <img
-                              src={image}
+                              src={product.images[0]}
                               alt={product.title}
                               className="h-full w-full object-cover"
                             />
@@ -1299,25 +1009,11 @@ export default function Checkout() {
                             </div>
                           )}
                         </div>
-
                         <div className="min-w-0 flex-1">
-                          <p className="line-clamp-2 text-sm font-medium">
-                            {product.title}
-                          </p>
-
-                          {product.vendor?.storeName && (
-                            <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                              {product.vendor.storeName}
-                            </p>
-                          )}
-
-                          <div className="mt-1 flex items-center justify-between gap-2">
-                            <span className="text-xs text-muted-foreground">
-                              Qty: {quantity}
-                            </span>
-                            <span className="text-sm font-medium">
-                              RS {itemSubtotal.toFixed(2)}
-                            </span>
+                          <p className="line-clamp-2 text-sm font-medium">{product.title}</p>
+                          <div className="mt-1 flex justify-between text-sm">
+                            <span className="text-muted-foreground">Qty: {quantity}</span>
+                            <span className="font-medium">RS {(price * quantity).toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
@@ -1327,68 +1023,44 @@ export default function Checkout() {
 
                 <div className="my-5 border-t" />
 
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Items</span>
-                  <span>{itemCount}</span>
-                </div>
-
-                <div className="mt-3 flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>RS {subtotal.toFixed(2)}</span>
-                </div>
-
-                <div className="mt-3 flex justify-between text-sm">
-                  <span className="text-muted-foreground">Delivery</span>
-                  <span>
-                    {calculatingDelivery ? (
-                      <span className="flex items-center gap-2">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        Calculating...
-                      </span>
-                    ) : deliveryQuote ? (
-                      `RS ${deliveryFee.toFixed(2)}`
-                    ) : (
-                      "Select location"
-                    )}
-                  </span>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Items</span>
+                    <span>{itemCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>RS {subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Delivery</span>
+                    <span>
+                      {calculatingDelivery
+                        ? "Calculating..."
+                        : deliveryQuote
+                        ? `RS ${deliveryFee.toFixed(2)}`
+                        : "Select location"}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="my-5 border-t" />
 
                 <div className="flex items-center justify-between">
                   <span className="font-semibold">Total</span>
-                  <span className="text-xl font-bold">
-                    RS {grandTotal.toFixed(2)}
-                  </span>
+                  <span className="text-xl font-bold">RS {grandTotal.toFixed(2)}</span>
                 </div>
 
                 <Button
                   type="submit"
                   size="lg"
                   className="mt-6 w-full"
-                  disabled={
-                    submitting || calculatingDelivery || !deliveryQuote
-                  }
+                  disabled={submitting || calculatingDelivery || !deliveryQuote}
                 >
                   {submitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Placing Order...
-                    </>
-                  ) : calculatingDelivery ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Calculating Delivery...
-                    </>
-                  ) : !location ? (
-                    <>
-                      <MapPin className="mr-2 h-4 w-4" />
-                      Select Location
-                    </>
-                  ) : !deliveryQuote ? (
-                    <>
-                      <Truck className="mr-2 h-4 w-4" />
-                      Calculate Delivery
                     </>
                   ) : (
                     <>
@@ -1408,10 +1080,6 @@ export default function Checkout() {
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Return to Cart
                 </Button>
-
-                <p className="mt-4 text-center text-xs text-muted-foreground">
-                  Your order will be placed using Cash on Delivery.
-                </p>
               </div>
             </aside>
           </div>
