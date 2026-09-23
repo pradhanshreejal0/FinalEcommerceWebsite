@@ -337,7 +337,7 @@ export default function Cart() {
                                   </Link>
 
                                   <p className="mt-1 text-sm text-muted-foreground">
-                                    ${price.toFixed(2)}
+                                    RS {price.toFixed(2)}
                                   </p>
                                 </div>
 
@@ -431,7 +431,7 @@ export default function Cart() {
                                   </p>
 
                                   <p className="font-semibold">
-                                    ${subtotal.toFixed(2)}
+                                    RS {subtotal.toFixed(2)}
                                   </p>
                                 </div>
 
@@ -480,7 +480,7 @@ export default function Cart() {
                   </span>
 
                   <span>
-                    ${Number(total || 0).toFixed(2)}
+                    RS {Number(total || 0).toFixed(2)}
                   </span>
                 </div>
 
@@ -504,7 +504,7 @@ export default function Cart() {
                 </span>
 
                 <span className="text-xl font-bold">
-                  ${Number(total || 0).toFixed(2)}
+                  RS {Number(total || 0).toFixed(2)}
                 </span>
               </div>
 

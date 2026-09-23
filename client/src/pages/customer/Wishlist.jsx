@@ -137,7 +137,7 @@ export default function Wishlist() {
                     </p>
                   )}
                   <p className="mt-1 font-semibold">
-                    ${Number(product.price).toFixed(2)}
+                    RS {Number(product.price).toFixed(2)}
                   </p>
                 </div>
 

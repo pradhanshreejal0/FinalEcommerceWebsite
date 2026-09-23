@@ -9,7 +9,7 @@ const cards = [
     key: "totalSales",
     label: "Total Sales",
     icon: DollarSign,
-    format: (v) => `$${Number(v || 0).toFixed(2)}`,
+    format: (v) => `RS ${Number(v || 0).toFixed(2)}`,
     to: "/vendor/orders",
   },
   {

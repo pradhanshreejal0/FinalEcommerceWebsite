@@ -115,7 +115,7 @@ export default function AdminDashboard() {
               <div className="text-right">
                 <p className="font-semibold">{p.views || 0} views</p>
                 <p className="text-sm text-muted-foreground">
-                  ${Number(p.price).toFixed(2)}
+                  RS {Number(p.price).toFixed(2)}
                 </p>
               </div>
             </div>

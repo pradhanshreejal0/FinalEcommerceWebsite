@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
@@ -40,7 +40,6 @@ import { CategoryIcon } from "../CategoryIcon";
 
 export default function Navbar() {
   const [categories, setCategories] = useState([]);
-  const [showCategoryIcons, setShowCategoryIcons] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const { user, logout } = useAuth();
@@ -86,69 +85,6 @@ export default function Navbar() {
   }, []);
 
   // =========================================================
-  // CATEGORY ICON SCROLL BEHAVIOR
-  // Shows instantly on any upward scroll; only hides after
-  // 40px of sustained downward scroll (avoids flicker from
-  // momentum bounce / tiny back-and-forth jitter).
-  // =========================================================
-
-  useEffect(() => {
-    let lastScrollY = Math.max(window.scrollY, 0);
-    let downAccum = 0;
-    let ticking = false;
-
-    const HIDE_AFTER = 10; // px of sustained downward scroll before hiding
-
-    const updateScrollDirection = () => {
-      // Clamp to guard against iOS/Android overscroll bounce reporting
-      // negative or out-of-range values, which was a source of flicker.
-      const currentScrollY = Math.max(window.scrollY, 0);
-
-      if (currentScrollY <= 10) {
-        setShowCategoryIcons((prev) => (prev ? prev : true));
-        lastScrollY = currentScrollY;
-        downAccum = 0;
-        ticking = false;
-        return;
-      }
-
-      const delta = currentScrollY - lastScrollY;
-      lastScrollY = currentScrollY;
-
-      if (delta < 0) {
-        // Any upward scroll reveals it immediately.
-        downAccum = 0;
-        setShowCategoryIcons((prev) => (prev ? prev : true));
-      } else if (delta > 0) {
-        // Downward scroll needs to accumulate past the threshold
-        // before hiding, so brief/jittery downward blips don't hide it.
-        downAccum += delta;
-
-        if (downAccum > HIDE_AFTER) {
-          setShowCategoryIcons((prev) => (prev ? false : prev));
-        }
-      }
-
-      ticking = false;
-    };
-
-    const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(updateScrollDirection);
-        ticking = true;
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll, {
-      passive: true,
-    });
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
-  }, []);
-
-  // =========================================================
   // LOGOUT
   // =========================================================
 
@@ -165,18 +101,22 @@ export default function Navbar() {
   // =========================================================
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-background shadow-sm">
+    <header className="sticky top-0 z-5000 w-full bg-background shadow-sm">
       {/* =====================================================
           MAIN NAVBAR
       ===================================================== */}
 
       <div className="border-b bg-background">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-3 sm:px-4 lg:h-17 lg:gap-5">
+
           {/* =================================================
               MOBILE MENU
           ================================================= */}
 
-          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <Sheet
+            open={mobileMenuOpen}
+            onOpenChange={setMobileMenuOpen}
+          >
             <SheetTrigger asChild>
               <Button
                 variant="ghost"
@@ -193,6 +133,7 @@ export default function Navbar() {
               className="w-75 sm:w-87"
             >
               <div className="mt-6 flex flex-col">
+
                 {/* Mobile Brand */}
 
                 <div className="mb-6 flex items-center justify-between gap-2">
@@ -215,44 +156,57 @@ export default function Navbar() {
                 {/* Mobile Navigation */}
 
                 <div className="space-y-1">
+
                   <Link
                     to="/"
+                    onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center justify-between rounded-lg px-3 py-3 text-sm font-medium hover:bg-muted"
                   >
                     <span>Home</span>
+
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </Link>
 
                   <Link
                     to="/products"
+                    onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center justify-between rounded-lg px-3 py-3 text-sm font-medium hover:bg-muted"
                   >
                     <span>Shop</span>
+
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </Link>
 
                   <Link
                     to="/categories"
+                    onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center justify-between rounded-lg px-3 py-3 text-sm font-medium hover:bg-muted"
                   >
                     <span>All Categories</span>
+
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </Link>
+
                 </div>
 
                 {/* Mobile Categories */}
 
                 {categories.length > 0 && (
                   <div className="mt-5">
+
                     <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Popular Categories
                     </p>
 
                     <div className="space-y-1">
+
                       {categories.map((cat) => (
                         <Link
                           key={cat._id}
                           to={`/products?category=${cat._id}`}
+                          onClick={() =>
+                            setMobileMenuOpen(false)
+                          }
                           className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-muted"
                         >
                           <CategoryIcon
@@ -265,6 +219,7 @@ export default function Navbar() {
                           </span>
                         </Link>
                       ))}
+
                     </div>
                   </div>
                 )}
@@ -272,37 +227,55 @@ export default function Navbar() {
                 {/* Mobile Account */}
 
                 <div className="mt-6 border-t pt-4">
+
                   {user ? (
                     <div className="space-y-1">
+
                       <Link
                         to="/profile"
+                        onClick={() =>
+                          setMobileMenuOpen(false)
+                        }
                         className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium hover:bg-muted"
                       >
                         <User className="h-4 w-4" />
+
                         My Profile
                       </Link>
 
                       <Link
                         to="/orders"
+                        onClick={() =>
+                          setMobileMenuOpen(false)
+                        }
                         className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium hover:bg-muted"
                       >
                         <Package className="h-4 w-4" />
+
                         My Orders
                       </Link>
 
                       <Link
                         to="/wishlist"
+                        onClick={() =>
+                          setMobileMenuOpen(false)
+                        }
                         className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium hover:bg-muted"
                       >
                         <Heart className="h-4 w-4" />
+
                         Wishlist
                       </Link>
 
                       <Link
                         to={messagesLink}
+                        onClick={() =>
+                          setMobileMenuOpen(false)
+                        }
                         className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium hover:bg-muted"
                       >
                         <MessageCircle className="h-4 w-4" />
+
                         Messages
                       </Link>
 
@@ -312,17 +285,26 @@ export default function Navbar() {
                         className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-destructive hover:bg-destructive/10"
                       >
                         <LogOut className="h-4 w-4" />
+
                         Logout
                       </button>
+
                     </div>
                   ) : (
                     <div className="space-y-2">
+
                       <Button
                         asChild
                         className="w-full rounded-lg"
                       >
-                        <Link to="/login">
+                        <Link
+                          to="/login"
+                          onClick={() =>
+                            setMobileMenuOpen(false)
+                          }
+                        >
                           <User className="mr-2 h-4 w-4" />
+
                           Sign In
                         </Link>
                       </Button>
@@ -332,10 +314,19 @@ export default function Navbar() {
                         variant="outline"
                         className="w-full rounded-lg"
                       >
-                        <Link to="/signup">Sign Up</Link>
+                        <Link
+                          to="/signup"
+                          onClick={() =>
+                            setMobileMenuOpen(false)
+                          }
+                        >
+                          Sign Up
+                        </Link>
                       </Button>
+
                     </div>
                   )}
+
                 </div>
               </div>
             </SheetContent>
@@ -359,7 +350,7 @@ export default function Navbar() {
           </Link>
 
           {/* =================================================
-              SEARCH (desktop only — mobile has its own row below)
+              DESKTOP SEARCH
           ================================================= */}
 
           <div className="hidden min-w-0 flex-1 md:block">
@@ -371,7 +362,8 @@ export default function Navbar() {
           ================================================= */}
 
           <div className="hidden items-center gap-2 md:flex">
-            {/* Theme Toggle */}
+
+            {/* Theme */}
 
             <ThemeToggle className="mr-1" />
 
@@ -384,10 +376,13 @@ export default function Navbar() {
               className="gap-1.5 rounded-lg px-2.5"
             >
               <Link to="/wishlist">
+
                 <Heart className="h-4 w-4" />
+
                 <span className="hidden lg:inline">
                   Wishlist
                 </span>
+
               </Link>
             </Button>
 
@@ -400,6 +395,7 @@ export default function Navbar() {
               className="relative gap-1.5 rounded-lg px-2.5"
             >
               <Link to="/cart">
+
                 <ShoppingCart className="h-4 w-4" />
 
                 <span className="hidden lg:inline">
@@ -411,13 +407,15 @@ export default function Navbar() {
                     {itemCount}
                   </Badge>
                 )}
+
               </Link>
             </Button>
 
-            {/* Account / Auth */}
+            {/* Account */}
 
             {user ? (
               <DropdownMenu>
+
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
@@ -425,6 +423,7 @@ export default function Navbar() {
                     className="gap-1.5 rounded-lg"
                   >
                     <User className="h-4 w-4" />
+
                     <span className="hidden lg:inline">
                       Account
                     </span>
@@ -435,9 +434,11 @@ export default function Navbar() {
                   align="end"
                   className="w-52"
                 >
+
                   <DropdownMenuItem asChild>
                     <Link to="/profile">
                       <User className="mr-2 h-4 w-4" />
+
                       My Profile
                     </Link>
                   </DropdownMenuItem>
@@ -445,6 +446,7 @@ export default function Navbar() {
                   <DropdownMenuItem asChild>
                     <Link to="/orders">
                       <Package className="mr-2 h-4 w-4" />
+
                       My Orders
                     </Link>
                   </DropdownMenuItem>
@@ -452,6 +454,7 @@ export default function Navbar() {
                   <DropdownMenuItem asChild>
                     <Link to="/wishlist">
                       <Heart className="mr-2 h-4 w-4" />
+
                       Wishlist
                     </Link>
                   </DropdownMenuItem>
@@ -459,6 +462,7 @@ export default function Navbar() {
                   <DropdownMenuItem asChild>
                     <Link to={messagesLink}>
                       <MessageCircle className="mr-2 h-4 w-4" />
+
                       Messages
                     </Link>
                   </DropdownMenuItem>
@@ -470,19 +474,24 @@ export default function Navbar() {
                     className="text-destructive focus:text-destructive"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
+
                     Logout
                   </DropdownMenuItem>
+
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
               <div className="flex items-center gap-2">
+
                 <Button
                   asChild
                   variant="ghost"
                   size="sm"
                   className="rounded-lg"
                 >
-                  <Link to="/login">Sign In</Link>
+                  <Link to="/login">
+                    Sign In
+                  </Link>
                 </Button>
 
                 <Button
@@ -492,18 +501,22 @@ export default function Navbar() {
                 >
                   <Link to="/register">
                     <User className="mr-1.5 h-4 w-4" />
+
                     Sign Up
                   </Link>
                 </Button>
+
               </div>
             )}
+
           </div>
 
           {/* =================================================
-              MOBILE ACTIONS (right side, next to hamburger/logo)
+              MOBILE ACTIONS
           ================================================= */}
 
           <div className="ml-auto flex items-center gap-1.5 md:hidden">
+
             <ThemeToggle />
 
             {user ? (
@@ -524,10 +537,14 @@ export default function Navbar() {
                 size="sm"
                 className="rounded-lg"
               >
-                <Link to="/login">Sign In</Link>
+                <Link to="/login">
+                  Sign In
+                </Link>
               </Button>
             )}
+
           </div>
+
         </div>
       </div>
 
@@ -541,76 +558,57 @@ export default function Navbar() {
 
       {/* =====================================================
           CATEGORY STRIP
+          ALWAYS VISIBLE
       ===================================================== */}
 
       {categories.length > 0 && (
         <section className="border-b bg-background">
+
           <div className="mx-auto max-w-7xl px-3 sm:px-4">
-            <div
-              className={`scrollbar-hide flex overflow-x-auto transition-all duration-300 ${
-                showCategoryIcons
-                  ? "gap-5 py-2.5"
-                  : "gap-6 py-1.5"
-              }`}
-            >
-              {/* All Categories */}
+
+            <div className="scrollbar-hide flex gap-5 overflow-x-auto py-2.5">
+
+              {/* =================================================
+                  ALL CATEGORIES
+              ================================================= */}
 
               <Link
                 to="/categories"
-                className={`group  flex shrink-0 flex-col items-center justify-center transition-all duration-300 ${
-                  showCategoryIcons
-                    ? "gap-1"
-                    : "gap-0"
-                }`}
+                className="group flex shrink-0 flex-col items-center justify-center gap-1"
               >
-                <div
-                  className={`grid overflow-hidden transition-all duration-300  ${
-                    showCategoryIcons
-                      ? "grid-rows-[1fr] opacity-100"
-                      : "grid-rows-[0fr] opacity-0"
-                  }`}
-                >
-                  <div className="min-h-0">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted transition-transform duration-200 group-hover:scale-105">
-                      <Menu className="h-5 w-5 " />
-                    </div>
-                  </div>
+
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted transition-transform duration-200 group-hover:scale-105">
+
+                  <Menu className="h-5 w-5" />
+
                 </div>
 
                 <span className="whitespace-nowrap text-[11px] font-medium">
                   All
                 </span>
+
               </Link>
 
-              {/* Categories */}
+              {/* =================================================
+                  CATEGORIES
+              ================================================= */}
 
               {categories.map((cat) => (
                 <Link
                   key={cat._id}
                   to={`/products?category=${cat._id}`}
-                  className={`group flex shrink-0 flex-col items-center justify-center transition-all duration-300 ${
-                    showCategoryIcons
-                      ? "gap-1"
-                      : "gap-0"
-                  }`}
+                  className="group flex shrink-0 flex-col items-center justify-center gap-1"
                 >
+
                   {/* Icon */}
 
-                  <div
-                    className={`grid overflow-hidden transition-all duration-300 ease-in-out ${
-                      showCategoryIcons
-                        ? "grid-rows-[1fr]  opacity-100"
-                        : "grid-rows-[0fr] opacity-0"
-                    }`}
-                  >
-                    <div className="min-h-0 ">
-                      <div className="flex h-12 w-12 items-center justify-center transition-transform duration-200 group-hover:scale-105">
-                        <CategoryIcon
-                          category={cat}
-                          size="sm"
-                        />
-                      </div>
-                    </div>
+                  <div className="flex h-12 w-12 items-center justify-center transition-transform duration-200 group-hover:scale-105">
+
+                    <CategoryIcon
+                      category={cat}
+                      size="sm"
+                    />
+
                   </div>
 
                   {/* Name */}
@@ -618,10 +616,14 @@ export default function Navbar() {
                   <span className="max-w-20 truncate whitespace-nowrap text-[11px] font-medium text-foreground/80 group-hover:text-foreground">
                     {cat.name}
                   </span>
+
                 </Link>
               ))}
+
             </div>
+
           </div>
+
         </section>
       )}
 
@@ -634,6 +636,7 @@ export default function Navbar() {
         aria-label="View cart"
         className="fixed bottom-5 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:hidden"
       >
+
         <ShoppingCart className="h-6 w-6" />
 
         {itemCount > 0 && (
@@ -641,7 +644,9 @@ export default function Navbar() {
             {itemCount}
           </Badge>
         )}
+
       </Link>
+
     </header>
   );
 }

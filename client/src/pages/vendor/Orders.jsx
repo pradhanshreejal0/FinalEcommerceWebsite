@@ -191,7 +191,7 @@ export default function VendorOrders() {
                       </span>
                     </div>
                     <span className="font-medium">
-                      ${(item.price * item.quantity).toFixed(2)}
+                      RS {(item.price * item.quantity).toFixed(2)}
                     </span>
                   </div>
                 ))}
@@ -199,7 +199,7 @@ export default function VendorOrders() {
 
               <div className="flex justify-between mt-3 pt-3 border-t font-semibold">
                 <span>Your subtotal</span>
-                <span>${Number(order.subtotal || 0).toFixed(2)}</span>
+                <span>RS {Number(order.subtotal || 0).toFixed(2)}</span>
               </div>
 
               {order.status === "cancelled" && order.cancellationReason && (

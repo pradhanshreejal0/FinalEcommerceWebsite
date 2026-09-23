@@ -105,7 +105,7 @@ export default function AdminOrders() {
 
               <div className="flex justify-between mt-3 pt-3 border-t font-semibold">
                 <span>Total</span>
-                <span>${Number(order.totalAmount || 0).toFixed(2)}</span>
+                <span>RS {Number(order.totalAmount || 0).toFixed(2)}</span>
               </div>
 
               {order.status === "cancelled" && order.cancellationReason && (

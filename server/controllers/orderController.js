@@ -1,7 +1,7 @@
 import Order from "../models/Order.js";
 import Cart from "../models/Cart.js";
 import Product from "../models/Product.js";
-import Vendor from "../models/Vendor.js";
+import Vendor from "../models/Vendor.js"
 
 // =====================================================
 // Delivery Configuration
@@ -9,16 +9,16 @@ import Vendor from "../models/Vendor.js";
 //
 // Delivery is calculated per vendor.
 //
-// 0 - 3 km       = NPR 100
-// >3 - 7 km      = NPR 150
-// >7 - 12 km     = NPR 250
-// >12 km         = NPR 350
+// 0 - 3 km       = RS 50
+// >3 - 7 km      = RS 150
+// >7 - 12 km     = RS 250
+// >12 km         = RS 350
 //
 // Change these values here if your business rules change.
 // =====================================================
 
 const DELIVERY_RATES = {
-  upTo3Km: 100,
+  upTo3Km: 50,
   upTo7Km: 150,
   upTo12Km: 250,
   above12Km: 350,
@@ -36,17 +36,11 @@ const roundMoney = (value) => {
 // Validate Coordinates
 // =====================================================
 
-const validateCoordinates = (
-  latitude,
-  longitude
-) => {
+const validateCoordinates = (latitude, longitude) => {
   const lat = Number(latitude);
   const lng = Number(longitude);
 
-  if (
-    !Number.isFinite(lat) ||
-    !Number.isFinite(lng)
-  ) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
     return false;
   }
 
@@ -64,9 +58,6 @@ const validateCoordinates = (
 // =====================================================
 // Haversine Distance
 // =====================================================
-//
-// Returns distance in kilometers.
-// =====================================================
 
 const calculateDistanceKm = (
   latitude1,
@@ -83,13 +74,8 @@ const calculateDistanceKm = (
   const lat1 = toRadians(latitude1);
   const lat2 = toRadians(latitude2);
 
-  const deltaLatitude = toRadians(
-    latitude2 - latitude1
-  );
-
-  const deltaLongitude = toRadians(
-    longitude2 - longitude1
-  );
+  const deltaLatitude = toRadians(latitude2 - latitude1);
+  const deltaLongitude = toRadians(longitude2 - longitude1);
 
   const a =
     Math.sin(deltaLatitude / 2) ** 2 +
@@ -97,12 +83,7 @@ const calculateDistanceKm = (
       Math.cos(lat2) *
       Math.sin(deltaLongitude / 2) ** 2;
 
-  const c =
-    2 *
-    Math.atan2(
-      Math.sqrt(a),
-      Math.sqrt(1 - a)
-    );
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return earthRadiusKm * c;
 };
