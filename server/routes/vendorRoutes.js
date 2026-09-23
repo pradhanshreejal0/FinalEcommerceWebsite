@@ -7,6 +7,7 @@ import {
   getMyVendorProfile,
   updateMyVendorProfile,
     createVendor,
+  updateVendorLocation,
   } from "../controllers/vendorController.js";
   import { protect, authorize } from "../middleware/authMiddleware.js";
 
@@ -20,6 +21,7 @@ router.put("/:id/reject", protect, authorize("admin"), rejectVendor);
 
 // Admin creates vendor
 router.post("/", protect, authorize("admin"), createVendor);
+router.put("/:id/location", protect, authorize("admin"), updateVendorLocation);
 
 router.get("/me", protect, authorize("vendor"), getMyVendorProfile);
 router.put("/me", protect, authorize("vendor"), updateMyVendorProfile);

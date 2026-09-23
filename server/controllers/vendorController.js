@@ -256,3 +256,53 @@ export const updateMyVendorProfile = async (req, res) => {
     });
   }
 };
+
+// Admin: update vendor location
+export const updateVendorLocation = async (req, res) => {
+  try {
+    const { latitude, longitude, address, city, country } = req.body;
+
+    if (latitude === undefined || longitude === undefined) {
+      return res.status(400).json({
+        message: "Latitude and longitude are required",
+      });
+    }
+
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+
+    if (Number.isNaN(lat) || lat < -90 || lat > 90) {
+      return res.status(400).json({ message: "Invalid latitude" });
+    }
+    if (Number.isNaN(lng) || lng < -180 || lng > 180) {
+      return res.status(400).json({ message: "Invalid longitude" });
+    }
+
+    const vendor = await Vendor.findById(req.params.id);
+    if (!vendor) {
+      return res.status(404).json({ message: "Vendor not found" });
+    }
+
+    vendor.location = {
+      latitude: lat,
+      longitude: lng,
+      address: address !== undefined ? String(address).trim() : vendor.location?.address || "",
+      city: city !== undefined ? String(city).trim() : vendor.location?.city || "",
+      country: country !== undefined ? String(country).trim() : vendor.location?.country || "Nepal",
+    };
+
+    await vendor.save();
+
+    const populated = await Vendor.findById(vendor._id).populate(
+      "user",
+      "name email phone createdAt"
+    );
+
+    res.json(populated);
+  } catch (error) {
+    console.error("Update vendor location error:", error);
+    res.status(500).json({
+      message: error.message || "Failed to update vendor location",
+    });
+  }
+};
