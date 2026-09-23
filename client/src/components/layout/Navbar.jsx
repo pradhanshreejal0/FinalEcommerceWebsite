@@ -490,7 +490,7 @@ export default function Navbar() {
                   size="sm"
                   className="rounded-lg"
                 >
-                  <Link to="/signup">
+                  <Link to="/register">
                     <User className="mr-1.5 h-4 w-4" />
                     Sign Up
                   </Link>
