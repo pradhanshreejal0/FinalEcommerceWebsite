@@ -101,7 +101,7 @@ export default function Navbar() {
   // =========================================================
 
   return (
-    <header className="sticky top-0 z-5999 w-full bg-background shadow-sm">
+    <header className="sticky top-0 z-50 w-full bg-background shadow-sm">
       {/* =====================================================
           MAIN NAVBAR
       ===================================================== */}
@@ -634,7 +634,7 @@ export default function Navbar() {
       <Link
         to="/cart"
         aria-label="View cart"
-        className="fixed bottom-5 right-4 z-5999 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:hidden"
+        className="fixed bottom-5 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:hidden"
       >
 
         <ShoppingCart className="h-6 w-6" />
