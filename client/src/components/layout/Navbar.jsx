@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
   ShoppingCart,
   Menu,
   User,
+  UserCircle2,
   Heart,
   Package,
   MessageCircle,
@@ -86,27 +87,51 @@ export default function Navbar() {
 
   // =========================================================
   // CATEGORY ICON SCROLL BEHAVIOR
+  // Fixed: previously toggled on every pixel of scroll delta,
+  // which caused rapid flicker on trackpads/momentum scroll.
+  // Now throttled to animation frames and requires a minimum
+  // scroll distance (threshold) before changing state, and
+  // only updates state when the value actually changes.
   // =========================================================
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
+    let ticking = false;
+    const THRESHOLD = 8; // px of movement required before reacting
 
-    const handleScroll = () => {
+    const updateScrollDirection = () => {
       const currentScrollY = window.scrollY;
 
       if (currentScrollY <= 10) {
-        setShowCategoryIcons(true);
+        setShowCategoryIcons((prev) => (prev ? prev : true));
         lastScrollY = currentScrollY;
+        ticking = false;
         return;
       }
 
-      if (currentScrollY > lastScrollY) {
-        setShowCategoryIcons(false);
-      } else if (currentScrollY < lastScrollY) {
-        setShowCategoryIcons(true);
+      const delta = currentScrollY - lastScrollY;
+
+      if (Math.abs(delta) < THRESHOLD) {
+        ticking = false;
+        return;
       }
 
+      const scrollingDown = delta > 0;
+
+      setShowCategoryIcons((prev) => {
+        const next = !scrollingDown;
+        return prev === next ? prev : next;
+      });
+
       lastScrollY = currentScrollY;
+      ticking = false;
+    };
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(updateScrollDirection);
+        ticking = true;
+      }
     };
 
     window.addEventListener("scroll", handleScroll, {
@@ -295,15 +320,25 @@ export default function Navbar() {
                       </button>
                     </div>
                   ) : (
-                    <Button
-                      asChild
-                      className="w-full rounded-lg"
-                    >
-                      <Link to="/login">
-                        <User className="mr-2 h-4 w-4" />
-                        Sign In
-                      </Link>
-                    </Button>
+                    <div className="space-y-2">
+                      <Button
+                        asChild
+                        className="w-full rounded-lg"
+                      >
+                        <Link to="/login">
+                          <User className="mr-2 h-4 w-4" />
+                          Sign In
+                        </Link>
+                      </Button>
+
+                      <Button
+                        asChild
+                        variant="outline"
+                        className="w-full rounded-lg"
+                      >
+                        <Link to="/signup">Sign Up</Link>
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -381,7 +416,7 @@ export default function Navbar() {
               </Link>
             </Button>
 
-            {/* Account */}
+            {/* Account / Auth */}
 
             {user ? (
               <DropdownMenu>
@@ -442,15 +477,56 @@ export default function Navbar() {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
+              <div className="flex items-center gap-2">
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-lg"
+                >
+                  <Link to="/login">Sign In</Link>
+                </Button>
+
+                <Button
+                  asChild
+                  size="sm"
+                  className="rounded-lg"
+                >
+                  <Link to="/signup">
+                    <User className="mr-1.5 h-4 w-4" />
+                    Sign Up
+                  </Link>
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* =================================================
+              MOBILE ACTIONS (right side, next to hamburger/logo)
+          ================================================= */}
+
+          <div className="ml-auto flex items-center gap-1.5 md:hidden">
+            <ThemeToggle />
+
+            {user ? (
+              <Button
+                asChild
+                variant="ghost"
+                size="icon"
+                className="rounded-full"
+                aria-label="Account"
+              >
+                <Link to="/profile">
+                  <UserCircle2 className="h-6 w-6" />
+                </Link>
+              </Button>
+            ) : (
               <Button
                 asChild
                 size="sm"
                 className="rounded-lg"
               >
-                <Link to="/login">
-                  <User className="mr-1.5 h-4 w-4" />
-                  Sign In
-                </Link>
+                <Link to="/login">Sign In</Link>
               </Button>
             )}
           </div>
@@ -542,6 +618,24 @@ export default function Navbar() {
           </div>
         </section>
       )}
+
+      {/* =====================================================
+          FLOATING MOBILE CART BUTTON
+      ===================================================== */}
+
+      <Link
+        to="/cart"
+        aria-label="View cart"
+        className="fixed bottom-5 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:hidden"
+      >
+        <ShoppingCart className="h-6 w-6" />
+
+        {itemCount > 0 && (
+          <Badge className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full border-2 border-background px-1 text-[10px]">
+            {itemCount}
+          </Badge>
+        )}
+      </Link>
     </header>
   );
 }
