@@ -97,7 +97,7 @@ export default function Navbar() {
     let downAccum = 0;
     let ticking = false;
 
-    const HIDE_AFTER = 40; // px of sustained downward scroll before hiding
+    const HIDE_AFTER = 10; // px of sustained downward scroll before hiding
 
     const updateScrollDirection = () => {
       // Clamp to guard against iOS/Android overscroll bounce reporting
