@@ -38,6 +38,7 @@ import Shipping from "@/pages/Shipping";
 import FAQ from "@/pages/FAQ";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
 import ResetPassword from "@/pages/auth/ResetPassword";
+import Vendors from "@/pages/admin/Vendors";
 
 function App() {
   return (
@@ -103,6 +104,7 @@ function App() {
         <Route path="/admin/orders" element={<AdminOrders />} />
         <Route path="/admin/users" element={<Users />} />
         <Route path="/admin/settings" element={<Settings />} />
+        <Route path="/admin/vendors/manage" element={<Vendors />} />
       </Route>
     </Routes>
   );
