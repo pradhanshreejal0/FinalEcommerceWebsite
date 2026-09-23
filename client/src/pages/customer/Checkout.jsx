@@ -746,8 +746,7 @@ export default function Checkout() {
                 </div>
 
                 {/* SEARCH + AUTO LOCATE */}
-               {/*<div className="relative z-1000"> */}
-                <div className="relative">
+               <div className="relative z-1000">
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <div className="relative flex-1">
                       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -836,7 +835,7 @@ export default function Checkout() {
 
                   {/* Results dropdown */}
                   {showSearchResults && (
-                    <div className="absolute left-0 right-0 top-full z-0 mt-2 overflow-hidden rounded-lg border bg-background shadow-xl">
+                    <div className="absolute left-0 right-0 top-full z-2000 mt-2 overflow-hidden rounded-lg border bg-background shadow-xl">
                       {searchingLocation && (
                         <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -875,7 +874,7 @@ export default function Checkout() {
                 </div>
 
                 {/* MAP */}
-                <div className="relative z-0 mt-5 overflow-hidden rounded-xl border">
+                <div className="relative z-2000 mt-5 overflow-hidden rounded-xl border">
                   <MapContainer
                     center={[DEFAULT_MAP_POSITION.lat, DEFAULT_MAP_POSITION.lng]}
                     zoom={DEFAULT_ZOOM}
