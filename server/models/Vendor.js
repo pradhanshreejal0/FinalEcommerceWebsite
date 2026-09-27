@@ -43,20 +43,22 @@ const vendorSchema = new mongoose.Schema(
       default: "",
     },
 
-    // Vendor store location
+    // Vendor store location (needed for delivery fee calculation).
+    // Defaults to Kathmandu so accounts can be created before the
+    // exact store pin is set by admin or the vendor.
     location: {
       latitude: {
         type: Number,
-        required: true,
         min: -90,
         max: 90,
+        default: 27.7172,
       },
 
       longitude: {
         type: Number,
-        required: true,
         min: -180,
         max: 180,
+        default: 85.324,
       },
 
       address: {
@@ -67,7 +69,7 @@ const vendorSchema = new mongoose.Schema(
 
       city: {
         type: String,
-        default: "",
+        default: "Kathmandu",
         trim: true,
       },
 

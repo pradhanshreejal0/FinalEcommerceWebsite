@@ -138,7 +138,7 @@ export default function Checkout() {
   const [authChecking, setAuthChecking] = useState(true);
   const [form, setForm] = useState({
     fullName: user?.name || "",
-    phone: "",
+    phone: user?.phone || "",
     address: "",
     city: "",
     postalCode: "",
@@ -154,11 +154,20 @@ export default function Checkout() {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchError, setSearchError] = useState("");
 
-  // City field autocomplete (suggests real places once the user types a city)
+  // City field autocomplete — only cities/towns/villages
   const [citySuggestions, setCitySuggestions] = useState([]);
   const [showCitySuggestions, setShowCitySuggestions] = useState(false);
   const [searchingCity, setSearchingCity] = useState(false);
   const debouncedCity = useDebouncedValue(form.city, 400);
+
+  // Address field autocomplete — places within the selected city
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
+  const [searchingAddress, setSearchingAddress] = useState(false);
+  const debouncedAddress = useDebouncedValue(form.address, 400);
+
+  // Remember city center coords so address search can bias toward the city
+  const [cityCenter, setCityCenter] = useState(null);
 
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [deliveryQuote, setDeliveryQuote] = useState(null);
@@ -190,6 +199,7 @@ export default function Checkout() {
     setForm((prev) => ({
       ...prev,
       fullName: prev.fullName || user.name || "",
+      phone: prev.phone || user.phone || "",
     }));
   }, [user]);
 
@@ -216,6 +226,9 @@ export default function Checkout() {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
     if (error) setError("");
+    if (name === "city") {
+      setCityCenter(null);
+    }
   };
 
   const subtotal = useMemo(() => {
@@ -357,13 +370,12 @@ export default function Checkout() {
 
   /* ============================================================
      CITY AUTOCOMPLETE
-     Suggests real places for whatever the user types in "City"
-     (e.g. typing "Kathmandu" shows nearby places to pick from).
+     Only suggests cities / towns / municipalities / villages.
   ============================================================ */
   useEffect(() => {
     const query = debouncedCity.trim();
 
-    if (query.length < 3) {
+    if (query.length < 2) {
       setCitySuggestions([]);
       return;
     }
@@ -378,8 +390,9 @@ export default function Checkout() {
           q: query,
           format: "json",
           addressdetails: "1",
-          limit: "6",
+          limit: "10",
           countrycodes: "np",
+          featuretype: "city",
         });
 
         const response = await fetch(`${NOMINATIM_URL}?${params.toString()}`, {
@@ -390,10 +403,55 @@ export default function Checkout() {
           },
         });
 
-        if (!response.ok) throw new Error("Unable to fetch places.");
+        if (!response.ok) throw new Error("Unable to fetch cities.");
 
         const results = await response.json();
-        if (!cancelled) setCitySuggestions(Array.isArray(results) ? results : []);
+        if (cancelled) return;
+
+        const CITY_TYPES = new Set([
+          "city",
+          "town",
+          "municipality",
+          "village",
+          "hamlet",
+          "suburb",
+          "county",
+          "state_district",
+          "administrative",
+        ]);
+        const CITY_CLASSES = new Set(["place", "boundary"]);
+
+        const filtered = (Array.isArray(results) ? results : []).filter((r) => {
+          const type = (r.type || "").toLowerCase();
+          const cls = (r.class || "").toLowerCase();
+          if (CITY_CLASSES.has(cls) && CITY_TYPES.has(type)) return true;
+          const addr = r.address || {};
+          const cityName =
+            addr.city || addr.town || addr.municipality || addr.village || "";
+          return Boolean(cityName);
+        });
+
+        const seen = new Set();
+        const unique = [];
+        for (const r of filtered) {
+          const addr = r.address || {};
+          const name = (
+            addr.city ||
+            addr.town ||
+            addr.municipality ||
+            addr.village ||
+            r.name ||
+            r.display_name?.split(",")[0] ||
+            ""
+          ).trim();
+          const key = name.toLowerCase();
+          if (!name || seen.has(key)) continue;
+          seen.add(key);
+          unique.push({ ...r, _cityName: name });
+          if (unique.length >= 6) break;
+        }
+
+        setCitySuggestions(unique);
       } catch (err) {
         console.error("City suggestion error:", err);
         if (!cancelled) setCitySuggestions([]);
@@ -408,12 +466,254 @@ export default function Checkout() {
     };
   }, [debouncedCity]);
 
-  // Picking a suggestion fills address/city/postal code AND drops the map pin
   const selectCitySuggestion = (result) => {
-    selectSearchResult(result);
+    const lat = Number(result.lat);
+    const lng = Number(result.lon);
+    const cityName =
+      result._cityName ||
+      result.address?.city ||
+      result.address?.town ||
+      result.address?.municipality ||
+      result.address?.village ||
+      result.name ||
+      result.display_name?.split(",")[0] ||
+      "";
+
+    setForm((prev) => ({
+      ...prev,
+      city: cityName,
+      country: "Nepal",
+    }));
+
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      setCityCenter({ lat, lng });
+      setLocation({ lat, lng });
+    }
+
     setShowCitySuggestions(false);
     setCitySuggestions([]);
+    setError("");
   };
+
+  /* ============================================================
+     ADDRESS AUTOCOMPLETE
+     Suggests places / streets only within the selected city.
+  ============================================================ */
+  useEffect(() => {
+    const addressQuery = debouncedAddress.trim();
+    const city = form.city.trim();
+
+    if (addressQuery.length < 3 || !city) {
+      setAddressSuggestions([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchAddressSuggestions = async () => {
+      try {
+        setSearchingAddress(true);
+
+        const q = `${addressQuery}, ${city}, Nepal`;
+        const params = new URLSearchParams({
+          q,
+          format: "json",
+          addressdetails: "1",
+          limit: "8",
+          countrycodes: "np",
+        });
+
+        if (cityCenter) {
+          const delta = 0.25;
+          const viewbox = [
+            cityCenter.lng - delta,
+            cityCenter.lat + delta,
+            cityCenter.lng + delta,
+            cityCenter.lat - delta,
+          ].join(",");
+          params.set("viewbox", viewbox);
+          params.set("bounded", "1");
+        }
+
+        const response = await fetch(`${NOMINATIM_URL}?${params.toString()}`, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "MarketplaceApp/1.0",
+          },
+        });
+
+        if (!response.ok) throw new Error("Unable to fetch addresses.");
+
+        const results = await response.json();
+        if (cancelled) return;
+
+        const PLACE_TYPES = new Set([
+          "house",
+          "residential",
+          "road",
+          "street",
+          "pedestrian",
+          "path",
+          "footway",
+          "neighbourhood",
+          "suburb",
+          "quarter",
+          "building",
+          "apartments",
+          "commercial",
+          "retail",
+          "hotel",
+          "restaurant",
+          "cafe",
+          "shop",
+          "mall",
+          "hospital",
+          "school",
+          "college",
+          "university",
+          "place_of_worship",
+          "attraction",
+          "museum",
+          "park",
+          "amenity",
+        ]);
+
+        const filtered = (Array.isArray(results) ? results : []).filter((r) => {
+          const type = (r.type || "").toLowerCase();
+          const cls = (r.class || "").toLowerCase();
+          if (["highway", "building", "amenity", "shop", "tourism", "leisure"].includes(cls))
+            return true;
+          if (PLACE_TYPES.has(type)) return true;
+          const dn = (r.display_name || "").toLowerCase();
+          return dn.includes(city.toLowerCase());
+        });
+
+        setAddressSuggestions(filtered.slice(0, 6));
+      } catch (err) {
+        console.error("Address suggestion error:", err);
+        if (!cancelled) setAddressSuggestions([]);
+      } finally {
+        if (!cancelled) setSearchingAddress(false);
+      }
+    };
+
+    fetchAddressSuggestions();
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedAddress, form.city, cityCenter]);
+
+  const selectAddressSuggestion = (result) => {
+    const lat = Number(result.lat);
+    const lng = Number(result.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    const address = result.address || {};
+    const displayName = result.display_name || "";
+
+    const road = address.road || address.pedestrian || address.footway || "";
+    const houseNumber = address.house_number || "";
+    const neighbourhood =
+      address.neighbourhood || address.suburb || address.quarter || "";
+
+    let generatedAddress = "";
+    if (houseNumber || road) {
+      generatedAddress = [houseNumber, road].filter(Boolean).join(" ");
+    }
+    if (neighbourhood) {
+      generatedAddress = [generatedAddress, neighbourhood]
+        .filter(Boolean)
+        .join(", ");
+    }
+    if (!generatedAddress) {
+      generatedAddress =
+        result.name || displayName.split(",").slice(0, 2).join(",").trim();
+    }
+
+    const cityFromResult =
+      address.city ||
+      address.town ||
+      address.municipality ||
+      address.village ||
+      form.city;
+
+    setForm((prev) => ({
+      ...prev,
+      address: generatedAddress || prev.address,
+      city: cityFromResult || prev.city,
+      postalCode: address.postcode || prev.postalCode,
+      country: "Nepal",
+    }));
+
+    setLocation({ lat, lng });
+    setShowAddressSuggestions(false);
+    setAddressSuggestions([]);
+    setError("");
+  };
+
+  /* ============================================================
+     AUTO-GEOCODE when both city + address are typed
+  ============================================================ */
+  useEffect(() => {
+    const city = debouncedCity.trim();
+    const address = debouncedAddress.trim();
+
+    if (city.length < 2 || address.length < 5) return;
+
+    let cancelled = false;
+
+    const geocodeFullAddress = async () => {
+      try {
+        const q = `${address}, ${city}, Nepal`;
+        const params = new URLSearchParams({
+          q,
+          format: "json",
+          addressdetails: "1",
+          limit: "1",
+          countrycodes: "np",
+        });
+
+        if (cityCenter) {
+          const delta = 0.3;
+          const viewbox = [
+            cityCenter.lng - delta,
+            cityCenter.lat + delta,
+            cityCenter.lng + delta,
+            cityCenter.lat - delta,
+          ].join(",");
+          params.set("viewbox", viewbox);
+          params.set("bounded", "0");
+        }
+
+        const response = await fetch(`${NOMINATIM_URL}?${params.toString()}`, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "MarketplaceApp/1.0",
+          },
+        });
+
+        if (!response.ok) return;
+        const results = await response.json();
+        if (cancelled || !Array.isArray(results) || results.length === 0) return;
+
+        const lat = Number(results[0].lat);
+        const lng = Number(results[0].lon);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          setLocation({ lat, lng });
+        }
+      } catch (err) {
+        console.error("Auto-geocode error:", err);
+      }
+    };
+
+    const timer = setTimeout(geocodeFullAddress, 600);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [debouncedCity, debouncedAddress, cityCenter]);
 
   /* ============================================================
      USE CURRENT LOCATION (FIXED)
@@ -697,9 +997,9 @@ export default function Checkout() {
                 <div className="mb-6">
                   <h2 className="text-lg font-semibold">Shipping Address</h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Where should we deliver your order? Start typing a city to
-                    see nearby places — picking one fills your address and
-                    drops a pin on the map below.
+                    Enter your city first (suggestions show cities only), then
+                    type your address — suggestions are limited to that city.
+                    Selecting either will place a pin on the map below.
                   </p>
                 </div>
 
@@ -767,7 +1067,7 @@ export default function Checkout() {
                         {searchingCity && (
                           <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            Finding places...
+                            Finding cities...
                           </div>
                         )}
                         {!searchingCity &&
@@ -782,7 +1082,10 @@ export default function Checkout() {
                               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                               <div className="min-w-0">
                                 <p className="text-sm font-medium">
-                                  {result.name || result.display_name?.split(",")[0] || "Location"}
+                                  {result._cityName ||
+                                    result.name ||
+                                    result.display_name?.split(",")[0] ||
+                                    "City"}
                                 </p>
                                 <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                                   {result.display_name}
@@ -794,20 +1097,74 @@ export default function Checkout() {
                     )}
                   </div>
 
-                  <div className="sm:col-span-2">
+                  <div className="relative sm:col-span-2">
                     <label htmlFor="address" className="mb-1.5 block text-sm font-medium">
                       Address
+                      {!form.city.trim() && (
+                        <span className="ml-1 text-xs font-normal text-muted-foreground">
+                          (select a city first for better suggestions)
+                        </span>
+                      )}
                     </label>
                     <textarea
                       id="address"
                       name="address"
                       rows={3}
                       value={form.address}
-                      onChange={handleChange}
-                      placeholder="Street, house number, area..."
+                      autoComplete="off"
+                      onChange={(e) => {
+                        handleChange(e);
+                        if (form.city.trim()) setShowAddressSuggestions(true);
+                      }}
+                      onFocus={() => {
+                        if (addressSuggestions.length > 0) setShowAddressSuggestions(true);
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setShowAddressSuggestions(false), 150);
+                      }}
+                      placeholder={
+                        form.city.trim()
+                          ? `Street, house number, area in ${form.city}...`
+                          : "Street, house number, area..."
+                      }
                       disabled={submitting}
                       className="w-full resize-none rounded-md border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
                     />
+
+                    {showAddressSuggestions &&
+                      form.city.trim() &&
+                      (searchingAddress || addressSuggestions.length > 0) && (
+                        <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-lg border bg-background shadow-xl">
+                          {searchingAddress && (
+                            <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Finding places in {form.city}...
+                            </div>
+                          )}
+                          {!searchingAddress &&
+                            addressSuggestions.map((result, index) => (
+                              <button
+                                key={`${result.place_id}-${index}`}
+                                type="button"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => selectAddressSuggestion(result)}
+                                className="flex w-full items-start gap-3 border-b px-4 py-3 text-left last:border-b-0 hover:bg-muted"
+                              >
+                                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium">
+                                    {result.name ||
+                                      result.display_name?.split(",")[0] ||
+                                      "Place"}
+                                  </p>
+                                  <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                                    {result.display_name}
+                                  </p>
+                                </div>
+                              </button>
+                            ))}
+                        </div>
+                      )}
                   </div>
 
                   <div>

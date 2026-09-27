@@ -61,6 +61,14 @@ export const createVendor = async (req, res) => {
       storeSlug: `${slugBase}-${user._id.toString().slice(-4)}`,
       phone: digitsOnly,
       status: "approved",
+      // Default store pin (Kathmandu) — admin/vendor should update later
+      location: {
+        latitude: 27.7172,
+        longitude: 85.324,
+        address: "",
+        city: "Kathmandu",
+        country: "Nepal",
+      },
     });
 
     const populated = await Vendor.findById(vendor._id).populate(
@@ -200,6 +208,12 @@ export const updateMyVendorProfile = async (req, res) => {
       logo,
       banner,
       phone,
+      location,
+      latitude,
+      longitude,
+      address,
+      city,
+      country,
     } = req.body;
 
     if (storeName !== undefined) {
@@ -239,6 +253,49 @@ export const updateMyVendorProfile = async (req, res) => {
 
       // Keep user.phone in sync
       await User.findByIdAndUpdate(req.user._id, { phone: digitsOnly });
+    }
+
+    // Store location — accept nested `location` object or flat lat/lng fields
+    const locSource =
+      location && typeof location === "object" ? location : null;
+    const latRaw =
+      locSource?.latitude ?? latitude;
+    const lngRaw =
+      locSource?.longitude ?? longitude;
+
+    if (latRaw !== undefined && lngRaw !== undefined) {
+      const lat = Number(latRaw);
+      const lng = Number(lngRaw);
+
+      if (Number.isNaN(lat) || lat < -90 || lat > 90) {
+        return res.status(400).json({ message: "Invalid latitude" });
+      }
+      if (Number.isNaN(lng) || lng < -180 || lng > 180) {
+        return res.status(400).json({ message: "Invalid longitude" });
+      }
+
+      vendor.location = {
+        latitude: lat,
+        longitude: lng,
+        address:
+          locSource?.address !== undefined
+            ? String(locSource.address).trim()
+            : address !== undefined
+            ? String(address).trim()
+            : vendor.location?.address || "",
+        city:
+          locSource?.city !== undefined
+            ? String(locSource.city).trim()
+            : city !== undefined
+            ? String(city).trim()
+            : vendor.location?.city || "",
+        country:
+          locSource?.country !== undefined
+            ? String(locSource.country).trim()
+            : country !== undefined
+            ? String(country).trim()
+            : vendor.location?.country || "Nepal",
+      };
     }
 
     await vendor.save();

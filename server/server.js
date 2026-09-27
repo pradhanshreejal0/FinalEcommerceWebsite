@@ -47,8 +47,10 @@ connectDB();
 
 const allowedOrigins = [
   "http://localhost:5173",
+  "http://localhost:5174",
   "https://final-ecommerce-website-three.vercel.app",
-  process.env.CLIENT_URL,
+  "https://finalecommercewebsite.vercel.app",
+  process.env.CLIENT_URL?.replace(/^["']|["']$/g, ""),
 ].filter(Boolean);
 
 /*
