@@ -11,27 +11,49 @@ import {
   generateRefreshToken,
 } from "../utils/generateTokens.js";
 
-// In production (HTTPS + cross-site), use Secure + SameSite=None.
-// In local development, Secure cookies are dropped by the browser on http://localhost.
-const isProd = process.env.NODE_ENV === "production";
+// Cross-site (Vercel frontend → Render backend) needs SameSite=None + Secure.
+// Local (localhost → localhost) uses Lax so cookies work on HTTP.
+const clientUrl = String(process.env.CLIENT_URL || "")
+  .replace(/^["']|["']$/g, "")
+  .trim();
+
+const isCrossSite =
+  clientUrl.startsWith("https://") &&
+  !/localhost|127\.0\.0\.1/.test(clientUrl);
 
 const cookieOptions = {
   httpOnly: true,
-  secure: isProd,
-  sameSite: isProd ? "none" : "lax",
+  secure: isCrossSite,
+  sameSite: isCrossSite ? "none" : "lax",
   path: "/",
   maxAge: 7 * 24 * 60 * 60 * 1000,
+};
+
+const clearCookieOptions = {
+  httpOnly: true,
+  secure: isCrossSite,
+  sameSite: isCrossSite ? "none" : "lax",
+  path: "/",
 };
 
 export const register = async (req, res) => {
   try {
     const { name, email, password, role, phone } = req.body;
 
-    if (typeof email !== "string") {
-          return res.status(400).json({ message: "Invalid email" });
-        }
+    if (typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({ message: "Name is required" });
+    }
 
-    // Phone required for customers only
+    if (typeof email !== "string" || !email.trim()) {
+      return res.status(400).json({ message: "Invalid email" });
+    }
+
+    if (typeof password !== "string" || password.length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters",
+      });
+    }
+
     if (!phone || !String(phone).trim()) {
       return res.status(400).json({ message: "Phone number is required" });
     }
@@ -43,8 +65,6 @@ export const register = async (req, res) => {
       });
     }
 
-    // Emails are stored lowercase, so we must compare lowercase too —
-    // otherwise "Test@x.com" and "test@x.com" are treated as different users.
     const normalizedEmail = email.trim().toLowerCase();
 
     const existing = await User.findOne({ email: normalizedEmail });
@@ -60,7 +80,7 @@ export const register = async (req, res) => {
     }
 
     const user = await User.create({
-      name,
+      name: name.trim(),
       email: normalizedEmail,
       password,
       phone: digitsOnly,
@@ -94,8 +114,8 @@ export const login = async (req, res) => {
     const { email, password } = req.body;
 
     if (typeof email !== "string" || typeof password !== "string") {
-          return res.status(401).json({ message: "Invalid credentials" });
-        }
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
 
     const user = await User.findOne({ email: email.trim().toLowerCase() });
     if (!user || !(await user.comparePassword(password))) {
@@ -176,12 +196,7 @@ export const logout = async (req, res) => {
       }
     }
 
-    res.clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      path: "/",
-    });
+    res.clearCookie("refreshToken", clearCookieOptions);
 
     res.json({ message: "Logged out successfully" });
   } catch (error) {
@@ -211,11 +226,10 @@ export const updateMe = async (req, res) => {
     const { name, phone } = req.body;
 
     if (name !== undefined) {
-      user.name = name;
+      user.name = String(name).trim();
     }
 
     if (phone !== undefined) {
-      // Admin can clear phone; customers should keep a valid one
       if (!String(phone).trim()) {
         if (user.role === "admin") {
           user.phone = "";
@@ -248,11 +262,6 @@ export const updateMe = async (req, res) => {
   }
 };
 
-// Self-service account deletion. Users delete their own account whenever
-// they want; we just confirm their password first and clean up the data
-// that only makes sense while the account exists (cart, wishlist, vendor
-// storefront). Orders and reviews are left alone since they're shared
-// business records (other people's order/sales history depends on them).
 export const deleteMe = async (req, res) => {
   try {
     const { password } = req.body;
@@ -262,8 +271,6 @@ export const deleteMe = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Admins can't delete themselves through this endpoint — that could
-    // lock everyone out of the admin panel. Another admin has to do it.
     if (user.role === "admin") {
       return res.status(403).json({
         message:
@@ -272,9 +279,9 @@ export const deleteMe = async (req, res) => {
     }
 
     if (!password || typeof password !== "string") {
-      return res
-        .status(400)
-        .json({ message: "Please enter your password to confirm account deletion" });
+      return res.status(400).json({
+        message: "Please enter your password to confirm account deletion",
+      });
     }
 
     const isMatch = await user.comparePassword(password);
@@ -305,17 +312,14 @@ export const deleteMe = async (req, res) => {
 
     await User.deleteOne({ _id: user._id });
 
-    res.clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      path: "/",
-    });
+    res.clearCookie("refreshToken", clearCookieOptions);
 
     res.json({ message: "Your account has been deleted." });
   } catch (error) {
     console.error("Delete account error:", error);
-    res.status(500).json({ message: error.message || "Failed to delete account" });
+    res.status(500).json({
+      message: error.message || "Failed to delete account",
+    });
   }
 };
 
@@ -324,13 +328,12 @@ export const forgotPassword = async (req, res) => {
     const { email } = req.body;
 
     if (typeof email !== "string") {
-         return res.status(400).json({ message: "Invalid email" });
-       }
+      return res.status(400).json({ message: "Invalid email" });
+    }
 
     const user = await User.findOne({ email: email.trim().toLowerCase() });
 
-    // Always respond the same way, whether or not the email exists —
-    // this stops people from using this endpoint to check who's registered.
+    // Always same response (don't leak whether email exists)
     if (!user) {
       return res.json({
         message: "If that email is registered, a reset link has been sent.",
@@ -347,7 +350,8 @@ export const forgotPassword = async (req, res) => {
     user.resetPasswordExpires = Date.now() + 30 * 60 * 1000; // 30 minutes
     await user.save();
 
-    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${rawToken}`;
+    const baseUrl = clientUrl || process.env.CLIENT_URL || "";
+    const resetUrl = `${baseUrl}/reset-password/${rawToken}`;
 
     await sendEmail({
       to: user.email,
