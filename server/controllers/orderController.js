@@ -25,6 +25,29 @@ const DELIVERY_RATES = {
 };
 
 // =====================================================
+// Order Status Transitions
+// =====================================================
+//
+// A per-item status can only move forward along this path:
+//
+//   pending -> processing -> shipped -> delivered
+//
+// It can also be cancelled from "pending" or "processing" (once an
+// item has shipped, it's out for delivery and can't be cancelled here).
+// "delivered" and "cancelled" are final — nothing can change after that.
+//
+// Change this map if your business rules change.
+// =====================================================
+
+const ALLOWED_STATUS_TRANSITIONS = {
+  pending: ["processing", "cancelled"],
+  processing: ["shipped", "cancelled"],
+  shipped: ["delivered"],
+  delivered: [],
+  cancelled: [],
+};
+
+// =====================================================
 // Helpers
 // =====================================================
 
@@ -1265,6 +1288,32 @@ export const updateOrderStatus =
       }
 
       // -----------------------------------------------
+      // Validate the transition for every affected item
+      // -----------------------------------------------
+      // Each item must be allowed to move from its current status to
+      // the requested one (see ALLOWED_STATUS_TRANSITIONS above).
+
+      for (
+        const item of
+        vendorItems
+      ) {
+        const allowedNextStatuses =
+          ALLOWED_STATUS_TRANSITIONS[
+            item.status
+          ] || [];
+
+        if (
+          !allowedNextStatuses.includes(
+            status
+          )
+        ) {
+          return res.status(400).json({
+            message: `Cannot change "${item.title}" from "${item.status}" to "${status}"`,
+          });
+        }
+      }
+
+      // -----------------------------------------------
       // Update vendor's items
       // -----------------------------------------------
 
@@ -1429,11 +1478,7 @@ export const updateOrderStatus =
 // Admin: Get All Orders
 // =====================================================
 
-export const getAllOrders =
-  async (
-    req,
-    res
-  ) => {
+export const getAllOrders = async (req,res) => {
     try {
       const orders =
         await Order.find()

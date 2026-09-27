@@ -39,7 +39,11 @@ export const register = async (req, res) => {
       });
     }
 
-    const existing = await User.findOne({ email });
+    // Emails are stored lowercase, so we must compare lowercase too —
+    // otherwise "Test@x.com" and "test@x.com" are treated as different users.
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
       return res.status(400).json({ message: "Email already registered" });
     }
@@ -53,7 +57,7 @@ export const register = async (req, res) => {
 
     const user = await User.create({
       name,
-      email,
+      email: normalizedEmail,
       password,
       phone: digitsOnly,
       role: "customer",
@@ -89,7 +93,7 @@ export const login = async (req, res) => {
           return res.status(401).json({ message: "Invalid credentials" });
         }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
@@ -130,6 +134,10 @@ export const refresh = async (req, res) => {
 
     if (!user || user.refreshToken !== token) {
       return res.status(401).json({ message: "Invalid refresh token" });
+    }
+
+    if (user.isBanned) {
+      return res.status(403).json({ message: "Account has been banned" });
     }
 
     const accessToken = generateAccessToken(user._id, user.role);
@@ -315,7 +323,7 @@ export const forgotPassword = async (req, res) => {
          return res.status(400).json({ message: "Invalid email" });
        }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
 
     // Always respond the same way, whether or not the email exists —
     // this stops people from using this endpoint to check who's registered.

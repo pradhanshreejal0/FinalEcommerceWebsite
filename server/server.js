@@ -29,6 +29,12 @@ dotenv.config();
 
 const app = express();
 
+// Required when running behind a reverse proxy (Vercel, Render, etc.).
+// Without this, express-rate-limit sees the proxy's IP for every request
+// instead of the real visitor's IP — so the login/forgot-password limits
+// either apply to everyone at once or don't work at all.
+app.set("trust proxy", 1);
+
 // =====================================================
 // DATABASE
 // =====================================================
