@@ -33,6 +33,7 @@ import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { Button } from "@/components/ui/button";
 
 /* ============================================================
@@ -152,6 +153,12 @@ export default function Checkout() {
   const [searchingLocation, setSearchingLocation] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchError, setSearchError] = useState("");
+
+  // City field autocomplete (suggests real places once the user types a city)
+  const [citySuggestions, setCitySuggestions] = useState([]);
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+  const [searchingCity, setSearchingCity] = useState(false);
+  const debouncedCity = useDebouncedValue(form.city, 400);
 
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [deliveryQuote, setDeliveryQuote] = useState(null);
@@ -346,6 +353,66 @@ export default function Checkout() {
     setSearchResults([]);
     setSearchError("");
     setShowSearchResults(false);
+  };
+
+  /* ============================================================
+     CITY AUTOCOMPLETE
+     Suggests real places for whatever the user types in "City"
+     (e.g. typing "Kathmandu" shows nearby places to pick from).
+  ============================================================ */
+  useEffect(() => {
+    const query = debouncedCity.trim();
+
+    if (query.length < 3) {
+      setCitySuggestions([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchCitySuggestions = async () => {
+      try {
+        setSearchingCity(true);
+
+        const params = new URLSearchParams({
+          q: query,
+          format: "json",
+          addressdetails: "1",
+          limit: "6",
+          countrycodes: "np",
+        });
+
+        const response = await fetch(`${NOMINATIM_URL}?${params.toString()}`, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "MarketplaceApp/1.0",
+          },
+        });
+
+        if (!response.ok) throw new Error("Unable to fetch places.");
+
+        const results = await response.json();
+        if (!cancelled) setCitySuggestions(Array.isArray(results) ? results : []);
+      } catch (err) {
+        console.error("City suggestion error:", err);
+        if (!cancelled) setCitySuggestions([]);
+      } finally {
+        if (!cancelled) setSearchingCity(false);
+      }
+    };
+
+    fetchCitySuggestions();
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedCity]);
+
+  // Picking a suggestion fills address/city/postal code AND drops the map pin
+  const selectCitySuggestion = (result) => {
+    selectSearchResult(result);
+    setShowCitySuggestions(false);
+    setCitySuggestions([]);
   };
 
   /* ============================================================
@@ -630,7 +697,9 @@ export default function Checkout() {
                 <div className="mb-6">
                   <h2 className="text-lg font-semibold">Shipping Address</h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Where should we deliver your order?
+                    Where should we deliver your order? Start typing a city to
+                    see nearby places — picking one fills your address and
+                    drops a pin on the map below.
                   </p>
                 </div>
 
@@ -667,7 +736,7 @@ export default function Checkout() {
                     />
                   </div>
 
-                  <div>
+                  <div className="relative">
                     <label htmlFor="city" className="mb-1.5 block text-sm font-medium">
                       City
                     </label>
@@ -675,12 +744,54 @@ export default function Checkout() {
                       id="city"
                       name="city"
                       type="text"
+                      autoComplete="off"
                       value={form.city}
-                      onChange={handleChange}
+                      onChange={(e) => {
+                        handleChange(e);
+                        setShowCitySuggestions(true);
+                      }}
+                      onFocus={() => {
+                        if (citySuggestions.length > 0) setShowCitySuggestions(true);
+                      }}
+                      onBlur={() => {
+                        // Small delay so a click on a suggestion registers first
+                        setTimeout(() => setShowCitySuggestions(false), 150);
+                      }}
                       placeholder="Kathmandu"
                       disabled={submitting}
                       className="w-full rounded-md border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
                     />
+
+                    {showCitySuggestions && (searchingCity || citySuggestions.length > 0) && (
+                      <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-lg border bg-background shadow-xl">
+                        {searchingCity && (
+                          <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Finding places...
+                          </div>
+                        )}
+                        {!searchingCity &&
+                          citySuggestions.map((result, index) => (
+                            <button
+                              key={`${result.place_id}-${index}`}
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => selectCitySuggestion(result)}
+                              className="flex w-full items-start gap-3 border-b px-4 py-3 text-left last:border-b-0 hover:bg-muted"
+                            >
+                              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium">
+                                  {result.name || result.display_name?.split(",")[0] || "Location"}
+                                </p>
+                                <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                                  {result.display_name}
+                                </p>
+                              </div>
+                            </button>
+                          ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="sm:col-span-2">
@@ -915,7 +1026,7 @@ export default function Checkout() {
                       <MapPin className="mx-auto h-5 w-5 text-muted-foreground" />
                       <p className="mt-2 text-sm font-medium">Select your delivery location</p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Click “Use my location” or search / click on the map
+                        Click "Use my location" or search / click on the map
                       </p>
                     </div>
                   )}
