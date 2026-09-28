@@ -14,14 +14,14 @@ import { api } from "@/lib/api";
 import { getFinalPrice } from "@/lib/utils";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
-const POPULAR_SUGGESTIONS = [
-  "Headphones",
-  "Watch",
-  "Bag",
-  "Shoes",
-  "Laptop",
-  "Sunglasses",
-];
+// const POPULAR_SUGGESTIONS = [
+//   "Headphones",
+//   "Watch",
+//   "Bag",
+//   "Shoes",
+//   "Laptop",
+//   "Sunglasses",
+// ];
 
 const RECENT_KEY = "project_recent_searches";
 const MIN_QUERY_LENGTH = 2;
@@ -194,7 +194,7 @@ export default function FastSearchModal({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-start justify-center bg-background/80 px-3 pt-14 backdrop-blur-sm animate-in fade-in duration-150 sm:pt-20 sm:px-4"
+      className="fixed inset-0 z-100 flex items-start justify-center bg-background/80 px-3 pt-14 backdrop-blur-sm animate-in fade-in duration-150 sm:pt-20 sm:px-4"
       role="dialog"
       aria-modal="true"
       aria-label="Search catalog"
@@ -288,7 +288,7 @@ export default function FastSearchModal({
                 </div>
               )}
 
-              <div>
+              {/* <div>
                 <div className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   <Sparkles className="h-3.5 w-3.5 text-primary" /> Popular
                 </div>
@@ -308,7 +308,7 @@ export default function FastSearchModal({
                     </button>
                   ))}
                 </div>
-              </div>
+              </div>*/}
 
               {categories.length > 0 && (
                 <div>
