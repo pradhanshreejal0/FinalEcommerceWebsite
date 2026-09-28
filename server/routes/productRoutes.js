@@ -1,12 +1,13 @@
 import express from "express";
 import {
   createProduct,
-    getMyProducts,
-    getProducts,
-    getSearchSuggestions,
-    getProductById,
-    updateProduct,
-    deleteProduct,
+  getMyProducts,
+  getProducts,
+  getSearchSuggestions,
+  getProductById,
+  updateProduct,
+  deleteProduct,
+  generateProductDescription,
 } from "../controllers/productController.js";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 
@@ -20,6 +21,12 @@ router.get("/:id", getProductById);
 
 // Vendor only
 router.post("/", protect, authorize("vendor"), createProduct);
+router.post(
+  "/generate-description",
+  protect,
+  authorize("vendor"),
+  generateProductDescription
+);
 router.put("/:id", protect, authorize("vendor"), updateProduct);
 router.delete("/:id", protect, authorize("vendor"), deleteProduct);
 

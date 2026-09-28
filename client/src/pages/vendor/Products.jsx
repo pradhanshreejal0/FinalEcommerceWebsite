@@ -38,7 +38,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, Plus, Upload, Loader2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Pencil, Trash2, Plus, Upload, Loader2, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 import { uploadImage } from "@/lib/upload";
@@ -52,6 +53,7 @@ export default function Products() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [generatingAi, setGeneratingAi] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -260,14 +262,73 @@ export default function Products() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Input
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs"
+                    disabled={generatingAi || !formData.title.trim()}
+                    onClick={async () => {
+                      if (!formData.title.trim()) return;
+                      setGeneratingAi(true);
+                      setError("");
+                      try {
+                        const cat = categories.find(
+                          (c) => c._id === formData.category
+                        );
+                        const data = await api(
+                          "/products/generate-description",
+                          {
+                            method: "POST",
+                            accessToken,
+                            body: {
+                              title: formData.title.trim(),
+                              categoryName: cat?.name || "",
+                              keywords: "",
+                            },
+                          }
+                        );
+                        if (data?.description) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            description: data.description,
+                          }));
+                        }
+                      } catch (err) {
+                        setError(
+                          err.message ||
+                            "Could not generate description. Try again."
+                        );
+                      } finally {
+                        setGeneratingAi(false);
+                      }
+                    }}
+                  >
+                    {generatingAi ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
+                    {generatingAi ? "Generating…" : "Generate with AI"}
+                  </Button>
+                </div>
+                <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })
                   }
+                  placeholder="Write a product description, or generate one with AI from the title"
+                  rows={4}
+                  className="min-h-24 resize-y"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Enter a title first, then click Generate with AI for a draft
+                  description (uses Gemini when GEMINI_API_KEY is set on the
+                  server).
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

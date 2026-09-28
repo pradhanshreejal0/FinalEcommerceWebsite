@@ -191,7 +191,7 @@ export const getSearchSuggestions = async (req, res) => {
       return res.json({ query: term, results: [], total: 0 });
     }
 
-    const SUGGESTION_LIMIT = 4;
+    const SUGGESTION_LIMIT = 8;
 
     // The main product listing uses $text search (see getProducts below)
     // because it's fast and index-backed, but $text only matches whole
@@ -211,7 +211,7 @@ export const getSearchSuggestions = async (req, res) => {
     const [total, results] = await Promise.all([
       Product.countDocuments(filter),
       Product.find(filter)
-        .select("title price discountPercentage images")
+        .select("title price discountPercentage images stock")
         .sort({ createdAt: -1 })
         .limit(SUGGESTION_LIMIT)
         .lean(),
@@ -222,6 +222,98 @@ export const getSearchSuggestions = async (req, res) => {
     console.error("Search suggestions error:", error);
     res.status(500).json({
       message: error.message || "Failed to load search suggestions",
+    });
+  }
+};
+
+/**
+ * Vendor: Generate a product description with AI (Gemini).
+ * Requires GEMINI_API_KEY in server env. Falls back to a template if missing.
+ */
+export const generateProductDescription = async (req, res) => {
+  try {
+    const { title = "", categoryName = "", keywords = "" } = req.body || {};
+    const productTitle = String(title).trim();
+
+    if (!productTitle) {
+      return res.status(400).json({
+        message: "Product title is required to generate a description",
+      });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+
+    if (!apiKey) {
+      // Graceful offline/template fallback so the UI still works without a key
+      const fallback = [
+        `${productTitle} is a carefully selected product designed for everyday use.`,
+        categoryName
+          ? `Perfect for customers looking for quality ${categoryName.toLowerCase()}.`
+          : "Built with attention to detail and lasting performance.",
+        keywords
+          ? `Highlights include: ${keywords}.`
+          : "Order now and enjoy reliable quality with fast fulfillment.",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      return res.json({
+        description: fallback,
+        source: "template",
+        message:
+          "GEMINI_API_KEY not set — returned a template description. Add the key for AI-generated copy.",
+      });
+    }
+
+    const prompt = `Write a compelling e-commerce product description (2–4 short paragraphs, max 120 words) for this product.
+Title: ${productTitle}
+${categoryName ? `Category: ${categoryName}` : ""}
+${keywords ? `Keywords / features: ${keywords}` : ""}
+
+Tone: professional, persuasive, customer-focused. Do not use markdown headings. Do not invent fake certifications or prices. Return only the description text.`;
+
+    const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 400,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => "");
+      console.error("Gemini API error:", response.status, errText);
+      return res.status(502).json({
+        message: "AI service failed. Please try again or write the description manually.",
+      });
+    }
+
+    const data = await response.json();
+    const text =
+      data?.candidates?.[0]?.content?.parts
+        ?.map((p) => p.text)
+        .filter(Boolean)
+        .join("\n")
+        ?.trim() || "";
+
+    if (!text) {
+      return res.status(502).json({
+        message: "AI returned an empty description. Try again.",
+      });
+    }
+
+    res.json({ description: text, source: "gemini" });
+  } catch (error) {
+    console.error("generateProductDescription error:", error);
+    res.status(500).json({
+      message: error.message || "Failed to generate description",
     });
   }
 };
