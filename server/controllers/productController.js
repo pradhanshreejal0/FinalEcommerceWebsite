@@ -3,6 +3,34 @@ import Vendor from "../models/Vendor.js";
 import Category from "../models/Category.js";
 import { escapeRegex } from "../utils/escapeRegex.js";
 
+
+// Normalize vendor description sections (max 4). Also builds a plain-text description for search.
+const normalizeDescriptionSections = (sections, fallbackDescription = "") => {
+  let list = Array.isArray(sections) ? sections : [];
+  list = list
+    .slice(0, 4)
+    .map((s) => ({
+      title: s?.title != null ? String(s.title).trim() : "",
+      content: s?.content != null ? String(s.content).trim() : "",
+    }))
+    .filter((s) => s.title || s.content);
+
+  // If no structured sections but a plain description was provided, treat it as one section
+  if (list.length === 0 && fallbackDescription && String(fallbackDescription).trim()) {
+    list = [{ title: "", content: String(fallbackDescription).trim() }];
+  }
+
+  const plain = list
+    .map((s) => [s.title, s.content].filter(Boolean).join(": "))
+    .filter(Boolean)
+    .join("\n\n");
+
+  return { sections: list, plain };
+};
+
+const VALID_DESCRIPTION_STYLES = ["paragraphs", "cards", "tabs", "accordion", "list"];
+
+
 // Helper: get approved vendor profile of logged-in user
 const getVendorByUser = async (userId) => {
   return Vendor.findOne({
@@ -34,6 +62,8 @@ export const createProduct = async (req, res) => {
     const {
       title,
       description,
+      descriptionSections,
+      descriptionStyle,
       price,
       stock,
       images,
@@ -105,9 +135,19 @@ export const createProduct = async (req, res) => {
       }
     }
 
+    const { sections, plain } = normalizeDescriptionSections(
+      descriptionSections,
+      description
+    );
+    const style = VALID_DESCRIPTION_STYLES.includes(descriptionStyle)
+      ? descriptionStyle
+      : "paragraphs";
+
     const product = await Product.create({
       title: String(title).trim(),
-      description: description ? String(description).trim() : "",
+      description: plain,
+      descriptionSections: sections,
+      descriptionStyle: style,
       price: productPrice,
       stock: productStock,
       images: Array.isArray(images) ? images : [],
@@ -502,6 +542,8 @@ export const updateProduct = async (req, res) => {
     const {
       title,
       description,
+      descriptionSections,
+      descriptionStyle,
       price,
       stock,
       images,
@@ -523,9 +565,21 @@ export const updateProduct = async (req, res) => {
       product.title = trimmedTitle;
     }
 
-    // Description
-    if (description !== undefined) {
-      product.description = String(description).trim();
+    // Description sections + style (vendor-controlled layout)
+    if (descriptionSections !== undefined || description !== undefined) {
+      const { sections, plain } = normalizeDescriptionSections(
+        descriptionSections !== undefined
+          ? descriptionSections
+          : product.descriptionSections,
+        description !== undefined ? description : product.description
+      );
+      product.descriptionSections = sections;
+      product.description = plain;
+    }
+    if (descriptionStyle !== undefined) {
+      product.descriptionStyle = VALID_DESCRIPTION_STYLES.includes(descriptionStyle)
+        ? descriptionStyle
+        : product.descriptionStyle || "paragraphs";
     }
 
     // Price

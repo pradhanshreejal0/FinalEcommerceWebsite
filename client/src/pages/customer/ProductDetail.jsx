@@ -38,6 +38,8 @@ export default function ProductDetails() {
   const [wishlistLoading, setWishlistLoading] = useState(false);
 
   const [activeImage, setActiveImage] = useState(0);
+  const [activeDescTab, setActiveDescTab] = useState(0);
+  const [openAccordion, setOpenAccordion] = useState(0);
 
   const [chatOpen, setChatOpen] = useState(false);
   const [chatText, setChatText] = useState("");
@@ -57,6 +59,8 @@ export default function ProductDetails() {
         if (!cancelled) {
           setProduct(data);
           setActiveImage(0);
+          setActiveDescTab(0);
+          setOpenAccordion(0);
         }
       } catch (err) {
         if (!cancelled) {
@@ -393,11 +397,163 @@ export default function ProductDetails() {
             <PriceTag product={product} size="lg" />
           </div>
 
-          {/* Description */}
-          <p className="mt-6 leading-7 text-muted-foreground">
-            {product.description ||
-              "No description available."}
-          </p>
+          {/* Description — layout chosen by vendor */}
+          <div className="mt-6">
+            {(() => {
+              const sections =
+                Array.isArray(product.descriptionSections) &&
+                product.descriptionSections.length > 0
+                  ? product.descriptionSections.filter(
+                      (s) => (s.title && s.title.trim()) || (s.content && s.content.trim())
+                    )
+                  : product.description
+                    ? [{ title: "", content: product.description }]
+                    : [];
+
+              if (sections.length === 0) {
+                return (
+                  <p className="leading-7 text-muted-foreground">
+                    No description available.
+                  </p>
+                );
+              }
+
+              const style = product.descriptionStyle || "paragraphs";
+
+              if (style === "cards") {
+                return (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {sections.map((s, i) => (
+                      <div
+                        key={i}
+                        className="rounded-xl border bg-card p-4 shadow-sm"
+                      >
+                        {s.title?.trim() && (
+                          <h3 className="mb-2 text-sm font-semibold tracking-tight">
+                            {s.title}
+                          </h3>
+                        )}
+                        <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                          {s.content}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+
+              if (style === "tabs") {
+                return (
+                  <div>
+                    <div className="mb-3 flex flex-wrap gap-1 border-b">
+                      {sections.map((s, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setActiveDescTab(i)}
+                          className={cn(
+                            "px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px",
+                            activeDescTab === i
+                              ? "border-primary text-foreground"
+                              : "border-transparent text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {s.title?.trim() || `Section ${i + 1}`}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="rounded-lg bg-muted/40 p-4">
+                      {sections[activeDescTab]?.title?.trim() && (
+                        <h3 className="mb-2 font-semibold">
+                          {sections[activeDescTab].title}
+                        </h3>
+                      )}
+                      <p className="whitespace-pre-wrap leading-7 text-muted-foreground">
+                        {sections[activeDescTab]?.content}
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (style === "accordion") {
+                return (
+                  <div className="divide-y rounded-xl border">
+                    {sections.map((s, i) => {
+                      const open = openAccordion === i;
+                      return (
+                        <div key={i}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOpenAccordion(open ? -1 : i)
+                            }
+                            className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium hover:bg-muted/50"
+                          >
+                            <span>
+                              {s.title?.trim() || `Section ${i + 1}`}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {open ? "−" : "+"}
+                            </span>
+                          </button>
+                          {open && (
+                            <div className="px-4 pb-4">
+                              <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                                {s.content}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              }
+
+              if (style === "list") {
+                return (
+                  <ol className="space-y-4">
+                    {sections.map((s, i) => (
+                      <li key={i} className="flex gap-3">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                          {i + 1}
+                        </span>
+                        <div>
+                          {s.title?.trim() && (
+                            <h3 className="mb-1 text-sm font-semibold">
+                              {s.title}
+                            </h3>
+                          )}
+                          <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                            {s.content}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                );
+              }
+
+              // paragraphs (default)
+              return (
+                <div className="space-y-5">
+                  {sections.map((s, i) => (
+                    <div key={i}>
+                      {s.title?.trim() && (
+                        <h3 className="mb-1.5 text-base font-semibold tracking-tight">
+                          {s.title}
+                        </h3>
+                      )}
+                      <p className="whitespace-pre-wrap leading-7 text-muted-foreground">
+                        {s.content}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
 
           {/* Actions */}
           <div className="mt-8 flex gap-3">

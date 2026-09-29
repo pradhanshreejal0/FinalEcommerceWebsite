@@ -1,9 +1,35 @@
 import mongoose from "mongoose";
 
+const descriptionSectionSchema = new mongoose.Schema(
+  {
+    title: { type: String, trim: true, default: "" },
+    content: { type: String, trim: true, default: "" },
+  },
+  { _id: false }
+);
+
 const productSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
+    // Plain-text fallback / search index (auto-synced from sections when possible)
     description: { type: String, default: "" },
+    // Up to 4 structured sections the vendor controls
+    descriptionSections: {
+      type: [descriptionSectionSchema],
+      default: [],
+      validate: {
+        validator(v) {
+          return !v || v.length <= 4;
+        },
+        message: "Maximum 4 description sections allowed",
+      },
+    },
+    // How the customer product page should render the sections
+    descriptionStyle: {
+      type: String,
+      enum: ["paragraphs", "cards", "tabs", "accordion", "list"],
+      default: "paragraphs",
+    },
     price: { type: Number, required: true, min: 0 },
     stock: { type: Number, required: true, min: 0, default: 0 },
     images: [{ type: String }],

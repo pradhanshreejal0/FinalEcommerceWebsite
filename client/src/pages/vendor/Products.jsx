@@ -56,7 +56,8 @@ export default function Products() {
   const [generatingAi, setGeneratingAi] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
-    description: "",
+    descriptionSections: [{ title: "", content: "" }],
+    descriptionStyle: "paragraphs",
     price: "",
     stock: "",
     category: "",
@@ -110,7 +111,8 @@ export default function Products() {
     setEditingProduct(null);
     setFormData({
       title: "",
-      description: "",
+      descriptionSections: [{ title: "", content: "" }],
+      descriptionStyle: "paragraphs",
       price: "",
       stock: "",
       category: "",
@@ -124,9 +126,22 @@ export default function Products() {
 
   const openEditDialog = (product) => {
     setEditingProduct(product);
+    let sections = Array.isArray(product.descriptionSections)
+      ? product.descriptionSections.map((s) => ({
+          title: s.title || "",
+          content: s.content || "",
+        }))
+      : [];
+    if (sections.length === 0 && product.description) {
+      sections = [{ title: "", content: product.description }];
+    }
+    if (sections.length === 0) {
+      sections = [{ title: "", content: "" }];
+    }
     setFormData({
       title: product.title,
-      description: product.description || "",
+      descriptionSections: sections,
+      descriptionStyle: product.descriptionStyle || "paragraphs",
       price: product.price,
       stock: product.stock,
       category: product.category?._id || product.category || "",
@@ -261,74 +276,179 @@ export default function Products() {
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1.5 text-xs"
-                    disabled={generatingAi || !formData.title.trim()}
-                    onClick={async () => {
-                      if (!formData.title.trim()) return;
-                      setGeneratingAi(true);
-                      setError("");
-                      try {
-                        const cat = categories.find(
-                          (c) => c._id === formData.category
-                        );
-                        const data = await api(
-                          "/products/generate-description",
-                          {
-                            method: "POST",
-                            accessToken,
-                            body: {
-                              title: formData.title.trim(),
-                              categoryName: cat?.name || "",
-                              keywords: "",
-                            },
+                  <Label>Description sections</Label>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs"
+                      disabled={generatingAi || !formData.title.trim()}
+                      onClick={async () => {
+                        if (!formData.title.trim()) return;
+                        setGeneratingAi(true);
+                        setError("");
+                        try {
+                          const cat = categories.find(
+                            (c) => c._id === formData.category
+                          );
+                          const data = await api(
+                            "/products/generate-description",
+                            {
+                              method: "POST",
+                              accessToken,
+                              body: {
+                                title: formData.title.trim(),
+                                categoryName: cat?.name || "",
+                                keywords: "",
+                              },
+                            }
+                          );
+                          if (data?.description) {
+                            setFormData((prev) => {
+                              const sections = [...prev.descriptionSections];
+                              // Fill first empty section, or replace first
+                              const emptyIdx = sections.findIndex(
+                                (s) => !s.content.trim()
+                              );
+                              const idx = emptyIdx >= 0 ? emptyIdx : 0;
+                              sections[idx] = {
+                                title: sections[idx]?.title || "Overview",
+                                content: data.description,
+                              };
+                              return { ...prev, descriptionSections: sections };
+                            });
                           }
-                        );
-                        if (data?.description) {
-                          setFormData((prev) => ({
-                            ...prev,
-                            description: data.description,
-                          }));
+                        } catch (err) {
+                          setError(
+                            err.message ||
+                              "Could not generate description. Try again."
+                          );
+                        } finally {
+                          setGeneratingAi(false);
                         }
-                      } catch (err) {
-                        setError(
-                          err.message ||
-                            "Could not generate description. Try again."
-                        );
-                      } finally {
-                        setGeneratingAi(false);
+                      }}
+                    >
+                      {generatingAi ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5" />
+                      )}
+                      {generatingAi ? "Generating…" : "Generate with AI"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs"
+                      disabled={formData.descriptionSections.length >= 4}
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          descriptionSections: [
+                            ...prev.descriptionSections,
+                            { title: "", content: "" },
+                          ],
+                        }))
                       }
-                    }}
-                  >
-                    {generatingAi ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3.5 w-3.5" />
-                    )}
-                    {generatingAi ? "Generating…" : "Generate with AI"}
-                  </Button>
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Add section
+                    </Button>
+                  </div>
                 </div>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  placeholder="Write a product description, or generate one with AI from the title"
-                  rows={4}
-                  className="min-h-24 resize-y"
-                />
                 <p className="text-xs text-muted-foreground">
-                  Enter a title first, then click Generate with AI for a draft
-                  description (uses Gemini when GEMINI_API_KEY is set on the
-                  server).
+                  Add up to 4 sections (e.g. Overview, Features, Specs, Care).
+                  You choose how they look on the product page.
                 </p>
+
+                <div className="space-y-2">
+                  <Label htmlFor="descriptionStyle">How it looks</Label>
+                  <Select
+                    value={formData.descriptionStyle}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, descriptionStyle: value })
+                    }
+                  >
+                    <SelectTrigger id="descriptionStyle">
+                      <SelectValue placeholder="Choose layout" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="paragraphs">
+                        Paragraphs — clean stacked text
+                      </SelectItem>
+                      <SelectItem value="cards">
+                        Cards — each section in its own card
+                      </SelectItem>
+                      <SelectItem value="tabs">
+                        Tabs — switch between sections
+                      </SelectItem>
+                      <SelectItem value="accordion">
+                        Accordion — expand one section at a time
+                      </SelectItem>
+                      <SelectItem value="list">
+                        List — numbered sections
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {formData.descriptionSections.map((section, index) => (
+                  <div
+                    key={index}
+                    className="rounded-lg border bg-muted/30 p-3 space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-xs text-muted-foreground">
+                        Section {index + 1} of 4
+                      </Label>
+                      {formData.descriptionSections.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-destructive"
+                          onClick={() =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              descriptionSections:
+                                prev.descriptionSections.filter(
+                                  (_, i) => i !== index
+                                ),
+                            }))
+                          }
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    <Input
+                      placeholder="Section title (optional) — e.g. Features"
+                      value={section.title}
+                      onChange={(e) => {
+                        const next = [...formData.descriptionSections];
+                        next[index] = { ...next[index], title: e.target.value };
+                        setFormData({ ...formData, descriptionSections: next });
+                      }}
+                    />
+                    <Textarea
+                      placeholder="Write this section…"
+                      value={section.content}
+                      onChange={(e) => {
+                        const next = [...formData.descriptionSections];
+                        next[index] = {
+                          ...next[index],
+                          content: e.target.value,
+                        };
+                        setFormData({ ...formData, descriptionSections: next });
+                      }}
+                      rows={3}
+                      className="min-h-20 resize-y"
+                    />
+                  </div>
+                ))}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
