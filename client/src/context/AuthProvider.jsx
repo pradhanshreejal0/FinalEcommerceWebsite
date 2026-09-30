@@ -14,8 +14,10 @@ export function AuthProvider({ children }) {
 
     const restoreSession = async () => {
       try {
-        // 1) Refresh cookie (cross-site: needs SameSite=None + Secure on backend)
-        const data = await api("/auth/refresh", { method: "POST" });
+        // 1) Prefer refresh-token cookie (httpOnly)
+        const data = await api("/auth/refresh", {
+          method: "POST",
+        });
 
         if (!mounted) return;
 
@@ -27,7 +29,7 @@ export function AuthProvider({ children }) {
         setAccessToken(data.accessToken);
         localStorage.setItem("accessToken", data.accessToken);
       } catch {
-        // 2) Fallback: stored access token
+        // 2) Fallback: access token in localStorage
         const savedToken = localStorage.getItem("accessToken");
 
         if (!savedToken) {
@@ -45,6 +47,7 @@ export function AuthProvider({ children }) {
 
           if (!mounted) return;
 
+          // Backend may return { user } or the user object directly
           const restoredUser = currentUser?.user || currentUser;
 
           if (!restoredUser) {
@@ -61,7 +64,9 @@ export function AuthProvider({ children }) {
           }
         }
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
@@ -79,6 +84,7 @@ export function AuthProvider({ children }) {
       localStorage.removeItem("accessToken");
       return;
     }
+
     setUser(userData);
     setAccessToken(token);
     localStorage.setItem("accessToken", token);
@@ -86,9 +92,11 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     try {
-      await api("/auth/logout", { method: "POST" });
+      await api("/auth/logout", {
+        method: "POST",
+      });
     } catch {
-      // still clear local session
+      // Still clear local session if the request fails
     } finally {
       setUser(null);
       setAccessToken(null);
@@ -115,6 +123,7 @@ export function AuthProvider({ children }) {
     [accessToken]
   );
 
+  /** Merge fields into the current user (e.g. after profile update). */
   const updateUser = useCallback((partial) => {
     setUser((prev) => (prev ? { ...prev, ...partial } : prev));
   }, []);
