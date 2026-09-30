@@ -433,10 +433,14 @@ export default function Orders() {
                       Payment
                     </p>
 
-                    <p className="mt-1 font-medium capitalize">
+                    <p className="mt-1 font-medium">
                       {order.paymentMethod === "cod"
                         ? "Cash on Delivery"
-                        : order.paymentMethod}
+                        : order.paymentMethod === "esewa"
+                          ? "eSewa"
+                          : order.paymentMethod === "khalti"
+                            ? "Khalti"
+                            : order.paymentMethod}
                     </p>
 
                     <p className="text-xs capitalize text-muted-foreground">

@@ -11,6 +11,11 @@ import {
 } from "../controllers/orderController.js";
 
 import {
+  payOrder,
+  verifyPayment,
+} from "../controllers/paymentController.js";
+
+import {
   protect,
   authorize,
 } from "../middleware/authMiddleware.js";
@@ -42,6 +47,21 @@ router.get(
   protect,
   authorize("customer"),
   getMyOrders
+);
+
+// Online payment (aliases used by the client)
+router.post(
+  "/:id/pay",
+  protect,
+  authorize("customer"),
+  payOrder
+);
+
+router.post(
+  "/:id/verify-payment",
+  protect,
+  authorize("customer"),
+  verifyPayment
 );
 
 // =====================================================

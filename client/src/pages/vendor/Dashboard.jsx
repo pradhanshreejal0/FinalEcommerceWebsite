@@ -7,7 +7,21 @@ import { api } from "@/lib/api";
 const cards = [
   {
     key: "totalSales",
-    label: "Total Sales",
+    label: "Gross sales",
+    icon: DollarSign,
+    format: (v) => `RS ${Number(v || 0).toFixed(2)}`,
+    to: "/vendor/orders",
+  },
+  {
+    key: "totalEarnings",
+    label: "Your earnings",
+    icon: DollarSign,
+    format: (v) => `RS ${Number(v || 0).toFixed(2)}`,
+    to: "/vendor/orders",
+  },
+  {
+    key: "totalCommissionDeducted",
+    label: "Platform fee",
     icon: DollarSign,
     format: (v) => `RS ${Number(v || 0).toFixed(2)}`,
     to: "/vendor/orders",

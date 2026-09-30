@@ -16,6 +16,10 @@ const orderItemSchema = new mongoose.Schema({
   quantity: { type: Number, required: true, min: 1 },
   image: { type: String, default: "" },
   subtotal: { type: Number, default: 0 },
+  // Platform cut on this line (from product subtotal)
+  platformCommission: { type: Number, default: 0 },
+  // Vendor keeps this after commission
+  vendorEarnings: { type: Number, default: 0 },
   status: {
     type: String,
     enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
@@ -59,6 +63,13 @@ const orderSchema = new mongoose.Schema(
     subtotal: { type: Number, default: 0 },
     deliveryFee: { type: Number, default: 0 },
     totalAmount: { type: Number, required: true },
+
+    // Admin / platform cut from product sales (not delivery)
+    commissionPercentage: { type: Number, default: 0 },
+    platformCommission: { type: Number, default: 0 },
+    // Sum of vendor earnings on products after commission
+    vendorEarnings: { type: Number, default: 0 },
+
     delivery: {
       totalFee: { type: Number, default: 0 },
       vendors: { type: [deliveryVendorSchema], default: [] },
@@ -71,7 +82,7 @@ const orderSchema = new mongoose.Schema(
     cancellationReason: { type: String, default: "" },
     paymentMethod: {
       type: String,
-      enum: ["cod", "stripe", "razorpay"],
+      enum: ["cod", "esewa", "khalti"],
       default: "cod",
     },
     paymentStatus: {
@@ -79,6 +90,9 @@ const orderSchema = new mongoose.Schema(
       enum: ["pending", "paid", "failed"],
       default: "pending",
     },
+    // Gateway references
+    paymentTransactionId: { type: String, default: "" },
+    paymentProviderData: { type: mongoose.Schema.Types.Mixed, default: null },
   },
   { timestamps: true }
 );

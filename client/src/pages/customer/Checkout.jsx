@@ -12,7 +12,15 @@ import {
   ShoppingBag,
   Truck,
   X,
+  Wallet,
+  Banknote,
 } from "lucide-react";
+import {
+  initiatePayment,
+  redirectToPaymentGateway,
+  isOnlinePayment,
+  openKhaltiCheckout,
+} from "@/lib/payment";
 
 import {
   MapContainer,
@@ -1014,16 +1022,13 @@ export default function Checkout() {
       return setError("Please wait while the delivery fee is calculated.");
     if (!deliveryQuote)
       return setError("Please wait for the delivery fee to be calculated.");
-    if (paymentMethod !== "cod")
-      return setError("Online payment is not available yet.");
-
     try {
       setSubmitting(true);
 
       const order = await api("/orders", {
         method: "POST",
         accessToken,
-        body: JSON.stringify({
+        body: {
           shippingAddress: {
             fullName: form.fullName.trim(),
             phone: form.phone.trim(),
@@ -1035,11 +1040,97 @@ export default function Checkout() {
             longitude: location.lng,
           },
           paymentMethod,
-        }),
+        },
       });
 
       if (!order?._id) throw new Error("Order ID was not returned.");
 
+      // Online payment: start gateway flow after order is created
+      if (isOnlinePayment(paymentMethod)) {
+        try {
+          const paymentData = await initiatePayment(
+            order._id,
+            paymentMethod,
+            accessToken
+          );
+
+          // Prefer backend redirect / form post
+          if (redirectToPaymentGateway(paymentData)) {
+            resetCart();
+            return; // browser is navigating away
+          }
+
+          // Khalti client widget fallback (public key)
+          if (
+            paymentMethod === "khalti" &&
+            import.meta.env.VITE_KHALTI_PUBLIC_KEY
+          ) {
+            const amount =
+              Number(order.totalAmount) ||
+              Number(deliveryQuote?.total) ||
+              0;
+            await openKhaltiCheckout({
+              amountPaisa: Math.round(amount * 100),
+              orderId: order._id,
+              productName: `Order ${order._id}`,
+              onSuccess: async (payload) => {
+                try {
+                  await api(`/orders/${order._id}/verify-payment`, {
+                    method: "POST",
+                    accessToken,
+                    body: {
+                      paymentMethod: "khalti",
+                      token: payload?.token,
+                      amount: payload?.amount,
+                      idx: payload?.idx,
+                    },
+                  }).catch(() => null);
+                } finally {
+                  resetCart();
+                  navigate(
+                    `/payment/success?orderId=${order._id}&method=khalti`,
+                    { replace: true }
+                  );
+                }
+              },
+              onError: () => {
+                resetCart();
+                navigate(
+                  `/payment/failure?orderId=${order._id}&method=khalti`,
+                  { replace: true }
+                );
+              },
+              onClose: () => {
+                // User closed widget — order exists, go to order detail to pay later
+                resetCart();
+                navigate(`/orders/${order._id}`, { replace: true });
+              },
+            });
+            return;
+          }
+
+          // Backend accepted order but didn't return a gateway URL —
+          // send user to the pay page so they can retry / pay later.
+          resetCart();
+          navigate(`/orders/${order._id}/pay`, { replace: true });
+          return;
+        } catch (payErr) {
+          console.error("Payment initiate error:", payErr);
+          // Order was created; let user pay from order page
+          resetCart();
+          navigate(`/orders/${order._id}/pay`, {
+            replace: true,
+            state: {
+              paymentError:
+                payErr?.message ||
+                "Could not open payment gateway. You can try again from this page.",
+            },
+          });
+          return;
+        }
+      }
+
+      // COD — normal flow
       resetCart();
       navigate(`/orders/${order._id}`, { replace: true });
     } catch (err) {
@@ -1577,26 +1668,101 @@ export default function Checkout() {
               {/* PAYMENT */}
               <section className="rounded-xl border bg-background p-5 shadow-sm sm:p-6">
                 <h2 className="mb-4 text-lg font-semibold">Payment Method</h2>
-                <label
-                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 ${
-                    paymentMethod === "cod" ? "border-primary bg-primary/5" : ""
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="cod"
-                    checked={paymentMethod === "cod"}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="mt-1"
-                  />
-                  <div>
-                    <p className="font-medium">Cash on Delivery</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Pay when your order arrives.
-                    </p>
-                  </div>
-                </label>
+                <div className="space-y-3">
+                  {/* COD */}
+                  <label
+                    className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition ${
+                      paymentMethod === "cod"
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                        : "hover:bg-muted/40"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="cod"
+                      checked={paymentMethod === "cod"}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="mt-1"
+                      disabled={submitting}
+                    />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
+                      <Banknote className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">Cash on Delivery</p>
+                      <p className="mt-0.5 text-sm text-muted-foreground">
+                        Pay with cash when your order arrives.
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* eSewa */}
+                  <label
+                    className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition ${
+                      paymentMethod === "esewa"
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                        : "hover:bg-muted/40"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="esewa"
+                      checked={paymentMethod === "esewa"}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="mt-1"
+                      disabled={submitting}
+                    />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
+                      <span className="text-xs font-bold tracking-tight">eS</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">eSewa</p>
+                      <p className="mt-0.5 text-sm text-muted-foreground">
+                        Pay securely online with eSewa wallet or linked bank.
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Khalti */}
+                  <label
+                    className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition ${
+                      paymentMethod === "khalti"
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                        : "hover:bg-muted/40"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="khalti"
+                      checked={paymentMethod === "khalti"}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="mt-1"
+                      disabled={submitting}
+                    />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-violet-600">
+                      <Wallet className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">Khalti</p>
+                      <p className="mt-0.5 text-sm text-muted-foreground">
+                        Pay with Khalti, banking, or cards via Khalti Checkout.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                {isOnlinePayment(paymentMethod) && (
+                  <p className="mt-3 rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                    After placing the order you will be redirected to{" "}
+                    <strong className="text-foreground">
+                      {paymentMethod === "esewa" ? "eSewa" : "Khalti"}
+                    </strong>{" "}
+                    to complete payment securely.
+                  </p>
+                )}
               </section>
             </div>
 

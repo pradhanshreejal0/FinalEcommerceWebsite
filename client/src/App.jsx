@@ -8,6 +8,8 @@ import Cart from "@/pages/customer/Cart";
 import Checkout from "@/pages/customer/Checkout";
 import Orders from "@/pages/customer/Orders";
 import OrderDetail from "@/pages/customer/OrderDetail";
+import OrderPay from "@/pages/customer/OrderPay";
+import PaymentResult from "@/pages/customer/PaymentResult";
 import VendorOrders from "@/pages/vendor/Orders";
 import AdminOrders from "@/pages/admin/Orders";
 import Shop from "@/pages/customer/Shop";
@@ -51,6 +53,8 @@ function App() {
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/orders/:id" element={<OrderDetail />} />
+        <Route path="/orders/:id/pay" element={<OrderPay />} />
+        <Route path="/payment/:result" element={<PaymentResult />} />
         <Route path="/products" element={<Shop />} />
         <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/profile" element={<Profile />} />

@@ -2,6 +2,7 @@ import Order from "../models/Order.js";
 import Cart from "../models/Cart.js";
 import Product from "../models/Product.js";
 import Vendor from "../models/Vendor.js";
+import Settings from "../models/Settings.js";
 
 // =====================================================
 // Delivery Configuration
@@ -363,11 +364,11 @@ export const createOrder = async (req, res) => {
   try {
     const { shippingAddress, paymentMethod = "cod" } = req.body;
 
-    const allowedPaymentMethods = ["cod", "stripe", "razorpay"];
+    const allowedPaymentMethods = ["cod", "esewa", "khalti"];
 
     if (!allowedPaymentMethods.includes(paymentMethod)) {
       return res.status(400).json({
-        message: "Invalid payment method",
+        message: "Invalid payment method. Use cod, esewa, or khalti.",
       });
     }
 
@@ -384,18 +385,30 @@ export const createOrder = async (req, res) => {
 
     const { cart, items } = await getValidatedCart(req.user._id);
 
+    // Admin platform cut — from Settings.commissionPercentage (default 10%)
+    const settings = await Settings.getSingleton();
+    const commissionPercentage = Number(settings.commissionPercentage) || 0;
+    const rate = Math.min(100, Math.max(0, commissionPercentage)) / 100;
+
     const orderItems = items.map(
-      ({ product, vendor, quantity, effectivePrice, lineSubtotal }) => ({
-        product: product._id,
-        vendor: vendor._id,
-        title: product.title,
-        price: effectivePrice,
-        quantity,
-        image: product.images?.[0] || "",
-        subtotal: lineSubtotal,
-        status: "pending",
-        cancellationReason: "",
-      })
+      ({ product, vendor, quantity, effectivePrice, lineSubtotal }) => {
+        const lineCommission = Math.round(lineSubtotal * rate * 100) / 100;
+        const lineVendorEarnings =
+          Math.round((lineSubtotal - lineCommission) * 100) / 100;
+        return {
+          product: product._id,
+          vendor: vendor._id,
+          title: product.title,
+          price: effectivePrice,
+          quantity,
+          image: product.images?.[0] || "",
+          subtotal: lineSubtotal,
+          platformCommission: lineCommission,
+          vendorEarnings: lineVendorEarnings,
+          status: "pending",
+          cancellationReason: "",
+        };
+      }
     );
 
     const pricing = calculateOrderPricing({
@@ -403,6 +416,15 @@ export const createOrder = async (req, res) => {
       customerLatitude,
       customerLongitude,
     });
+
+    const platformCommission =
+      Math.round(
+        orderItems.reduce((s, i) => s + (i.platformCommission || 0), 0) * 100
+      ) / 100;
+    const vendorEarnings =
+      Math.round(
+        orderItems.reduce((s, i) => s + (i.vendorEarnings || 0), 0) * 100
+      ) / 100;
 
     const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
@@ -424,6 +446,9 @@ export const createOrder = async (req, res) => {
       deliveryFee: pricing.deliveryFee,
       totalAmount: pricing.totalAmount,
       delivery: pricing.delivery,
+      commissionPercentage,
+      platformCommission,
+      vendorEarnings,
       paymentMethod,
       paymentStatus: "pending",
       status: "pending",

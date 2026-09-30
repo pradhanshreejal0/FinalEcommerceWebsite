@@ -16,6 +16,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import {
+  getPaymentMethodLabel,
+  isOnlinePayment,
+} from "@/lib/payment";
 
 const statusConfig = {
   pending: {
@@ -229,10 +233,8 @@ export default function OrderDetail() {
               Payment
             </p>
 
-            <p className="mt-1 font-medium capitalize">
-              {order.paymentMethod === "cod"
-                ? "Cash on Delivery"
-                : order.paymentMethod}
+            <p className="mt-1 font-medium">
+              {getPaymentMethodLabel(order.paymentMethod)}
             </p>
 
             <p className="text-xs capitalize text-muted-foreground">
@@ -449,10 +451,8 @@ export default function OrderDetail() {
                 Method
               </span>
 
-              <span className="font-medium capitalize">
-                {order.paymentMethod === "cod"
-                  ? "Cash on Delivery"
-                  : order.paymentMethod}
+              <span className="font-medium">
+                {getPaymentMethodLabel(order.paymentMethod)}
               </span>
             </div>
 
@@ -475,6 +475,18 @@ export default function OrderDetail() {
                 {formatCurrency(order.totalAmount)}
               </span>
             </div>
+
+            {isOnlinePayment(order.paymentMethod) &&
+              !["paid", "completed", "success"].includes(
+                String(order.paymentStatus || "").toLowerCase()
+              ) && (
+                <Button asChild className="mt-2 w-full">
+                  <Link to={`/orders/${order._id}/pay`}>
+                    Pay now with{" "}
+                    {getPaymentMethodLabel(order.paymentMethod)}
+                  </Link>
+                </Button>
+              )}
           </div>
         </section>
       </div>

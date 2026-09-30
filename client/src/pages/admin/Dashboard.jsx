@@ -6,6 +6,8 @@ import {
   ShoppingBag,
   Tag,
   MessageCircle,
+  Percent,
+  Wallet,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
@@ -73,6 +75,56 @@ export default function AdminDashboard() {
             </p>
           </Link>
         ))}
+      </div>
+
+      {/* Platform commission (admin cut from sales) */}
+      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="rounded-xl border bg-background p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              Platform commission earned
+            </span>
+            <Wallet className="h-4 w-4 text-primary" />
+          </div>
+          <p className="mt-2 text-2xl font-bold">
+            {loading
+              ? "—"
+              : `RS ${Number(stats?.totalPlatformCommission || 0).toFixed(2)}`}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            From product sales (excludes delivery fees)
+          </p>
+        </div>
+        <div className="rounded-xl border bg-background p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              Commission rate
+            </span>
+            <Percent className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <p className="mt-2 text-2xl font-bold">
+            {loading ? "—" : `${stats?.commissionPercentage ?? 10}%`}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Change this under Admin → Settings
+          </p>
+        </div>
+        <div className="rounded-xl border bg-background p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              Product sales (subtotal)
+            </span>
+            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <p className="mt-2 text-2xl font-bold">
+            {loading
+              ? "—"
+              : `RS ${Number(stats?.totalSalesSubtotal || 0).toFixed(2)}`}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Before delivery fees
+          </p>
+        </div>
       </div>
 
       {/* Support Messages shortcut */}
