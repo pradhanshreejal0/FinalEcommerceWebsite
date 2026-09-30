@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getFinalPrice } from "@/lib/utils";
 
@@ -152,12 +152,18 @@ const searchResultIcon = L.divIcon({
    LOCATION SELECTOR
 ============================================================ */
 
-function LocationSelector({ location, setLocation, disabled = false }) {
+function LocationSelector({
+  location,
+  setLocation,
+  onMapPick,
+  disabled = false,
+}) {
   useMapEvents({
     click(event) {
       if (disabled) return;
       const { lat, lng } = event.latlng;
       setLocation({ lat, lng });
+      onMapPick?.({ lat, lng });
     },
   });
 
@@ -173,10 +179,12 @@ function LocationSelector({ location, setLocation, disabled = false }) {
           if (disabled) return;
           const marker = event.target;
           const newPosition = marker.getLatLng();
-          setLocation({
+          const next = {
             lat: newPosition.lat,
             lng: newPosition.lng,
-          });
+          };
+          setLocation(next);
+          onMapPick?.(next);
         },
       }}
       zIndexOffset={1000}
@@ -271,6 +279,9 @@ export default function Checkout() {
 
   const [location, setLocation] = useState(null);
   const [locating, setLocating] = useState(false);
+  // "map" | "form" | "search" — avoids address↔map feedback loops
+  const locationSourceRef = useRef("search");
+  const [reverseGeocoding, setReverseGeocoding] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -349,6 +360,10 @@ export default function Checkout() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    // User is typing address fields → allow address→map geocode
+    if (name === "city" || name === "address" || name === "postalCode") {
+      locationSourceRef.current = "form";
+    }
     setForm((prev) => ({ ...prev, [name]: value }));
     if (error) setError("");
     if (name === "city") {
@@ -459,26 +474,30 @@ export default function Checkout() {
   /* ============================================================
      SELECT SEARCH RESULT
   ============================================================ */
-  const selectSearchResult = (result) => {
-    const lat = Number(result.lat);
-    const lng = Number(result.lon);
-
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-
-    setLocation({ lat, lng });
-
+  /** Fill address/city/postal from a Nominatim result (map or search). */
+  const applyNominatimToForm = (result, { updateSearchQuery = true } = {}) => {
     const address = result.address || {};
     const displayName = result.display_name || "";
 
-    const road = address.road || address.pedestrian || address.footway || "";
+    const road =
+      address.road ||
+      address.pedestrian ||
+      address.footway ||
+      address.path ||
+      "";
     const houseNumber = address.house_number || "";
     const neighbourhood =
-      address.neighbourhood || address.suburb || address.quarter || "";
+      address.neighbourhood ||
+      address.suburb ||
+      address.quarter ||
+      address.residential ||
+      "";
     const city =
       address.city ||
       address.town ||
       address.municipality ||
       address.village ||
+      address.county ||
       "";
     const postcode = address.postcode || "";
 
@@ -491,21 +510,83 @@ export default function Checkout() {
         .filter(Boolean)
         .join(", ");
     }
-    if (!generatedAddress) generatedAddress = displayName;
+    if (!generatedAddress) {
+      // Prefer first segment of display name over the full long string
+      generatedAddress = displayName.split(",").slice(0, 2).join(",").trim();
+    }
 
     setForm((prev) => ({
       ...prev,
       address: generatedAddress || prev.address,
       city: city || prev.city,
       postalCode: postcode || prev.postalCode,
-      country: "Nepal",
+      country: address.country || prev.country || "Nepal",
     }));
 
-    setSearchQuery(displayName);
+    if (updateSearchQuery && displayName) {
+      setSearchQuery(displayName);
+    }
+  };
+
+  const selectSearchResult = (result) => {
+    const lat = Number(result.lat);
+    const lng = Number(result.lon);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    locationSourceRef.current = "search";
+    setLocation({ lat, lng });
+    applyNominatimToForm(result, { updateSearchQuery: true });
+
     setSearchResults([]);
     setShowSearchResults(false);
     setSearchError("");
     setError("");
+  };
+
+  /**
+   * Map → address: reverse-geocode pin and autofill form fields.
+   */
+  const handleMapPick = async ({ lat, lng }) => {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    locationSourceRef.current = "map";
+    setReverseGeocoding(true);
+    setError("");
+
+    try {
+      const params = new URLSearchParams({
+        lat: String(lat),
+        lon: String(lng),
+        format: "json",
+        addressdetails: "1",
+      });
+
+      const response = await fetch(
+        `${NOMINATIM_REVERSE_URL}?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "MarketplaceApp/1.0",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Unable to resolve address for this map pin.");
+      }
+
+      const result = await response.json();
+      applyNominatimToForm(result, { updateSearchQuery: true });
+      setSearchResults([]);
+      setShowSearchResults(false);
+    } catch (err) {
+      console.error("Map reverse-geocode error:", err);
+      // Keep coordinates; user can still type address manually
+    } finally {
+      setReverseGeocoding(false);
+    }
   };
 
   const clearSearch = () => {
@@ -633,6 +714,7 @@ export default function Checkout() {
     }));
 
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      locationSourceRef.current = "search";
       setCityCenter({ lat, lng });
       setLocation({ lat, lng });
     }
@@ -785,6 +867,7 @@ export default function Checkout() {
       address.village ||
       form.city;
 
+    locationSourceRef.current = "search";
     setForm((prev) => ({
       ...prev,
       address: generatedAddress || prev.address,
@@ -800,13 +883,16 @@ export default function Checkout() {
   };
 
   /* ============================================================
-     AUTO-GEOCODE when both city + address are typed
+     ADDRESS → MAP: auto-geocode when user types city + address
+     (skipped when the last pin change came from the map itself)
   ============================================================ */
   useEffect(() => {
     const city = debouncedCity.trim();
     const address = debouncedAddress.trim();
 
     if (city.length < 2 || address.length < 5) return;
+    // Map just filled these fields — don't bounce the pin again
+    if (locationSourceRef.current === "map") return;
 
     let cancelled = false;
 
@@ -848,6 +934,7 @@ export default function Checkout() {
         const lat = Number(results[0].lat);
         const lng = Number(results[0].lon);
         if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          locationSourceRef.current = "form";
           setLocation({ lat, lng });
         }
       } catch (err) {
@@ -1590,6 +1677,7 @@ export default function Checkout() {
                     <LocationSelector
                       location={location}
                       setLocation={setLocation}
+                      onMapPick={handleMapPick}
                       disabled={submitting}
                     />
                   </MapContainer>
@@ -1600,7 +1688,18 @@ export default function Checkout() {
                       pin to select
                     </p>
                   )}
+                  {reverseGeocoding && (
+                    <p className="absolute bottom-2 right-2 z-1000 flex items-center gap-1.5 rounded-md bg-background/90 px-2 py-1 text-[11px] text-muted-foreground shadow">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Filling address from map…
+                    </p>
+                  )}
                 </div>
+
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Tip: click or drag the map pin to autofill address fields, or
+                  type city/address and the map pin will move to match.
+                </p>
 
                 {/* Location status */}
                 <div className="mt-4">
@@ -1615,6 +1714,13 @@ export default function Checkout() {
                           <p className="mt-1 text-xs text-muted-foreground">
                             Lat: {location.lat.toFixed(6)} | Lng: {location.lng.toFixed(6)}
                           </p>
+                          {(form.address || form.city) && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {[form.address, form.city, form.postalCode]
+                                .filter(Boolean)
+                                .join(", ")}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
