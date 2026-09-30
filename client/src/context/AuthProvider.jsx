@@ -1,14 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AuthContext } from "./AuthContext";
 import { api } from "@/lib/api";
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-
   const [accessToken, setAccessToken] = useState(
     () => localStorage.getItem("accessToken") || null
   );
-
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,18 +14,8 @@ export function AuthProvider({ children }) {
 
     const restoreSession = async () => {
       try {
-        /*
-         * First try the refresh-token cookie.
-         *
-         * The refresh endpoint should return:
-         * {
-         *   user,
-         *   accessToken
-         * }
-         */
-        const data = await api("/auth/refresh", {
-          method: "POST",
-        });
+        // 1) Refresh cookie (cross-site: needs SameSite=None + Secure on backend)
+        const data = await api("/auth/refresh", { method: "POST" });
 
         if (!mounted) return;
 
@@ -37,77 +25,43 @@ export function AuthProvider({ children }) {
 
         setUser(data.user);
         setAccessToken(data.accessToken);
-
-        localStorage.setItem(
-          "accessToken",
-          data.accessToken
-        );
+        localStorage.setItem("accessToken", data.accessToken);
       } catch {
-        /*
-         * Refresh cookie failed.
-         *
-         * Try the access token stored in localStorage.
-         */
-        const savedToken =
-          localStorage.getItem("accessToken");
+        // 2) Fallback: stored access token
+        const savedToken = localStorage.getItem("accessToken");
 
         if (!savedToken) {
           if (mounted) {
             setUser(null);
             setAccessToken(null);
           }
-
           return;
         }
 
         try {
-          /*
-           * Validate the saved access token and
-           * retrieve the current user.
-           */
           const currentUser = await api("/auth/me", {
             accessToken: savedToken,
           });
 
           if (!mounted) return;
 
-          /*
-           * Depending on your backend, /auth/me may return:
-           *
-           * user
-           *
-           * or
-           *
-           * { user }
-           */
-          const restoredUser =
-            currentUser?.user || currentUser;
+          const restoredUser = currentUser?.user || currentUser;
 
           if (!restoredUser) {
-            throw new Error(
-              "Unable to restore user"
-            );
+            throw new Error("Unable to restore user");
           }
 
           setUser(restoredUser);
           setAccessToken(savedToken);
         } catch {
-          /*
-           * Token is invalid/expired.
-           */
-          localStorage.removeItem(
-            "accessToken"
-          );
-
+          localStorage.removeItem("accessToken");
           if (mounted) {
             setUser(null);
             setAccessToken(null);
           }
         }
       } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+        if (mounted) setLoading(false);
       }
     };
 
@@ -118,62 +72,52 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const login = (userData, token) => {
+  const login = useCallback((userData, token) => {
+    if (!userData || !token) {
+      setUser(null);
+      setAccessToken(null);
+      localStorage.removeItem("accessToken");
+      return;
+    }
     setUser(userData);
     setAccessToken(token);
+    localStorage.setItem("accessToken", token);
+  }, []);
 
-    if (token) {
-      localStorage.setItem(
-        "accessToken",
-        token
-      );
-    } else {
-      localStorage.removeItem(
-        "accessToken"
-      );
-    }
-  };
-
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
-      await api("/auth/logout", {
-        method: "POST",
-      });
+      await api("/auth/logout", { method: "POST" });
     } catch {
-      // Logout should still clear local state
-      // even if the server request fails.
+      // still clear local session
     } finally {
       setUser(null);
       setAccessToken(null);
-
-      localStorage.removeItem(
-        "accessToken"
-      );
+      localStorage.removeItem("accessToken");
     }
-  };
+  }, []);
 
-  const deleteAccount = async (password) => {
-    if (!accessToken) {
-      throw new Error(
-        "You are not authenticated."
-      );
-    }
+  const deleteAccount = useCallback(
+    async (password) => {
+      if (!accessToken) {
+        throw new Error("You are not authenticated.");
+      }
 
-    await api("/auth/me", {
-      method: "DELETE",
-      accessToken,
-      body: {
-        password,
-      },
-    });
+      await api("/auth/me", {
+        method: "DELETE",
+        accessToken,
+        body: { password },
+      });
 
-    setUser(null);
-    setAccessToken(null);
+      setUser(null);
+      setAccessToken(null);
+      localStorage.removeItem("accessToken");
+    },
+    [accessToken]
+  );
 
-    localStorage.removeItem(
-      "accessToken"
-    );
-  };
+  const updateUser = useCallback((partial) => {
+    setUser((prev) => (prev ? { ...prev, ...partial } : prev));
+  }, []);
 
   return (
     <AuthContext.Provider
@@ -184,6 +128,7 @@ export function AuthProvider({ children }) {
         login,
         logout,
         deleteAccount,
+        updateUser,
       }}
     >
       {children}
