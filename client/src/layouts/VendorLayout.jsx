@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Package, ShoppingBag, Store, Menu, LogOut } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingBag, Store, Menu, LogOut, Wallet } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
@@ -8,6 +8,7 @@ const navItems = [
   { label: "Dashboard", to: "/vendor", icon: LayoutDashboard },
   { label: "My Products", to: "/vendor/products", icon: Package },
   { label: "Orders", to: "/vendor/orders", icon: ShoppingBag },
+  { label: "Earnings", to: "/vendor/earnings", icon: Wallet },
   { label: "Store Profile", to: "/vendor/profile", icon: Store },
 ];
 

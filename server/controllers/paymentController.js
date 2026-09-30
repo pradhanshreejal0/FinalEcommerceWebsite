@@ -1,5 +1,7 @@
 import crypto from "crypto";
 import Order from "../models/Order.js";
+import User from "../models/User.js";
+import { notifyEmail, orderSummaryHtml } from "../utils/notify.js";
 
 const ONLINE_METHODS = ["esewa", "khalti"];
 
@@ -304,6 +306,16 @@ export const verifyPayment = async (req, res) => {
           lookup,
         };
         await order.save();
+        try {
+          const u = await User.findById(order.user).select("email");
+          if (u?.email) {
+            notifyEmail({
+              to: u.email,
+              subject: `Payment received — ${order.orderNumber}`,
+              html: orderSummaryHtml(order, "Payment confirmed"),
+            });
+          }
+        } catch {}
         return res.json({ success: true, order, provider: "khalti" });
       }
 
@@ -371,6 +383,16 @@ export const verifyPayment = async (req, res) => {
           status: statusData,
         };
         await order.save();
+        try {
+          const u = await User.findById(order.user).select("email");
+          if (u?.email) {
+            notifyEmail({
+              to: u.email,
+              subject: `Payment received — ${order.orderNumber}`,
+              html: orderSummaryHtml(order, "Payment confirmed"),
+            });
+          }
+        } catch {}
         return res.json({ success: true, order, provider: "esewa" });
       }
 

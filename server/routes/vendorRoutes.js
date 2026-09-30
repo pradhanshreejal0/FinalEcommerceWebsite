@@ -8,10 +8,14 @@ import {
   updateMyVendorProfile,
   createVendor,
   updateVendorLocation,
+  getPublicStore,
 } from "../controllers/vendorController.js";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+
+// Public store
+router.get("/store/:slug", getPublicStore);
 
 // Vendor self-service (before /:id routes)
 router.get("/me", protect, authorize("vendor"), getMyVendorProfile);

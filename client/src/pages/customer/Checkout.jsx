@@ -306,6 +306,9 @@ export default function Checkout() {
   const [cityCenter, setCityCenter] = useState(null);
 
   const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [couponCode, setCouponCode] = useState("");
+  const [couponPreview, setCouponPreview] = useState(null);
+  const [couponLoading, setCouponLoading] = useState(false);
   const [deliveryQuote, setDeliveryQuote] = useState(null);
   const [calculatingDelivery, setCalculatingDelivery] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -1127,6 +1130,7 @@ export default function Checkout() {
             longitude: location.lng,
           },
           paymentMethod,
+          couponCode: couponCode.trim() || undefined,
         },
       });
 
@@ -1768,6 +1772,58 @@ export default function Checkout() {
                       </div>
                     </div>
                   </div>
+                )}
+              </section>
+
+              {/* COUPON */}
+              <section className="rounded-xl border bg-background p-5 shadow-sm sm:p-6">
+                <h2 className="mb-3 text-lg font-semibold">Promo code</h2>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => {
+                      setCouponCode(e.target.value.toUpperCase());
+                      setCouponPreview(null);
+                    }}
+                    placeholder="Enter code e.g. SAVE10"
+                    disabled={submitting}
+                    className="w-full rounded-md border bg-background px-3 py-2.5 text-sm uppercase outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={submitting || couponLoading || !couponCode.trim()}
+                    onClick={async () => {
+                      setCouponLoading(true);
+                      setError("");
+                      try {
+                        const data = await api("/coupons/validate", {
+                          method: "POST",
+                          accessToken,
+                          body: { code: couponCode.trim() },
+                        });
+                        setCouponPreview(data);
+                      } catch (err) {
+                        setCouponPreview(null);
+                        setError(err.message || "Invalid coupon");
+                      } finally {
+                        setCouponLoading(false);
+                      }
+                    }}
+                  >
+                    {couponLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Apply"
+                    )}
+                  </Button>
+                </div>
+                {couponPreview?.valid && (
+                  <p className="mt-2 text-sm text-emerald-600">
+                    Coupon applied — save RS{" "}
+                    {Number(couponPreview.discountAmount).toFixed(2)}
+                  </p>
                 )}
               </section>
 

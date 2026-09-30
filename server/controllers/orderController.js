@@ -3,6 +3,56 @@ import Cart from "../models/Cart.js";
 import Product from "../models/Product.js";
 import Vendor from "../models/Vendor.js";
 import Settings from "../models/Settings.js";
+import Coupon from "../models/Coupon.js";
+import User from "../models/User.js";
+import { notifyEmail, orderSummaryHtml } from "../utils/notify.js";
+
+/** Decrement stock atomically; throws if any product lacks stock. */
+async function reserveStock(items) {
+  for (const { product, quantity, title } of items) {
+    const updated = await Product.findOneAndUpdate(
+      { _id: product._id || product, stock: { $gte: quantity } },
+      { $inc: { stock: -quantity } },
+      { new: true }
+    );
+    if (!updated) {
+      const error = new Error(
+        `Insufficient stock for "${title || product.title || "product"}"`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+}
+
+/** Restore stock for cancelled line items that have not been restored yet. */
+async function restoreStockForItems(orderItems) {
+  for (const item of orderItems) {
+    if (item.stockRestored) continue;
+    if (item.status !== "cancelled") continue;
+    const qty = Number(item.quantity) || 0;
+    if (qty <= 0 || !item.product) continue;
+    await Product.findByIdAndUpdate(item.product, {
+      $inc: { stock: qty },
+    });
+    item.stockRestored = true;
+  }
+}
+
+function computeCouponDiscount(coupon, subtotal) {
+  if (!coupon || !coupon.isCurrentlyValid()) return 0;
+  if (subtotal < (coupon.minOrderAmount || 0)) return 0;
+  let discount = 0;
+  if (coupon.discountType === "fixed") {
+    discount = Number(coupon.discountValue) || 0;
+  } else {
+    discount = (subtotal * (Number(coupon.discountValue) || 0)) / 100;
+    if (coupon.maxDiscount != null) {
+      discount = Math.min(discount, Number(coupon.maxDiscount));
+    }
+  }
+  return Math.round(Math.min(discount, subtotal) * 100) / 100;
+}
 
 // =====================================================
 // Delivery Configuration
@@ -219,6 +269,14 @@ const getValidatedCart = async (userId) => {
       throw error;
     }
 
+    if (Number(product.stock) < quantity) {
+      const error = new Error(
+        `Insufficient stock for "${product.title}" (available: ${product.stock})`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
     const basePrice = Number(product.price);
 
     if (!Number.isFinite(basePrice) || basePrice < 0) {
@@ -362,7 +420,11 @@ export const getDeliveryQuote = async (req, res) => {
 
 export const createOrder = async (req, res) => {
   try {
-    const { shippingAddress, paymentMethod = "cod" } = req.body;
+    const {
+      shippingAddress,
+      paymentMethod = "cod",
+      couponCode = "",
+    } = req.body;
 
     const allowedPaymentMethods = ["cod", "esewa", "khalti"];
 
@@ -426,6 +488,37 @@ export const createOrder = async (req, res) => {
         orderItems.reduce((s, i) => s + (i.vendorEarnings || 0), 0) * 100
       ) / 100;
 
+    // Optional promo code (platform-wide or matching vendor)
+    let discountAmount = 0;
+    let appliedCoupon = null;
+    const code = String(couponCode || "").trim().toUpperCase();
+    if (code) {
+      const coupon = await Coupon.findOne({ code });
+      if (!coupon || !coupon.isCurrentlyValid()) {
+        return res.status(400).json({ message: "Invalid or expired coupon code" });
+      }
+      discountAmount = computeCouponDiscount(coupon, pricing.subtotal);
+      if (discountAmount <= 0) {
+        return res.status(400).json({
+          message: `Coupon requires minimum order of RS ${coupon.minOrderAmount || 0}`,
+        });
+      }
+      appliedCoupon = coupon;
+    }
+
+    const totalAmount = Math.round(
+      (pricing.subtotal - discountAmount + pricing.deliveryFee) * 100
+    ) / 100;
+
+    // Reserve inventory before creating the order
+    await reserveStock(
+      items.map(({ product, quantity }) => ({
+        product,
+        quantity,
+        title: product.title,
+      }))
+    );
+
     const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
     const order = await Order.create({
@@ -444,20 +537,51 @@ export const createOrder = async (req, res) => {
       },
       subtotal: pricing.subtotal,
       deliveryFee: pricing.deliveryFee,
-      totalAmount: pricing.totalAmount,
+      discountAmount,
+      totalAmount,
       delivery: pricing.delivery,
       commissionPercentage,
       platformCommission,
       vendorEarnings,
+      couponCode: appliedCoupon ? appliedCoupon.code : "",
+      coupon: appliedCoupon ? appliedCoupon._id : null,
       paymentMethod,
-      paymentStatus: "pending",
+      paymentStatus: paymentMethod === "cod" ? "pending" : "pending",
       status: "pending",
+      stockReserved: true,
     });
+
+    if (appliedCoupon) {
+      appliedCoupon.usedCount = (appliedCoupon.usedCount || 0) + 1;
+      await appliedCoupon.save();
+    }
 
     cart.items = [];
     await cart.save();
 
     const populated = await populateOrder(Order.findById(order._id));
+
+    // Notify customer (non-blocking)
+    notifyEmail({
+      to: req.user.email,
+      subject: `Order placed — ${order.orderNumber}`,
+      html: orderSummaryHtml(order, "Thanks for your order!"),
+    });
+
+    // Notify each vendor for their items
+    const vendorIds = [
+      ...new Set(orderItems.map((i) => String(i.vendor))),
+    ];
+    for (const vid of vendorIds) {
+      const v = await Vendor.findById(vid).populate("user", "email");
+      if (v?.user?.email) {
+        notifyEmail({
+          to: v.user.email,
+          subject: `New order ${order.orderNumber}`,
+          html: orderSummaryHtml(order, `New order for ${v.storeName}`),
+        });
+      }
+    }
 
     return res.status(201).json(populated);
   } catch (error) {
@@ -630,7 +754,11 @@ export const getVendorOrders = async (req, res) => {
 export const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, cancellationReason = "" } = req.body;
+    const {
+      status,
+      cancellationReason = "",
+      trackingNumber = "",
+    } = req.body;
 
     const allowedStatuses = [
       "processing",
@@ -700,6 +828,15 @@ export const updateOrderStatus = async (req, res) => {
       } else {
         item.cancellationReason = "";
       }
+
+      if (status === "shipped" && String(trackingNumber).trim()) {
+        item.trackingNumber = String(trackingNumber).trim();
+      }
+    }
+
+    // Restore stock for newly cancelled vendor lines
+    if (status === "cancelled") {
+      await restoreStockForItems(vendorItems);
     }
 
     const itemStatuses = order.items.map((item) => item.status);
@@ -744,6 +881,27 @@ export const updateOrderStatus = async (req, res) => {
     await order.save();
 
     const updatedOrder = await populateOrder(Order.findById(order._id));
+
+    // Email customer on status change
+    try {
+      const customer = await User.findById(order.user).select("email");
+      if (customer?.email) {
+        notifyEmail({
+          to: customer.email,
+          subject: `Order ${order.orderNumber} — ${status}`,
+          html: orderSummaryHtml(
+            order,
+            `Your order is now: ${status}${
+              trackingNumber
+                ? ` (tracking: ${String(trackingNumber).trim()})`
+                : ""
+            }`
+          ),
+        });
+      }
+    } catch {
+      /* ignore */
+    }
 
     return res.json(updatedOrder);
   } catch (error) {

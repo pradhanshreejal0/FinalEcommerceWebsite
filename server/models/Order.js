@@ -26,6 +26,8 @@ const orderItemSchema = new mongoose.Schema({
     default: "pending",
   },
   cancellationReason: { type: String, default: "" },
+  trackingNumber: { type: String, default: "" },
+  stockRestored: { type: Boolean, default: false },
 });
 
 const deliveryVendorSchema = new mongoose.Schema(
@@ -62,13 +64,24 @@ const orderSchema = new mongoose.Schema(
     },
     subtotal: { type: Number, default: 0 },
     deliveryFee: { type: Number, default: 0 },
+    discountAmount: { type: Number, default: 0 },
     totalAmount: { type: Number, required: true },
+
+    couponCode: { type: String, default: "" },
+    coupon: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Coupon",
+      default: null,
+    },
 
     // Admin / platform cut from product sales (not delivery)
     commissionPercentage: { type: Number, default: 0 },
     platformCommission: { type: Number, default: 0 },
     // Sum of vendor earnings on products after commission
     vendorEarnings: { type: Number, default: 0 },
+
+    // Stock was decremented at create; restored on full cancel
+    stockReserved: { type: Boolean, default: false },
 
     delivery: {
       totalFee: { type: Number, default: 0 },

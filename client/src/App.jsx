@@ -10,6 +10,11 @@ import Orders from "@/pages/customer/Orders";
 import OrderDetail from "@/pages/customer/OrderDetail";
 import OrderPay from "@/pages/customer/OrderPay";
 import PaymentResult from "@/pages/customer/PaymentResult";
+import Store from "@/pages/customer/Store";
+import MyReturns from "@/pages/customer/MyReturns";
+import VendorEarnings from "@/pages/vendor/Earnings";
+import AdminCoupons from "@/pages/admin/Coupons";
+import AdminPayouts from "@/pages/admin/Payouts";
 import VendorOrders from "@/pages/vendor/Orders";
 import AdminOrders from "@/pages/admin/Orders";
 import Shop from "@/pages/customer/Shop";
@@ -56,9 +61,11 @@ function App() {
         <Route path="/orders/:id/pay" element={<OrderPay />} />
         <Route path="/payment/:result" element={<PaymentResult />} />
         <Route path="/products" element={<Shop />} />
+        <Route path="/store/:slug" element={<Store />} />
         <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/wishlist" element={<Wishlist />} />
+        <Route path="/my-returns" element={<MyReturns />} />
         <Route path="/chats" element={<Chats />} />
         <Route path="/chats/:id" element={<ChatPage />} />
         <Route path="/terms" element={<Terms />} />
@@ -87,6 +94,7 @@ function App() {
         <Route path="/vendor" element={<VendorDashboard />} />
         <Route path="/vendor/products" element={<Products />} />
         <Route path="/vendor/orders" element={<VendorOrders />} />
+        <Route path="/vendor/earnings" element={<VendorEarnings />} />
         <Route path="/vendor/profile" element={<VendorProfile />} />
       </Route>
 
@@ -109,6 +117,8 @@ function App() {
         <Route path="/admin/users" element={<Users />} />
         <Route path="/admin/settings" element={<Settings />} />
         <Route path="/admin/vendors/manage" element={<Vendors />} />
+        <Route path="/admin/coupons" element={<AdminCoupons />} />
+        <Route path="/admin/payouts" element={<AdminPayouts />} />
       </Route>
     </Routes>
   );

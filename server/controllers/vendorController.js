@@ -363,3 +363,38 @@ export const updateVendorLocation = async (req, res) => {
     });
   }
 };
+
+// Public store page by slug
+export const getPublicStore = async (req, res) => {
+  try {
+    const slug = String(req.params.slug || "").trim();
+    if (!slug) {
+      return res.status(400).json({ message: "Store slug required" });
+    }
+
+    const vendor = await Vendor.findOne({
+      storeSlug: slug,
+      status: "approved",
+    }).select(
+      "storeName storeSlug storeDescription logo banner location phone createdAt"
+    );
+
+    if (!vendor) {
+      return res.status(404).json({ message: "Store not found" });
+    }
+
+    const Product = (await import("../models/Product.js")).default;
+    const products = await Product.find({
+      vendor: vendor._id,
+      isPublished: true,
+    })
+      .sort({ createdAt: -1 })
+      .limit(48)
+      .select("title price images discountPercentage ratings stock");
+
+    res.json({ vendor, products });
+  } catch (error) {
+    console.error("Public store error:", error);
+    res.status(500).json({ message: error.message || "Failed to load store" });
+  }
+};

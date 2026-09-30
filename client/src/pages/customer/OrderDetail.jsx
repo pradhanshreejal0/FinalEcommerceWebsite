@@ -487,6 +487,9 @@ export default function OrderDetail() {
                   </Link>
                 </Button>
               )}
+            <Button asChild variant="outline" className="mt-2 w-full">
+              <Link to="/my-returns">My return requests</Link>
+            </Button>
           </div>
         </section>
       </div>
