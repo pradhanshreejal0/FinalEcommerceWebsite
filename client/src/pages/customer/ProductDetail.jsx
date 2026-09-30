@@ -512,43 +512,218 @@ export default function ProductDetails() {
             {product.hasVariants &&
               Array.isArray(product.variants) &&
               product.variants.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Choose option</p>
-                  <div className="flex flex-col gap-2">
-                    {product.variants.map((v) => {
-                      const selected = selectedVariantKey === v.key;
-                      const out = Number(v.stock) < 1;
-                      return (
-                        <button
-                          key={v.key}
-                          type="button"
-                          disabled={out}
-                          onClick={() => setSelectedVariantKey(v.key)}
-                          className={cn(
-                            "flex items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition",
-                            selected
-                              ? "border-primary bg-primary/10 ring-1 ring-primary"
-                              : "hover:border-primary/40",
-                            out && "opacity-50 cursor-not-allowed"
-                          )}
-                        >
-                          <span className="font-medium">
-                            {v.label || v.key}
-                            {out ? " (out of stock)" : ""}
-                          </span>
-                          <span className="tabular-nums">
-                            RS{" "}
-                            {Number(
-                              product.discountPercentage > 0
-                                ? v.price -
-                                    (v.price * product.discountPercentage) / 100
-                                : v.price
-                            ).toFixed(0)}
-                          </span>
-                        </button>
+                <div className="space-y-4">
+                  {(() => {
+                    // Group attribute names (Size, Color, …) from all variants
+                    const attrNames = [];
+                    for (const v of product.variants) {
+                      for (const a of v.attributes || []) {
+                        const n = (a.name || "").trim();
+                        if (n && !attrNames.includes(n)) attrNames.push(n);
+                      }
+                    }
+
+                    const isColorAttr = (name) =>
+                      /colou?r/i.test(name || "");
+
+                    const colorToHex = (value) => {
+                      const key = String(value || "")
+                        .trim()
+                        .toLowerCase()
+                        .replace(/\s+/g, "");
+                      const map = {
+                        red: "#ef4444",
+                        blue: "#3b82f6",
+                        green: "#22c55e",
+                        yellow: "#eab308",
+                        orange: "#f97316",
+                        purple: "#a855f7",
+                        pink: "#ec4899",
+                        black: "#171717",
+                        white: "#f5f5f5",
+                        gray: "#9ca3af",
+                        grey: "#9ca3af",
+                        brown: "#92400e",
+                        beige: "#d6c6a8",
+                        navy: "#1e3a5f",
+                        gold: "#ca8a04",
+                        silver: "#c0c0c0",
+                        maroon: "#7f1d1d",
+                        teal: "#14b8a6",
+                        cyan: "#06b6d4",
+                        cream: "#fffdd0",
+                        khaki: "#c3b091",
+                        olive: "#808000",
+                      };
+                      if (map[key]) return map[key];
+                      if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(key)) return key;
+                      return null;
+                    };
+
+                    // Current selection map from selectedVariantKey
+                    const selectedMap = {};
+                    if (selectedVariantKey) {
+                      const cur = product.variants.find(
+                        (v) => v.key === selectedVariantKey
                       );
-                    })}
-                  </div>
+                      if (cur) {
+                        for (const a of cur.attributes || []) {
+                          if (a.name) selectedMap[a.name] = a.value;
+                        }
+                      }
+                    }
+
+                    const valuesFor = (name) => {
+                      const set = new Set();
+                      for (const v of product.variants) {
+                        for (const a of v.attributes || []) {
+                          if (a.name === name && a.value) set.add(a.value);
+                        }
+                      }
+                      return [...set];
+                    };
+
+                    // Variant that matches selectedMap + optional override
+                    const findMatch = (overrides = {}) => {
+                      const want = { ...selectedMap, ...overrides };
+                      return product.variants.find((v) => {
+                        const attrs = v.attributes || [];
+                        return attrNames.every((n) => {
+                          if (want[n] == null || want[n] === "") return true;
+                          return attrs.some(
+                            (a) => a.name === n && a.value === want[n]
+                          );
+                        });
+                      });
+                    };
+
+                    const pick = (name, value) => {
+                      const next = { ...selectedMap, [name]: value };
+                      // Prefer exact match with all attrs; else match this attr only
+                      let match = product.variants.find((v) => {
+                        const attrs = v.attributes || [];
+                        return attrNames.every((n) => {
+                          if (next[n] == null) return true;
+                          return attrs.some(
+                            (a) => a.name === n && a.value === next[n]
+                          );
+                        });
+                      });
+                      if (!match) {
+                        match = product.variants.find((v) =>
+                          (v.attributes || []).some(
+                            (a) => a.name === name && a.value === value
+                          )
+                        );
+                      }
+                      if (match) setSelectedVariantKey(match.key);
+                    };
+
+                    const isValueAvailable = (name, value) => {
+                      return product.variants.some((v) => {
+                        if (Number(v.stock) < 1) return false;
+                        const attrs = v.attributes || [];
+                        if (
+                          !attrs.some((a) => a.name === name && a.value === value)
+                        )
+                          return false;
+                        // compatible with other selected attrs
+                        return attrNames.every((n) => {
+                          if (n === name) return true;
+                          if (selectedMap[n] == null) return true;
+                          return attrs.some(
+                            (a) => a.name === n && a.value === selectedMap[n]
+                          );
+                        });
+                      });
+                    };
+
+                    return attrNames.map((name) => {
+                      const values = valuesFor(name);
+                      const colorMode = isColorAttr(name);
+
+                      return (
+                        <div key={name} className="space-y-2">
+                          <p className="text-sm font-medium">
+                            {name}
+                            {selectedMap[name] ? (
+                              <span className="ml-2 font-normal text-muted-foreground">
+                                {selectedMap[name]}
+                              </span>
+                            ) : null}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {values.map((value) => {
+                              const selected = selectedMap[name] === value;
+                              const available = isValueAvailable(name, value);
+                              const hex = colorMode ? colorToHex(value) : null;
+
+                              if (colorMode) {
+                                return (
+                                  <button
+                                    key={value}
+                                    type="button"
+                                    title={value}
+                                    disabled={!available}
+                                    onClick={() => pick(name, value)}
+                                    className={cn(
+                                      "relative h-9 w-9 shrink-0 rounded-full border-2 transition",
+                                      selected
+                                        ? "border-primary ring-2 ring-primary/30 scale-105"
+                                        : "border-border hover:border-primary/50",
+                                      !available &&
+                                        "opacity-40 cursor-not-allowed"
+                                    )}
+                                    style={{
+                                      backgroundColor: hex || "#e5e5e5",
+                                    }}
+                                  >
+                                    {!hex && (
+                                      <span className="sr-only">{value}</span>
+                                    )}
+                                    {selected && (
+                                      <span
+                                        className={cn(
+                                          "absolute inset-0 flex items-center justify-center text-xs font-bold",
+                                          hex === "#f5f5f5" ||
+                                            hex === "#fffdd0" ||
+                                            hex === "#d6c6a8"
+                                            ? "text-neutral-800"
+                                            : "text-white"
+                                        )}
+                                      >
+                                        ✓
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              }
+
+                              // Size / other: compact value-only chips
+                              return (
+                                <button
+                                  key={value}
+                                  type="button"
+                                  disabled={!available}
+                                  onClick={() => pick(name, value)}
+                                  className={cn(
+                                    "min-w-11 rounded-lg border px-3 py-2 text-sm font-medium transition",
+                                    selected
+                                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                                      : "border-border bg-background hover:border-primary/50",
+                                    !available &&
+                                      "opacity-40 cursor-not-allowed line-through"
+                                  )}
+                                >
+                                  {value}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               )}
 
