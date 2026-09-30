@@ -50,7 +50,6 @@ export default function Products() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [vendorStatus, setVendorStatus] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -65,7 +64,10 @@ export default function Products() {
     images: [],
     isPublished: true,
     discountPercentage: "",
+    hasVariants: false,
+    variants: [],
   });
+  const [vendorStatus, setVendorStatus] = useState(null);
 
   const { accessToken } = useAuth();
   const [searchParams] = useSearchParams();
@@ -122,6 +124,8 @@ export default function Products() {
       images: [],
       isPublished: true,
       discountPercentage: "",
+      hasVariants: false,
+      variants: [],
     });
     setError("");
     setDialogOpen(true);
@@ -151,6 +155,21 @@ export default function Products() {
       images: product.images || [],
       isPublished: product.isPublished,
       discountPercentage: product.discountPercentage || "",
+      hasVariants: !!product.hasVariants,
+      variants: Array.isArray(product.variants)
+        ? product.variants.map((v) => ({
+            attributes:
+              Array.isArray(v.attributes) && v.attributes.length
+                ? v.attributes.map((a) => ({
+                    name: a.name || "",
+                    value: a.value || "",
+                  }))
+                : [{ name: "", value: "" }],
+            price: v.price ?? "",
+            stock: v.stock ?? "",
+            sku: v.sku || "",
+          }))
+        : [],
     });
     setError("");
     setDialogOpen(true);
@@ -194,10 +213,24 @@ export default function Products() {
 
     const payload = {
       ...formData,
-      price: Number(formData.price),
-      stock: Number(formData.stock),
+      price: Number(formData.price) || 0,
+      stock: Number(formData.stock) || 0,
       discountPercentage:
         formData.discountPercentage === "" ? 0 : Number(formData.discountPercentage),
+      hasVariants: !!formData.hasVariants,
+      variants: formData.hasVariants
+        ? (formData.variants || []).map((v) => ({
+            attributes: (v.attributes || [])
+              .filter((a) => a.name?.trim() && a.value?.trim())
+              .map((a) => ({
+                name: a.name.trim(),
+                value: a.value.trim(),
+              })),
+            price: Number(v.price),
+            stock: Number(v.stock),
+            sku: v.sku || "",
+          }))
+        : [],
     };
 
     try {
@@ -239,21 +272,8 @@ export default function Products() {
     return <p className="text-muted-foreground">Loading products...</p>;
   }
 
-  const canAddProducts = vendorStatus === "approved" || vendorStatus === null;
-
   return (
     <div>
-      {vendorStatus === "pending" && (
-        <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-          Your store is pending admin approval. You can view this page, but adding
-          products is disabled until approved.
-        </div>
-      )}
-      {vendorStatus === "rejected" && (
-        <div className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          Your vendor application was rejected. Product creation is disabled.
-        </div>
-      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">
@@ -266,216 +286,220 @@ export default function Products() {
           )}
         </div>
 
-        {vendorStatus && vendorStatus !== "approved" ? (
-          <Button disabled title="Your store must be approved before adding products">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Product
-          </Button>
-        ) : (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={openCreateDialog}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Product
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingProduct ? "Edit Product" : "New Product"}
-                </DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Title</Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
-                    required
-                  />
-                </div>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button
+              onClick={openCreateDialog}
+              disabled={vendorStatus && vendorStatus !== "approved"}
+              title={
+                vendorStatus && vendorStatus !== "approved"
+                  ? "Store must be approved first"
+                  : undefined
+              }
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Product
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {editingProduct ? "Edit Product" : "New Product"}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="title">Title</Label>
+                <Input
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                  required
+                />
+              </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <Label>Description sections</Label>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 gap-1.5 text-xs"
-                        disabled={generatingAi || !formData.title.trim()}
-                        onClick={async () => {
-                          if (!formData.title.trim()) return;
-                          setGeneratingAi(true);
-                          setError("");
-                          try {
-                            const cat = categories.find(
-                              (c) => c._id === formData.category
-                            );
-                            const data = await api(
-                              "/products/generate-description",
-                              {
-                                method: "POST",
-                                accessToken,
-                                body: {
-                                  title: formData.title.trim(),
-                                  categoryName: cat?.name || "",
-                                  keywords: "",
-                                },
-                              }
-                            );
-                            if (data?.description) {
-                              setFormData((prev) => {
-                                const sections = [...prev.descriptionSections];
-                                // Fill first empty section, or replace first
-                                const emptyIdx = sections.findIndex(
-                                  (s) => !s.content.trim()
-                                );
-                                const idx = emptyIdx >= 0 ? emptyIdx : 0;
-                                sections[idx] = {
-                                  title: sections[idx]?.title || "Overview",
-                                  content: data.description,
-                                };
-                                return { ...prev, descriptionSections: sections };
-                              });
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Description sections</Label>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs"
+                      disabled={generatingAi || !formData.title.trim()}
+                      onClick={async () => {
+                        if (!formData.title.trim()) return;
+                        setGeneratingAi(true);
+                        setError("");
+                        try {
+                          const cat = categories.find(
+                            (c) => c._id === formData.category
+                          );
+                          const data = await api(
+                            "/products/generate-description",
+                            {
+                              method: "POST",
+                              accessToken,
+                              body: {
+                                title: formData.title.trim(),
+                                categoryName: cat?.name || "",
+                                keywords: "",
+                              },
                             }
-                          } catch (err) {
-                            setError(
-                              err.message ||
-                              "Could not generate description. Try again."
-                            );
-                          } finally {
-                            setGeneratingAi(false);
+                          );
+                          if (data?.description) {
+                            setFormData((prev) => {
+                              const sections = [...prev.descriptionSections];
+                              // Fill first empty section, or replace first
+                              const emptyIdx = sections.findIndex(
+                                (s) => !s.content.trim()
+                              );
+                              const idx = emptyIdx >= 0 ? emptyIdx : 0;
+                              sections[idx] = {
+                                title: sections[idx]?.title || "Overview",
+                                content: data.description,
+                              };
+                              return { ...prev, descriptionSections: sections };
+                            });
                           }
-                        }}
-                      >
-                        {generatingAi ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Sparkles className="h-3.5 w-3.5" />
-                        )}
-                        {generatingAi ? "Generating…" : "Generate with AI"}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs"
-                        disabled={formData.descriptionSections.length >= 4}
-                        onClick={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            descriptionSections: [
-                              ...prev.descriptionSections,
-                              { title: "", content: "" },
-                            ],
-                          }))
+                        } catch (err) {
+                          setError(
+                            err.message ||
+                              "Could not generate description. Try again."
+                          );
+                        } finally {
+                          setGeneratingAi(false);
                         }
-                      >
-                        <Plus className="h-3.5 w-3.5 mr-1" />
-                        Add section
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Add up to 4 sections (e.g. Overview, Features, Specs, Care).
-                    You choose how they look on the product page.
-                  </p>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="descriptionStyle">How it looks</Label>
-                    <Select
-                      value={formData.descriptionStyle}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, descriptionStyle: value })
+                      }}
+                    >
+                      {generatingAi ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5" />
+                      )}
+                      {generatingAi ? "Generating…" : "Generate with AI"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs"
+                      disabled={formData.descriptionSections.length >= 4}
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          descriptionSections: [
+                            ...prev.descriptionSections,
+                            { title: "", content: "" },
+                          ],
+                        }))
                       }
                     >
-                      <SelectTrigger id="descriptionStyle">
-                        <SelectValue placeholder="Choose layout" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="paragraphs">
-                          Paragraphs — clean stacked text
-                        </SelectItem>
-                        <SelectItem value="cards">
-                          Cards — each section in its own card
-                        </SelectItem>
-                        <SelectItem value="tabs">
-                          Tabs — switch between sections
-                        </SelectItem>
-                        <SelectItem value="accordion">
-                          Accordion — expand one section at a time
-                        </SelectItem>
-                        <SelectItem value="list">
-                          List — numbered sections
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Add section
+                    </Button>
                   </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Add up to 4 sections (e.g. Overview, Features, Specs, Care).
+                  You choose how they look on the product page.
+                </p>
 
-                  {formData.descriptionSections.map((section, index) => (
-                    <div
-                      key={index}
-                      className="rounded-lg border bg-muted/30 p-3 space-y-2"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <Label className="text-xs text-muted-foreground">
-                          Section {index + 1} of 4
-                        </Label>
-                        {formData.descriptionSections.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs text-destructive"
-                            onClick={() =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                descriptionSections:
-                                  prev.descriptionSections.filter(
-                                    (_, i) => i !== index
-                                  ),
-                              }))
-                            }
-                          >
-                            Remove
-                          </Button>
-                        )}
-                      </div>
-                      <Input
-                        placeholder="Section title (optional) — e.g. Features"
-                        value={section.title}
-                        onChange={(e) => {
-                          const next = [...formData.descriptionSections];
-                          next[index] = { ...next[index], title: e.target.value };
-                          setFormData({ ...formData, descriptionSections: next });
-                        }}
-                      />
-                      <Textarea
-                        placeholder="Write this section…"
-                        value={section.content}
-                        onChange={(e) => {
-                          const next = [...formData.descriptionSections];
-                          next[index] = {
-                            ...next[index],
-                            content: e.target.value,
-                          };
-                          setFormData({ ...formData, descriptionSections: next });
-                        }}
-                        rows={3}
-                        className="min-h-20 resize-y"
-                      />
-                    </div>
-                  ))}
+                <div className="space-y-2">
+                  <Label htmlFor="descriptionStyle">How it looks</Label>
+                  <Select
+                    value={formData.descriptionStyle}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, descriptionStyle: value })
+                    }
+                  >
+                    <SelectTrigger id="descriptionStyle">
+                      <SelectValue placeholder="Choose layout" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="paragraphs">
+                        Paragraphs — clean stacked text
+                      </SelectItem>
+                      <SelectItem value="cards">
+                        Cards — each section in its own card
+                      </SelectItem>
+                      <SelectItem value="tabs">
+                        Tabs — switch between sections
+                      </SelectItem>
+                      <SelectItem value="accordion">
+                        Accordion — expand one section at a time
+                      </SelectItem>
+                      <SelectItem value="list">
+                        List — numbered sections
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
+                {formData.descriptionSections.map((section, index) => (
+                  <div
+                    key={index}
+                    className="rounded-lg border bg-muted/30 p-3 space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-xs text-muted-foreground">
+                        Section {index + 1} of 4
+                      </Label>
+                      {formData.descriptionSections.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-destructive"
+                          onClick={() =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              descriptionSections:
+                                prev.descriptionSections.filter(
+                                  (_, i) => i !== index
+                                ),
+                            }))
+                          }
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    <Input
+                      placeholder="Section title (optional) — e.g. Features"
+                      value={section.title}
+                      onChange={(e) => {
+                        const next = [...formData.descriptionSections];
+                        next[index] = { ...next[index], title: e.target.value };
+                        setFormData({ ...formData, descriptionSections: next });
+                      }}
+                    />
+                    <Textarea
+                      placeholder="Write this section…"
+                      value={section.content}
+                      onChange={(e) => {
+                        const next = [...formData.descriptionSections];
+                        next[index] = {
+                          ...next[index],
+                          content: e.target.value,
+                        };
+                        setFormData({ ...formData, descriptionSections: next });
+                      }}
+                      rows={3}
+                      className="min-h-20 resize-y"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Base price / stock — hidden detail when variants enabled */}
+              {!formData.hasVariants && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="price">Price</Label>
+                    <Label htmlFor="price">Price (RS)</Label>
                     <Input
                       id="price"
                       type="number"
@@ -502,154 +526,422 @@ export default function Products() {
                     />
                   </div>
                 </div>
+              )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="discountPercentage">Discount (%)</Label>
-                  <Input
-                    id="discountPercentage"
-                    type="number"
-                    min="0"
-                    max="90"
-                    step="1"
-                    placeholder="0"
-                    value={formData.discountPercentage}
-                    onChange={(e) =>
-                      setFormData({ ...formData, discountPercentage: e.target.value })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Leave at 0 for no discount. Applies immediately to this product's listed price.
-                  </p>
-                  {Number(formData.discountPercentage) > 0 && formData.price && (
+              {/* Flexible variants: color, size, volume, etc. */}
+              <div className="space-y-3 rounded-xl border p-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <Label className="text-base">Options (size, color, etc.)</Label>
                     <p className="text-xs text-muted-foreground">
-                      Customers will pay{" "}
-                      <span className="font-medium text-foreground">
-                        $
-                        {(
-                          Number(formData.price) -
-                          (Number(formData.price) * Number(formData.discountPercentage)) / 100
-                        ).toFixed(2)}
-                      </span>{" "}
-                      instead of ${Number(formData.price).toFixed(2)}.
+                      Optional. Add sizes, colors, or any option with its own price & stock.
                     </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Select
-                    value={formData.category || ""}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, category: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.length === 0 ? (
-                        <SelectItem value="none" disabled>
-                          No categories available
-                        </SelectItem>
-                      ) : (
-                        categories.map((c) => (
-                          <SelectItem key={c._id} value={String(c._id)}>
-                            {c.parentCategory ? `— ${c.name}` : c.name}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {categories.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      No categories found. Ask admin to create some first.
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Images</Label>
-                  <div className="flex items-center gap-3">
-                    <Label
-                      htmlFor="product-image"
-                      className="flex cursor-pointer items-center gap-2 rounded-md border px-4 py-2 text-sm hover:bg-muted"
-                    >
-                      {uploading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-4 w-4" />
-                          Add Image
-                        </>
-                      )}
-                    </Label>
-                    <Input
-                      id="product-image"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageUpload}
-                      disabled={uploading}
-                    />
                   </div>
-
-                  {formData.images.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {formData.images.map((img, index) => (
-                        <div key={index} className="relative">
-                          <img
-                            src={img}
-                            alt=""
-                            className="h-20 w-20 rounded object-cover border"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeImage(index)}
-                            className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-primary-foreground"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select
-                    value={formData.isPublished ? "published" : "draft"}
-                    onValueChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        isPublished: value === "published",
-                      })
-                    }
+                  <Button
+                    type="button"
+                    variant={formData.hasVariants ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      if (formData.hasVariants) {
+                        setFormData({
+                          ...formData,
+                          hasVariants: false,
+                          variants: [],
+                        });
+                      } else {
+                        setFormData({
+                          ...formData,
+                          hasVariants: true,
+                          variants:
+                            formData.variants?.length > 0
+                              ? formData.variants
+                              : [
+                                  {
+                                    attributes: [{ name: "Size", value: "" }],
+                                    price: formData.price || "",
+                                    stock: formData.stock || "",
+                                    sku: "",
+                                  },
+                                ],
+                        });
+                      }
+                    }}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="published">Published</SelectItem>
-                      <SelectItem value="draft">Draft</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    {formData.hasVariants ? "Using options" : "Enable options"}
+                  </Button>
                 </div>
 
-                {error && <p className="text-sm text-destructive">{error}</p>}
+                {formData.hasVariants && (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() =>
+                          setFormData({
+                            ...formData,
+                            variants: [
+                              {
+                                attributes: [
+                                  { name: "Color", value: "" },
+                                  { name: "Size", value: "" },
+                                ],
+                                price: formData.price || "",
+                                stock: "",
+                                sku: "",
+                              },
+                            ],
+                          })
+                        }
+                      >
+                        Template: Clothing
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() =>
+                          setFormData({
+                            ...formData,
+                            variants: [
+                              {
+                                attributes: [{ name: "Size", value: "50ml" }],
+                                price: formData.price || "",
+                                stock: "",
+                                sku: "",
+                              },
+                            ],
+                          })
+                        }
+                      >
+                        Template: Beauty size
+                      </Button>
+                    </div>
 
-                <DialogFooter>
-                  <Button type="submit" disabled={uploading}>
-                    {editingProduct ? "Save" : "Create"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
+                    {(formData.variants || []).map((variant, vIndex) => (
+                      <div
+                        key={vIndex}
+                        className="space-y-2 rounded-lg border bg-muted/30 p-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">
+                            Option {vIndex + 1}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive"
+                            onClick={() => {
+                              const next = formData.variants.filter(
+                                (_, i) => i !== vIndex
+                              );
+                              setFormData({ ...formData, variants: next });
+                            }}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+
+                        {(variant.attributes || []).map((attr, aIndex) => (
+                          <div
+                            key={aIndex}
+                            className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_auto]"
+                          >
+                            <Input
+                              placeholder="Type (e.g. Size, Color)"
+                              value={attr.name}
+                              onChange={(e) => {
+                                const variants = [...formData.variants];
+                                const attributes = [
+                                  ...(variants[vIndex].attributes || []),
+                                ];
+                                attributes[aIndex] = {
+                                  ...attributes[aIndex],
+                                  name: e.target.value,
+                                };
+                                variants[vIndex] = {
+                                  ...variants[vIndex],
+                                  attributes,
+                                };
+                                setFormData({ ...formData, variants });
+                              }}
+                            />
+                            <Input
+                              placeholder="Value (e.g. M, Red, 100ml)"
+                              value={attr.value}
+                              onChange={(e) => {
+                                const variants = [...formData.variants];
+                                const attributes = [
+                                  ...(variants[vIndex].attributes || []),
+                                ];
+                                attributes[aIndex] = {
+                                  ...attributes[aIndex],
+                                  value: e.target.value,
+                                };
+                                variants[vIndex] = {
+                                  ...variants[vIndex],
+                                  attributes,
+                                };
+                                setFormData({ ...formData, variants });
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="hidden sm:inline-flex"
+                              onClick={() => {
+                                const variants = [...formData.variants];
+                                const attributes = (
+                                  variants[vIndex].attributes || []
+                                ).filter((_, i) => i !== aIndex);
+                                variants[vIndex] = {
+                                  ...variants[vIndex],
+                                  attributes:
+                                    attributes.length > 0
+                                      ? attributes
+                                      : [{ name: "", value: "" }],
+                                };
+                                setFormData({ ...formData, variants });
+                              }}
+                            >
+                              ×
+                            </Button>
+                          </div>
+                        ))}
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const variants = [...formData.variants];
+                            variants[vIndex] = {
+                              ...variants[vIndex],
+                              attributes: [
+                                ...(variants[vIndex].attributes || []),
+                                { name: "", value: "" },
+                              ],
+                            };
+                            setFormData({ ...formData, variants });
+                          }}
+                        >
+                          + Attribute (e.g. add Color)
+                        </Button>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Price (RS)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={variant.price}
+                              onChange={(e) => {
+                                const variants = [...formData.variants];
+                                variants[vIndex] = {
+                                  ...variants[vIndex],
+                                  price: e.target.value,
+                                };
+                                setFormData({ ...formData, variants });
+                              }}
+                              required
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Stock</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={variant.stock}
+                              onChange={(e) => {
+                                const variants = [...formData.variants];
+                                variants[vIndex] = {
+                                  ...variants[vIndex],
+                                  stock: e.target.value,
+                                };
+                                setFormData({ ...formData, variants });
+                              }}
+                              required
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <Button
+                      type="button"
+                      className="w-full"
+                      variant="secondary"
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          variants: [
+                            ...(formData.variants || []),
+                            {
+                              attributes: [{ name: "Size", value: "" }],
+                              price: formData.price || "",
+                              stock: "",
+                              sku: "",
+                            },
+                          ],
+                        })
+                      }
+                    >
+                      + Add option
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="discountPercentage">Discount (%)</Label>
+                <Input
+                  id="discountPercentage"
+                  type="number"
+                  min="0"
+                  max="90"
+                  step="1"
+                  placeholder="0"
+                  value={formData.discountPercentage}
+                  onChange={(e) =>
+                    setFormData({ ...formData, discountPercentage: e.target.value })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave at 0 for no discount. Applies immediately to this product's listed price.
+                </p>
+                {Number(formData.discountPercentage) > 0 && formData.price && (
+                  <p className="text-xs text-muted-foreground">
+                    Customers will pay{" "}
+                    <span className="font-medium text-foreground">
+                      $
+                      {(
+                        Number(formData.price) -
+                        (Number(formData.price) * Number(formData.discountPercentage)) / 100
+                      ).toFixed(2)}
+                    </span>{" "}
+                    instead of ${Number(formData.price).toFixed(2)}.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select
+                  value={formData.category || ""}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, category: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.length === 0 ? (
+                      <SelectItem value="none" disabled>
+                        No categories available
+                      </SelectItem>
+                    ) : (
+                      categories.map((c) => (
+                        <SelectItem key={c._id} value={String(c._id)}>
+                          {c.parentCategory ? `— ${c.name}` : c.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                {categories.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No categories found. Ask admin to create some first.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Images</Label>
+                <div className="flex items-center gap-3">
+                  <Label
+                    htmlFor="product-image"
+                    className="flex cursor-pointer items-center gap-2 rounded-md border px-4 py-2 text-sm hover:bg-muted"
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4" />
+                        Add Image
+                      </>
+                    )}
+                  </Label>
+                  <Input
+                    id="product-image"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                    disabled={uploading}
+                  />
+                </div>
+
+                {formData.images.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {formData.images.map((img, index) => (
+                      <div key={index} className="relative">
+                        <img
+                          src={img}
+                          alt=""
+                          className="h-20 w-20 rounded object-cover border"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-primary-foreground"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select
+                  value={formData.isPublished ? "published" : "draft"}
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      isPublished: value === "published",
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="published">Published</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {error && <p className="text-sm text-destructive">{error}</p>}
+
+              <DialogFooter>
+                <Button type="submit" disabled={uploading}>
+                  {editingProduct ? "Save" : "Create"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Table>

@@ -93,6 +93,7 @@ export default function ProductDetails() {
 
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [recommendedProducts, setRecommendedProducts] = useState([]);
+  const [selectedVariantKey, setSelectedVariantKey] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -108,6 +109,7 @@ export default function ProductDetails() {
 
         if (!cancelled) {
           setProduct(data);
+          setSelectedVariantKey("");
           setActiveImage(0);
           setActiveDescTab(0);
           setOpenAccordion(0);
@@ -244,12 +246,22 @@ export default function ProductDetails() {
       return;
     }
 
+    if (
+      product.hasVariants &&
+      Array.isArray(product.variants) &&
+      product.variants.length > 0 &&
+      !selectedVariantKey
+    ) {
+      setMessage("Please select an option (size, color, etc.).");
+      return;
+    }
+
     setAdding(true);
     setMessage("");
     setWishlistMsg("");
 
     try {
-      await addToCart(product._id, 1);
+      await addToCart(product._id, 1, selectedVariantKey || "");
       setMessage("Added to cart!");
     } catch (err) {
       setMessage(err.message || "Failed to add product to cart.");
@@ -497,7 +509,62 @@ export default function ProductDetails() {
 
           {/* Price */}
           <div className="mt-6">
-            <PriceTag product={product} size="lg" />
+            {product.hasVariants &&
+              Array.isArray(product.variants) &&
+              product.variants.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Choose option</p>
+                  <div className="flex flex-col gap-2">
+                    {product.variants.map((v) => {
+                      const selected = selectedVariantKey === v.key;
+                      const out = Number(v.stock) < 1;
+                      return (
+                        <button
+                          key={v.key}
+                          type="button"
+                          disabled={out}
+                          onClick={() => setSelectedVariantKey(v.key)}
+                          className={cn(
+                            "flex items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition",
+                            selected
+                              ? "border-primary bg-primary/10 ring-1 ring-primary"
+                              : "hover:border-primary/40",
+                            out && "opacity-50 cursor-not-allowed"
+                          )}
+                        >
+                          <span className="font-medium">
+                            {v.label || v.key}
+                            {out ? " (out of stock)" : ""}
+                          </span>
+                          <span className="tabular-nums">
+                            RS{" "}
+                            {Number(
+                              product.discountPercentage > 0
+                                ? v.price -
+                                    (v.price * product.discountPercentage) / 100
+                                : v.price
+                            ).toFixed(0)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+            <PriceTag
+              product={
+                selectedVariantKey && product.variants
+                  ? {
+                      ...product,
+                      price:
+                        product.variants.find((v) => v.key === selectedVariantKey)
+                          ?.price ?? product.price,
+                    }
+                  : product
+              }
+              size="lg"
+            />
           </div>
 
           {/* Description — layout chosen by vendor */}

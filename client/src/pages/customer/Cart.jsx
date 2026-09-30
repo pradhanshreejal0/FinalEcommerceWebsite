@@ -168,7 +168,8 @@ export default function Cart() {
 
   const handleQuantityChange = async (
     productId,
-    quantity
+    quantity,
+    variantKey = ""
   ) => {
     if (quantity < 1) {
       return;
@@ -176,9 +177,9 @@ export default function Cart() {
 
     try {
       setError("");
-      setUpdatingProduct(productId);
+      setUpdatingProduct(`${productId}:${variantKey || ""}`);
 
-      await updateQuantity(productId, quantity);
+      await updateQuantity(productId, quantity, variantKey);
     } catch (error) {
       console.error("Update quantity error:", error);
 
@@ -197,12 +198,12 @@ export default function Cart() {
   |--------------------------------------------------------------------------
   */
 
-  const handleRemove = async (productId) => {
+  const handleRemove = async (productId, variantKey = "") => {
     try {
       setError("");
-      setRemovingProduct(productId);
+      setRemovingProduct(`${productId}:${variantKey || ""}`);
 
-      await removeFromCart(productId);
+      await removeFromCart(productId, variantKey);
     } catch (error) {
       console.error("Remove cart item error:", error);
 
@@ -281,7 +282,25 @@ export default function Cart() {
                       const image =
                         product.images?.[0];
 
-                      const price = getFinalPrice(product);
+                      const variantKey = item.variantKey || "";
+                      const variantLabel = item.variantLabel || "";
+                      const lineKey = `${product._id}:${variantKey}`;
+
+                      let unitPrice = getFinalPrice(product);
+                      if (variantKey && Array.isArray(product.variants)) {
+                        const match = product.variants.find(
+                          (v) => v.key === variantKey
+                        );
+                        if (match) {
+                          const disc = Number(product.discountPercentage) || 0;
+                          unitPrice =
+                            disc > 0
+                              ? match.price - (match.price * disc) / 100
+                              : match.price;
+                        }
+                      }
+
+                      const price = Number(unitPrice) || 0;
 
                       const quantity = Number(
                         item.quantity || 1
@@ -291,16 +310,14 @@ export default function Cart() {
                         price * quantity;
 
                       const isUpdating =
-                        updatingProduct ===
-                        product._id;
+                        updatingProduct === lineKey;
 
                       const isRemoving =
-                        removingProduct ===
-                        product._id;
+                        removingProduct === lineKey;
 
                       return (
                         <div
-                          key={product._id}
+                          key={lineKey}
                           className="p-4 sm:p-6"
                         >
                           <div className="flex gap-4">
@@ -334,6 +351,11 @@ export default function Cart() {
                                     className="line-clamp-2 font-medium hover:underline"
                                   >
                                     {product.title}
+                                    {variantLabel ? (
+                                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                                        {variantLabel}
+                                      </span>
+                                    ) : null}
                                   </Link>
 
                                   <p className="mt-1 text-sm text-muted-foreground">
@@ -347,9 +369,7 @@ export default function Cart() {
                                   size="icon"
                                   className="shrink-0 text-destructive hover:text-destructive"
                                   onClick={() =>
-                                    handleRemove(
-                                      product._id
-                                    )
+                                    handleRemove(product._id, variantKey)
                                   }
                                   disabled={
                                     isRemoving ||
@@ -384,7 +404,8 @@ export default function Cart() {
                                     onClick={() =>
                                       handleQuantityChange(
                                         product._id,
-                                        quantity - 1
+                                        quantity - 1,
+                                        variantKey
                                       )
                                     }
                                   >
@@ -411,7 +432,8 @@ export default function Cart() {
                                     onClick={() =>
                                       handleQuantityChange(
                                         product._id,
-                                        quantity + 1
+                                        quantity + 1,
+                                        variantKey
                                       )
                                     }
                                   >

@@ -30,6 +30,120 @@ const normalizeDescriptionSections = (sections, fallbackDescription = "") => {
 
 const VALID_DESCRIPTION_STYLES = ["paragraphs", "cards", "tabs", "accordion", "list"];
 
+// Build stable variant key + label from attribute list
+const buildVariantKeyAndLabel = (attributes) => {
+  const cleaned = (Array.isArray(attributes) ? attributes : [])
+    .map((a) => ({
+      name: String(a?.name || "").trim(),
+      value: String(a?.value || "").trim(),
+    }))
+    .filter((a) => a.name && a.value)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const key = cleaned.map((a) => `${a.name}:${a.value}`).join("|");
+  const label = cleaned.map((a) => `${a.name}: ${a.value}`).join(" / ");
+  return { key, label, attributes: cleaned };
+};
+
+/** Normalize vendor-submitted variants. Returns { hasVariants, variants, price, stock }. */
+const normalizeProductVariants = ({
+  hasVariants,
+  variants,
+  price,
+  stock,
+}) => {
+  const enabled =
+    hasVariants === true ||
+    hasVariants === "true" ||
+    hasVariants === 1 ||
+    hasVariants === "1";
+
+  if (!enabled) {
+    return {
+      hasVariants: false,
+      variants: [],
+      // caller still validates base price/stock
+      price: price,
+      stock: stock,
+    };
+  }
+
+  if (!Array.isArray(variants) || variants.length === 0) {
+    const err = new Error(
+      "Add at least one variant (e.g. size or color) when variants are enabled"
+    );
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (variants.length > 100) {
+    const err = new Error("Maximum 100 variants per product");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const seen = new Set();
+  const normalized = [];
+
+  for (const raw of variants) {
+    const { key, label, attributes } = buildVariantKeyAndLabel(
+      raw?.attributes
+    );
+
+    if (!key || attributes.length === 0) {
+      const err = new Error(
+        "Each variant needs at least one option (name + value), e.g. Size / M"
+      );
+      err.statusCode = 400;
+      throw err;
+    }
+
+    if (seen.has(key)) {
+      const err = new Error(`Duplicate variant: ${label}`);
+      err.statusCode = 400;
+      throw err;
+    }
+    seen.add(key);
+
+    const vPrice = Number(raw?.price);
+    const vStock = Number(raw?.stock);
+
+    if (!Number.isFinite(vPrice) || vPrice < 0) {
+      const err = new Error(`Invalid price for variant "${label}"`);
+      err.statusCode = 400;
+      throw err;
+    }
+    if (!Number.isFinite(vStock) || vStock < 0 || !Number.isInteger(vStock)) {
+      const err = new Error(
+        `Invalid stock for variant "${label}" (must be whole number ≥ 0)`
+      );
+      err.statusCode = 400;
+      throw err;
+    }
+
+    normalized.push({
+      key,
+      label,
+      attributes,
+      price: vPrice,
+      stock: vStock,
+      sku: raw?.sku != null ? String(raw.sku).trim() : "",
+    });
+  }
+
+  const totalStock = normalized.reduce((s, v) => s + v.stock, 0);
+  const minPrice = Math.min(...normalized.map((v) => v.price));
+
+  return {
+    hasVariants: true,
+    variants: normalized,
+    price: minPrice,
+    stock: totalStock,
+  };
+};
+
+
+
 
 // Helper: get approved vendor profile of logged-in user
 const getVendorByUser = async (userId) => {
@@ -69,6 +183,8 @@ export const createProduct = async (req, res) => {
       images,
       category,
       discountPercentage,
+      hasVariants,
+      variants,
     } = req.body;
 
     // Validate title
@@ -143,17 +259,43 @@ export const createProduct = async (req, res) => {
       ? descriptionStyle
       : "paragraphs";
 
+    let finalPrice = productPrice;
+    let finalStock = productStock;
+    let finalHasVariants = false;
+    let finalVariants = [];
+
+    try {
+      const normalized = normalizeProductVariants({
+        hasVariants,
+        variants,
+        price: productPrice,
+        stock: productStock,
+      });
+      finalHasVariants = normalized.hasVariants;
+      finalVariants = normalized.variants;
+      if (normalized.hasVariants) {
+        finalPrice = normalized.price;
+        finalStock = normalized.stock;
+      }
+    } catch (normErr) {
+      return res.status(normErr.statusCode || 400).json({
+        message: normErr.message,
+      });
+    }
+
     const product = await Product.create({
       title: String(title).trim(),
       description: plain,
       descriptionSections: sections,
       descriptionStyle: style,
-      price: productPrice,
-      stock: productStock,
+      price: finalPrice,
+      stock: finalStock,
       images: Array.isArray(images) ? images : [],
       category: validCategory._id,
       vendor: vendor._id,
       discountPercentage: productDiscount,
+      hasVariants: finalHasVariants,
+      variants: finalVariants,
     });
 
     const createdProduct = await Product.findById(product._id)
@@ -550,6 +692,8 @@ export const updateProduct = async (req, res) => {
       category,
       isPublished,
       discountPercentage,
+      hasVariants,
+      variants,
     } = req.body;
 
     // Validate title
@@ -608,6 +752,31 @@ export const updateProduct = async (req, res) => {
       }
 
       product.stock = productStock;
+    }
+
+    // Variants (size, color, volume, etc.)
+    if (hasVariants !== undefined || variants !== undefined) {
+      try {
+        const normalized = normalizeProductVariants({
+          hasVariants:
+            hasVariants !== undefined ? hasVariants : product.hasVariants,
+          variants: variants !== undefined ? variants : product.variants,
+          price: price !== undefined ? Number(price) : product.price,
+          stock: stock !== undefined ? Number(stock) : product.stock,
+        });
+        product.hasVariants = normalized.hasVariants;
+        product.variants = normalized.variants;
+        if (normalized.hasVariants) {
+          product.price = normalized.price;
+          product.stock = normalized.stock;
+        } else if (price === undefined && stock === undefined) {
+          // cleared variants — keep existing base price/stock unless provided
+        }
+      } catch (normErr) {
+        return res.status(normErr.statusCode || 400).json({
+          message: normErr.message,
+        });
+      }
     }
 
     // Images

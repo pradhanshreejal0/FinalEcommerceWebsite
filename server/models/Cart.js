@@ -7,12 +7,14 @@ const cartItemSchema = new mongoose.Schema(
       ref: "Product",
       required: true,
     },
-
     quantity: {
       type: Number,
       required: true,
       min: 1,
     },
+    // Empty string = no variant (simple product)
+    variantKey: { type: String, default: "" },
+    variantLabel: { type: String, default: "" },
   },
   { _id: false }
 );
@@ -25,7 +27,6 @@ const cartSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-
     items: {
       type: [cartItemSchema],
       default: [],

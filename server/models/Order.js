@@ -15,6 +15,8 @@ const orderItemSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   quantity: { type: Number, required: true, min: 1 },
   image: { type: String, default: "" },
+  variantKey: { type: String, default: "" },
+  variantLabel: { type: String, default: "" },
   subtotal: { type: Number, default: 0 },
   // Platform cut on this line (from product subtotal)
   platformCommission: { type: Number, default: 0 },

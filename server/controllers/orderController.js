@@ -269,15 +269,39 @@ const getValidatedCart = async (userId) => {
       throw error;
     }
 
-    if (Number(product.stock) < quantity) {
+    const variantKey = String(item.variantKey || "").trim();
+    let variantLabel = String(item.variantLabel || "").trim();
+    let availableStock = Number(product.stock);
+    let basePrice = Number(product.price);
+
+    if (product.hasVariants && Array.isArray(product.variants) && product.variants.length > 0) {
+      if (!variantKey) {
+        const error = new Error(
+          `Please select an option for "${product.title}"`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+      const match = product.variants.find((v) => v.key === variantKey);
+      if (!match) {
+        const error = new Error(
+          `Selected option is unavailable for "${product.title}"`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+      availableStock = Number(match.stock);
+      basePrice = Number(match.price);
+      variantLabel = match.label || variantKey;
+    }
+
+    if (availableStock < quantity) {
       const error = new Error(
-        `Insufficient stock for "${product.title}" (available: ${product.stock})`
+        `Insufficient stock for "${product.title}"${variantLabel ? ` (${variantLabel})` : ""} (available: ${availableStock})`
       );
       error.statusCode = 400;
       throw error;
     }
-
-    const basePrice = Number(product.price);
 
     if (!Number.isFinite(basePrice) || basePrice < 0) {
       const error = new Error(`Invalid price for product: ${product.title}`);
@@ -306,6 +330,8 @@ const getValidatedCart = async (userId) => {
       quantity,
       effectivePrice,
       lineSubtotal,
+      variantKey,
+      variantLabel,
     });
   }
 
@@ -453,7 +479,7 @@ export const createOrder = async (req, res) => {
     const rate = Math.min(100, Math.max(0, commissionPercentage)) / 100;
 
     const orderItems = items.map(
-      ({ product, vendor, quantity, effectivePrice, lineSubtotal }) => {
+      ({ product, vendor, quantity, effectivePrice, lineSubtotal, variantKey, variantLabel }) => {
         const lineCommission = Math.round(lineSubtotal * rate * 100) / 100;
         const lineVendorEarnings =
           Math.round((lineSubtotal - lineCommission) * 100) / 100;
@@ -464,6 +490,8 @@ export const createOrder = async (req, res) => {
           price: effectivePrice,
           quantity,
           image: product.images?.[0] || "",
+          variantKey: variantKey || "",
+          variantLabel: variantLabel || "",
           subtotal: lineSubtotal,
           platformCommission: lineCommission,
           vendorEarnings: lineVendorEarnings,
@@ -512,10 +540,11 @@ export const createOrder = async (req, res) => {
 
     // Reserve inventory before creating the order
     await reserveStock(
-      items.map(({ product, quantity }) => ({
+      items.map(({ product, quantity, variantKey }) => ({
         product,
         quantity,
         title: product.title,
+        variantKey: variantKey || "",
       }))
     );
 

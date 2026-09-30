@@ -8,12 +8,32 @@ const descriptionSectionSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const variantAttributeSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    value: { type: String, required: true, trim: true },
+  },
+  { _id: false }
+);
+
+const variantSchema = new mongoose.Schema(
+  {
+    // Stable key e.g. "Color:Red|Size:M" for cart matching
+    key: { type: String, required: true, trim: true },
+    attributes: { type: [variantAttributeSchema], default: [] },
+    // Human label e.g. "Color: Red / Size: M"
+    label: { type: String, default: "", trim: true },
+    price: { type: Number, required: true, min: 0 },
+    stock: { type: Number, required: true, min: 0, default: 0 },
+    sku: { type: String, default: "", trim: true },
+  },
+  { _id: true }
+);
+
 const productSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
-    // Plain-text fallback / search index (auto-synced from sections when possible)
     description: { type: String, default: "" },
-    // Up to 4 structured sections the vendor controls
     descriptionSections: {
       type: [descriptionSectionSchema],
       default: [],
@@ -24,13 +44,14 @@ const productSchema = new mongoose.Schema(
         message: "Maximum 4 description sections allowed",
       },
     },
-    // How the customer product page should render the sections
     descriptionStyle: {
       type: String,
       enum: ["paragraphs", "cards", "tabs", "accordion", "list"],
       default: "paragraphs",
     },
+    // Base / display price (min variant price when hasVariants)
     price: { type: Number, required: true, min: 0 },
+    // Total stock (sum of variants when hasVariants)
     stock: { type: Number, required: true, min: 0, default: 0 },
     images: [{ type: String }],
     category: {
@@ -49,8 +70,11 @@ const productSchema = new mongoose.Schema(
       average: { type: Number, default: 0 },
       count: { type: Number, default: 0 },
     },
-    // Percentage discount set by the vendor. 0 means no discount.
     discountPercentage: { type: Number, default: 0, min: 0, max: 90 },
+
+    // Flexible options: color, size, volume, etc. — vendor chooses
+    hasVariants: { type: Boolean, default: false },
+    variants: { type: [variantSchema], default: [] },
   },
   {
     timestamps: true,
@@ -59,7 +83,6 @@ const productSchema = new mongoose.Schema(
   }
 );
 
-// The actual price a customer pays, after the vendor's discount is applied.
 productSchema.virtual("finalPrice").get(function () {
   if (this.discountPercentage > 0) {
     const discounted =
