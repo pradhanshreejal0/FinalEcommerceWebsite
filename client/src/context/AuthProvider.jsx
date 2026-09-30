@@ -14,7 +14,6 @@ export function AuthProvider({ children }) {
 
     const restoreSession = async () => {
       try {
-        // 1) Prefer refresh-token cookie (httpOnly)
         const data = await api("/auth/refresh", {
           method: "POST",
         });
@@ -29,7 +28,6 @@ export function AuthProvider({ children }) {
         setAccessToken(data.accessToken);
         localStorage.setItem("accessToken", data.accessToken);
       } catch {
-        // 2) Fallback: access token in localStorage
         const savedToken = localStorage.getItem("accessToken");
 
         if (!savedToken) {
@@ -47,7 +45,6 @@ export function AuthProvider({ children }) {
 
           if (!mounted) return;
 
-          // Backend may return { user } or the user object directly
           const restoredUser = currentUser?.user || currentUser;
 
           if (!restoredUser) {
@@ -96,7 +93,7 @@ export function AuthProvider({ children }) {
         method: "POST",
       });
     } catch {
-      // Still clear local session if the request fails
+      // still clear local session
     } finally {
       setUser(null);
       setAccessToken(null);
@@ -123,7 +120,6 @@ export function AuthProvider({ children }) {
     [accessToken]
   );
 
-  /** Merge fields into the current user (e.g. after profile update). */
   const updateUser = useCallback((partial) => {
     setUser((prev) => (prev ? { ...prev, ...partial } : prev));
   }, []);

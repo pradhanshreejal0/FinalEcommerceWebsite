@@ -353,7 +353,7 @@ export default function Checkout() {
       .then((result) => {
         if (result.state === "granted") {
           // Automatically get location if already allowed
-          useCurrentLocation(true); // silent = true
+          locateUser(true); // silent = true
         }
       })
       .catch(() => {
@@ -955,7 +955,7 @@ export default function Checkout() {
   /* ============================================================
      USE CURRENT LOCATION (FIXED)
   ============================================================ */
-  const useCurrentLocation = (silent = false) => {
+  const locateUser = (silent = false) => {
     if (!navigator.geolocation) {
       if (!silent) {
         setSearchError("Geolocation is not supported by your browser.");
@@ -1574,7 +1574,7 @@ export default function Checkout() {
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => useCurrentLocation(false)}
+                        onClick={() => locateUser(false)}
                         disabled={locating || searchingLocation || submitting}
                         className="min-w-35"
                       >
