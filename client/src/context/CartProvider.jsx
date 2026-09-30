@@ -70,7 +70,7 @@ export function CartProvider({ children }) {
   */
 
   const addToCart = useCallback(
-    async (productId, quantity = 1) => {
+    async (productId, quantity = 1, variantKey = "") => {
       if (!accessToken || user?.role !== "customer") {
         throw new Error("Please login as a customer");
       }
@@ -90,6 +90,7 @@ export function CartProvider({ children }) {
         body: JSON.stringify({
           productId,
           quantity: parsedQuantity,
+          variantKey: variantKey || "",
         }),
       });
 
@@ -107,7 +108,7 @@ export function CartProvider({ children }) {
   */
 
   const updateQuantity = useCallback(
-    async (productId, quantity) => {
+    async (productId, quantity, variantKey = "") => {
       if (!accessToken || user?.role !== "customer") {
         throw new Error("Please login as a customer");
       }
@@ -127,6 +128,7 @@ export function CartProvider({ children }) {
         body: JSON.stringify({
           productId,
           quantity: parsedQuantity,
+          variantKey: variantKey || "",
         }),
       });
 
@@ -144,18 +146,18 @@ export function CartProvider({ children }) {
   */
 
   const removeFromCart = useCallback(
-    async (productId) => {
+    async (productId, variantKey = "") => {
       if (!accessToken || user?.role !== "customer") {
         throw new Error("Please login as a customer");
       }
 
-      const data = await api(
-        `/cart/remove/${productId}`,
-        {
-          method: "DELETE",
-          accessToken,
-        }
-      );
+      const qs = variantKey
+        ? `?variantKey=${encodeURIComponent(variantKey)}`
+        : "";
+      const data = await api(`/cart/remove/${productId}${qs}`, {
+        method: "DELETE",
+        accessToken,
+      });
 
       setCart(data);
 

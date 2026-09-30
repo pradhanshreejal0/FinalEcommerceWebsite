@@ -1,288 +1,192 @@
-
-import {
-  useState,
-  useEffect,
-  useCallback,
-} from "react";
-import { getFinalPrice } from "@/lib/utils";
-import { CartContext } from "./CartContext";
-import { useAuth } from "./AuthContext";
+import { useState, useEffect } from "react";
+import { AuthContext } from "./AuthContext";
 import { api } from "@/lib/api";
 
-export function CartProvider({ children }) {
-  const { user, accessToken } = useAuth();
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
 
-  const [cart, setCart] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [accessToken, setAccessToken] = useState(
+    () => localStorage.getItem("accessToken") || null
+  );
 
-  /*
-  |--------------------------------------------------------------------------
-  | Load Cart
-  |--------------------------------------------------------------------------
-  */
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let cancelled = false;
+    let mounted = true;
 
-    const loadCart = async () => {
-      if (!accessToken || user?.role !== "customer") {
-        if (!cancelled) {
-          setCart(null);
-          setLoading(false);
-        }
-
-        return;
-      }
-
-      setLoading(true);
-
+    const restoreSession = async () => {
       try {
-        const data = await api("/cart", {
-          accessToken,
+        /*
+         * First try the refresh-token cookie.
+         *
+         * The refresh endpoint should return:
+         * {
+         *   user,
+         *   accessToken
+         * }
+         */
+        const data = await api("/auth/refresh", {
+          method: "POST",
         });
 
-        if (!cancelled) {
-          setCart(data);
+        if (!mounted) return;
+
+        if (!data?.accessToken || !data?.user) {
+          throw new Error("Invalid refresh response");
         }
-      } catch (error) {
-        if (!cancelled) {
-          console.error("Failed to load cart:", error);
-          setCart(null);
+
+        setUser(data.user);
+        setAccessToken(data.accessToken);
+
+        localStorage.setItem(
+          "accessToken",
+          data.accessToken
+        );
+      } catch {
+        /*
+         * Refresh cookie failed.
+         *
+         * Try the access token stored in localStorage.
+         */
+        const savedToken =
+          localStorage.getItem("accessToken");
+
+        if (!savedToken) {
+          if (mounted) {
+            setUser(null);
+            setAccessToken(null);
+          }
+
+          return;
+        }
+
+        try {
+          /*
+           * Validate the saved access token and
+           * retrieve the current user.
+           */
+          const currentUser = await api("/auth/me", {
+            accessToken: savedToken,
+          });
+
+          if (!mounted) return;
+
+          /*
+           * Depending on your backend, /auth/me may return:
+           *
+           * user
+           *
+           * or
+           *
+           * { user }
+           */
+          const restoredUser =
+            currentUser?.user || currentUser;
+
+          if (!restoredUser) {
+            throw new Error(
+              "Unable to restore user"
+            );
+          }
+
+          setUser(restoredUser);
+          setAccessToken(savedToken);
+        } catch {
+          /*
+           * Token is invalid/expired.
+           */
+          localStorage.removeItem(
+            "accessToken"
+          );
+
+          if (mounted) {
+            setUser(null);
+            setAccessToken(null);
+          }
         }
       } finally {
-        if (!cancelled) {
+        if (mounted) {
           setLoading(false);
         }
       }
     };
 
-    loadCart();
+    restoreSession();
 
     return () => {
-      cancelled = true;
+      mounted = false;
     };
-  }, [accessToken, user?.role]);
-
-  /*
-  |--------------------------------------------------------------------------
-  | Add To Cart
-  |--------------------------------------------------------------------------
-  */
-
-  const addToCart = useCallback(
-    async (productId, quantity = 1, variantKey = "") => {
-      if (!accessToken || user?.role !== "customer") {
-        throw new Error("Please login as a customer");
-      }
-
-      const parsedQuantity = Number(quantity);
-
-      if (
-        !Number.isInteger(parsedQuantity) ||
-        parsedQuantity < 1
-      ) {
-        throw new Error("Quantity must be at least 1");
-      }
-
-      const data = await api("/cart/add", {
-        method: "POST",
-        accessToken,
-        body: JSON.stringify({
-          productId,
-          quantity: parsedQuantity,
-          variantKey: variantKey || "",
-        }),
-      });
-
-      setCart(data);
-
-      return data;
-    },
-    [accessToken, user?.role]
-  );
-
-  /*
-  |--------------------------------------------------------------------------
-  | Update Quantity
-  |--------------------------------------------------------------------------
-  */
-
-  const updateQuantity = useCallback(
-    async (productId, quantity, variantKey = "") => {
-      if (!accessToken || user?.role !== "customer") {
-        throw new Error("Please login as a customer");
-      }
-
-      const parsedQuantity = Number(quantity);
-
-      if (
-        !Number.isInteger(parsedQuantity) ||
-        parsedQuantity < 1
-      ) {
-        throw new Error("Quantity must be at least 1");
-      }
-
-      const data = await api("/cart/update", {
-        method: "PUT",
-        accessToken,
-        body: JSON.stringify({
-          productId,
-          quantity: parsedQuantity,
-          variantKey: variantKey || "",
-        }),
-      });
-
-      setCart(data);
-
-      return data;
-    },
-    [accessToken, user?.role]
-  );
-
-  /*
-  |--------------------------------------------------------------------------
-  | Remove From Cart
-  |--------------------------------------------------------------------------
-  */
-
-  const removeFromCart = useCallback(
-    async (productId, variantKey = "") => {
-      if (!accessToken || user?.role !== "customer") {
-        throw new Error("Please login as a customer");
-      }
-
-      const qs = variantKey
-        ? `?variantKey=${encodeURIComponent(variantKey)}`
-        : "";
-      const data = await api(`/cart/remove/${productId}${qs}`, {
-        method: "DELETE",
-        accessToken,
-      });
-
-      setCart(data);
-
-      return data;
-    },
-    [accessToken, user?.role]
-  );
-
-  /*
-  |--------------------------------------------------------------------------
-  | Clear Cart
-  |--------------------------------------------------------------------------
-  */
-
-  const clearCart = useCallback(async () => {
-    if (!accessToken || user?.role !== "customer") {
-      throw new Error("Please login as a customer");
-    }
-
-    const data = await api("/cart/clear", {
-      method: "DELETE",
-      accessToken,
-    });
-
-    setCart(data);
-
-    return data;
-  }, [accessToken, user?.role]);
-
-  /*
-  |--------------------------------------------------------------------------
-  | Refresh Cart
-  |--------------------------------------------------------------------------
-  */
-
-  const refreshCart = useCallback(async () => {
-    if (!accessToken || user?.role !== "customer") {
-      setCart(null);
-      return null;
-    }
-
-    setLoading(true);
-
-    try {
-      const data = await api("/cart", {
-        accessToken,
-      });
-
-      setCart(data);
-
-      return data;
-    } catch (error) {
-      console.error("Failed to refresh cart:", error);
-
-      setCart(null);
-
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  }, [accessToken, user?.role]);
-
-  /*
-  |--------------------------------------------------------------------------
-  | Item Count
-  |--------------------------------------------------------------------------
-  */
-
-  const itemCount =
-    cart?.items?.reduce(
-      (sum, item) => sum + Number(item.quantity || 0),
-      0
-    ) || 0;
-
-  /*
-  |--------------------------------------------------------------------------
-  | Cart Total
-  |--------------------------------------------------------------------------
-  */
-
-  const total =
-    cart?.items?.reduce((sum, item) => {
-       const price = getFinalPrice(item.product);
-      const quantity = Number(item.quantity || 0);
-
-      return sum + price * quantity;
-    }, 0) || 0;
-
-  const resetCart = useCallback(() => {
-    setCart((currentCart) => {
-      if (!currentCart) {
-        return null;
-      }
-
-      return {
-        ...currentCart,
-        items: [],
-      };
-    });
   }, []);
 
-  /*
-  |--------------------------------------------------------------------------
-  | Context
-  |--------------------------------------------------------------------------
-  */
+  const login = (userData, token) => {
+    setUser(userData);
+    setAccessToken(token);
 
-  const value = {
-    cart,
-    loading,
-    itemCount,
-    total,
-    addToCart,
-    updateQuantity,
-    removeFromCart,
-    clearCart,
-    refreshCart,
-    resetCart,
+    if (token) {
+      localStorage.setItem(
+        "accessToken",
+        token
+      );
+    } else {
+      localStorage.removeItem(
+        "accessToken"
+      );
+    }
   };
 
+  const logout = async () => {
+    try {
+      await api("/auth/logout", {
+        method: "POST",
+      });
+    } catch {
+      // Logout should still clear local state
+      // even if the server request fails.
+    } finally {
+      setUser(null);
+      setAccessToken(null);
 
+      localStorage.removeItem(
+        "accessToken"
+      );
+    }
+  };
+
+  const deleteAccount = async (password) => {
+    if (!accessToken) {
+      throw new Error(
+        "You are not authenticated."
+      );
+    }
+
+    await api("/auth/me", {
+      method: "DELETE",
+      accessToken,
+      body: {
+        password,
+      },
+    });
+
+    setUser(null);
+    setAccessToken(null);
+
+    localStorage.removeItem(
+      "accessToken"
+    );
+  };
 
   return (
-    <CartContext.Provider value={value}>
+    <AuthContext.Provider
+      value={{
+        user,
+        accessToken,
+        loading,
+        login,
+        logout,
+        deleteAccount,
+      }}
+    >
       {children}
-    </CartContext.Provider>
+    </AuthContext.Provider>
   );
 }
