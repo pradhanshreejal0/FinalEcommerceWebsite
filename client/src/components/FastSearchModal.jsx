@@ -56,7 +56,7 @@ export default function FastSearchModal({
 
   const inputRef = useRef(null);
   const listRef = useRef(null);
-  const debouncedQuery = useDebouncedValue(query, 280);
+  const debouncedQuery = useDebouncedValue(query, 150);
 
   // Focus + reset when opened
   useEffect(() => {
@@ -194,7 +194,7 @@ export default function FastSearchModal({
 
   return (
     <div
-      className="fixed inset-0 z-100 flex items-start justify-center bg-background/80 px-3 pt-14 backdrop-blur-sm animate-in fade-in duration-150 sm:pt-20 sm:px-4"
+      className="fixed inset-0 z-100 flex items-start justify-center bg-background/80 px-3 pt-14 animate-in fade-in duration-150 sm:pt-20 sm:px-4"
       role="dialog"
       aria-modal="true"
       aria-label="Search catalog"

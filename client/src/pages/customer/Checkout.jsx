@@ -153,6 +153,7 @@ export default function Checkout() {
   const [searchingLocation, setSearchingLocation] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 250);
 
   // City field autocomplete — only cities/towns/villages
   const [citySuggestions, setCitySuggestions] = useState([]);
@@ -248,14 +249,22 @@ export default function Checkout() {
   const grandTotal = subtotal + deliveryFee;
 
   /* ============================================================
-     SEARCH LOCATION
+     SEARCH LOCATION (live / as-you-type)
   ============================================================ */
-  const searchLocation = async () => {
-    const query = searchQuery.trim();
+  const searchLocation = async (overrideQuery) => {
+    const query = (overrideQuery ?? searchQuery).trim();
     if (!query) {
       setSearchResults([]);
-      setSearchError("Enter a place name or landmark.");
-      setShowSearchResults(true);
+      setSearchError("");
+      setShowSearchResults(false);
+      setSearchingLocation(false);
+      return;
+    }
+
+    if (query.length < 2) {
+      setSearchResults([]);
+      setSearchError("");
+      setShowSearchResults(false);
       return;
     }
 
@@ -268,7 +277,7 @@ export default function Checkout() {
         q: query,
         format: "json",
         addressdetails: "1",
-        limit: "5",
+        limit: "6",
         countrycodes: "np",
       });
 
@@ -301,6 +310,20 @@ export default function Checkout() {
       setSearchingLocation(false);
     }
   };
+
+  // Live search as the user types (debounced)
+  useEffect(() => {
+    const term = debouncedSearchQuery.trim();
+    if (term.length < 2) {
+      setSearchResults([]);
+      setSearchError("");
+      if (!term) setShowSearchResults(false);
+      setSearchingLocation(false);
+      return;
+    }
+    searchLocation(term);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchQuery]);
 
   const handleSearchKeyDown = (e) => {
     if (e.key === "Enter") {
@@ -1230,10 +1253,13 @@ export default function Checkout() {
                         onFocus={() => {
                           if (searchResults.length > 0) setShowSearchResults(true);
                         }}
-                        placeholder="Search place or landmark..."
+                        placeholder="Type a place e.g. Kathmandu..."
                         disabled={submitting || locating}
                         className="w-full rounded-md border bg-background py-2.5 pl-9 pr-10 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
                       />
+                      {searchingLocation && (
+                        <Loader2 className="absolute right-9 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                      )}
                       {searchQuery && (
                         <button
                           type="button"
@@ -1246,19 +1272,6 @@ export default function Checkout() {
                     </div>
 
                     <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        onClick={searchLocation}
-                        disabled={searchingLocation || submitting || locating}
-                      >
-                        {searchingLocation ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Search className="mr-2 h-4 w-4" />
-                        )}
-                        Search
-                      </Button>
-
                       {/* ========== LIVE LOCATION BUTTON ========== */}
                       <Button
                         type="button"
@@ -1284,14 +1297,14 @@ export default function Checkout() {
 
                   {/* Examples */}
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {["Boudhanath Stupa", "Thamel", "Patan Durbar Square", "Kathmandu Mall"].map(
+                    {["Boudhanath Stupa", "Thamel", "Patan Durbar Square", "Kathmandu"].map(
                       (example) => (
                         <button
                           key={example}
                           type="button"
                           onClick={() => {
                             setSearchQuery(example);
-                            setTimeout(() => searchLocation(), 0);
+                            setShowSearchResults(true);
                           }}
                           className="rounded-full border bg-background px-3 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                         >

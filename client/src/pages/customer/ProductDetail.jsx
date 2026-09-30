@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { StarRating } from "@/components/StarRating";
 import { ProductReviews } from "@/components/ProductReviews";
 import { PriceTag } from "@/components/PriceTag";
-import { cn } from "@/lib/utils";
-import { Heart, MessageCircle } from "lucide-react";
+import { cn, getFinalPrice } from "@/lib/utils";
+import { Heart, MessageCircle, Sparkles, Package } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +18,51 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+
+function ProductCard({ product }) {
+  const image =
+    product?.images?.[0] &&
+    (typeof product.images[0] === "string"
+      ? product.images[0]
+      : product.images[0]?.url);
+
+  const price = getFinalPrice(product);
+
+  return (
+    <Link
+      to={`/products/${product._id}`}
+      className="group flex flex-col overflow-hidden rounded-xl border bg-background transition hover:border-primary/40 hover:shadow-md"
+    >
+      <div className="aspect-square overflow-hidden bg-muted">
+        {image ? (
+          <img
+            src={image}
+            alt={product.title}
+            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+            <Package className="h-8 w-8" />
+          </div>
+        )}
+      </div>
+      <div className="flex flex-1 flex-col gap-1 p-3">
+        <p className="line-clamp-2 text-sm font-medium leading-snug group-hover:text-primary">
+          {product.title}
+        </p>
+        <div className="mt-auto flex items-center gap-2">
+          <span className="text-sm font-bold">RS {Number(price).toFixed(0)}</span>
+          {product.discountPercentage > 0 && (
+            <span className="text-xs text-muted-foreground line-through">
+              RS {Number(product.price).toFixed(0)}
+            </span>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 export default function ProductDetails() {
   const { id } = useParams();
@@ -46,6 +91,9 @@ export default function ProductDetails() {
   const [chatSending, setChatSending] = useState(false);
   const [chatError, setChatError] = useState("");
 
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [recommendedProducts, setRecommendedProducts] = useState([]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -53,6 +101,8 @@ export default function ProductDetails() {
       try {
         setLoading(true);
         setError("");
+        setRelatedProducts([]);
+        setRecommendedProducts([]);
 
         const data = await api(`/products/${id}`);
 
@@ -81,6 +131,59 @@ export default function ProductDetails() {
       cancelled = true;
     };
   }, [id]);
+
+  // Related (same category) + Recommended (popular / other) products
+  useEffect(() => {
+    if (!product?._id) return;
+
+    let cancelled = false;
+
+    const loadSuggestions = async () => {
+      try {
+        const categoryId =
+          typeof product.category === "string"
+            ? product.category
+            : product.category?._id;
+
+        const [relatedRes, recommendedRes] = await Promise.all([
+          categoryId
+            ? api(`/products?category=${categoryId}&limit=8`).catch(() => null)
+            : Promise.resolve(null),
+          api(`/products?limit=8`).catch(() => null),
+        ]);
+
+        if (cancelled) return;
+
+        const normalize = (data) =>
+          Array.isArray(data) ? data : data?.products || [];
+
+        const related = normalize(relatedRes)
+          .filter((p) => String(p._id) !== String(product._id))
+          .slice(0, 4);
+
+        const relatedIds = new Set(related.map((p) => String(p._id)));
+
+        const recommended = normalize(recommendedRes)
+          .filter(
+            (p) =>
+              String(p._id) !== String(product._id) &&
+              !relatedIds.has(String(p._id))
+          )
+          .slice(0, 4);
+
+        setRelatedProducts(related);
+        setRecommendedProducts(recommended);
+      } catch (err) {
+        console.error("Failed to load product suggestions:", err);
+      }
+    };
+
+    loadSuggestions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [product]);
 
   useEffect(() => {
     let cancelled = false;
@@ -607,6 +710,40 @@ export default function ProductDetails() {
       </div>
 
       <ProductReviews productId={product._id} />
+
+      {/* Related products (same category) */}
+      {relatedProducts.length > 0 && (
+        <section className="mt-12">
+          <div className="mb-4 flex items-center gap-2">
+            <Package className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold tracking-tight">
+              Related products
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {relatedProducts.map((p) => (
+              <ProductCard key={p._id} product={p} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Recommended products */}
+      {recommendedProducts.length > 0 && (
+        <section className="mt-10 mb-4">
+          <div className="mb-4 flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold tracking-tight">
+              Recommended for you
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {recommendedProducts.map((p) => (
+              <ProductCard key={p._id} product={p} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Chat with us dialog */}
       <Dialog open={chatOpen} onOpenChange={setChatOpen}>

@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { MapPin, Loader2, Search, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 import {
   MapContainer,
@@ -107,6 +108,7 @@ function LocationDialog({ vendor, open, onOpenChange, accessToken, onSaved }) {
   const [searchingLocation, setSearchingLocation] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 250);
 
   useEffect(() => {
     if (!vendor) return;
@@ -126,15 +128,23 @@ function LocationDialog({ vendor, open, onOpenChange, accessToken, onSaved }) {
     setShowSearchResults(false);
   }, [vendor]);
 
-  /* ---------- Search ---------- */
+  /* ---------- Search (live / as-you-type) ---------- */
 
-  const searchLocation = async () => {
-    const query = searchQuery.trim();
+  const searchLocation = async (overrideQuery) => {
+    const query = (overrideQuery ?? searchQuery).trim();
 
     if (!query) {
       setSearchResults([]);
-      setSearchError("Enter a place name or landmark.");
-      setShowSearchResults(true);
+      setSearchError("");
+      setShowSearchResults(false);
+      setSearchingLocation(false);
+      return;
+    }
+
+    if (query.length < 2) {
+      setSearchResults([]);
+      setSearchError("");
+      setShowSearchResults(false);
       return;
     }
 
@@ -147,7 +157,7 @@ function LocationDialog({ vendor, open, onOpenChange, accessToken, onSaved }) {
         q: query,
         format: "json",
         addressdetails: "1",
-        limit: "5",
+        limit: "6",
         countrycodes: "np",
       });
 
@@ -155,7 +165,10 @@ function LocationDialog({ vendor, open, onOpenChange, accessToken, onSaved }) {
         `https://nominatim.openstreetmap.org/search?${params.toString()}`,
         {
           method: "GET",
-          headers: { Accept: "application/json" },
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "MarketplaceApp/1.0",
+          },
         }
       );
 
@@ -180,6 +193,21 @@ function LocationDialog({ vendor, open, onOpenChange, accessToken, onSaved }) {
       setSearchingLocation(false);
     }
   };
+
+  // Live search as the user types (debounced)
+  useEffect(() => {
+    if (!open) return;
+    const term = debouncedSearchQuery.trim();
+    if (term.length < 2) {
+      setSearchResults([]);
+      setSearchError("");
+      if (!term) setShowSearchResults(false);
+      setSearchingLocation(false);
+      return;
+    }
+    searchLocation(term);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchQuery, open]);
 
   const handleSearchKeyDown = (event) => {
     if (event.key === "Enter") {
@@ -277,15 +305,20 @@ function LocationDialog({ vendor, open, onOpenChange, accessToken, onSaved }) {
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
-                  if (!e.target.value) setShowSearchResults(false);
+                  setSearchError("");
+                  if (e.target.value.trim()) setShowSearchResults(true);
+                  else setShowSearchResults(false);
                 }}
                 onKeyDown={handleSearchKeyDown}
                 onFocus={() => {
                   if (searchResults.length > 0) setShowSearchResults(true);
                 }}
-                placeholder="Search place or landmark..."
+                placeholder="Type a place e.g. Kathmandu..."
                 className="w-full rounded-md border bg-background py-2.5 pl-9 pr-10 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
+              {searchingLocation && (
+                <Loader2 className="absolute right-9 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+              )}
               {searchQuery && (
                 <button
                   type="button"
@@ -297,14 +330,6 @@ function LocationDialog({ vendor, open, onOpenChange, accessToken, onSaved }) {
                 </button>
               )}
             </div>
-
-            <Button type="button" onClick={searchLocation} disabled={searchingLocation}>
-              {searchingLocation ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="h-4 w-4" />
-              )}
-            </Button>
           </div>
 
           {showSearchResults && (
