@@ -24,6 +24,7 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   MapContainer,
   Marker,
+  Popup,
   TileLayer,
   useMap,
   useMapEvents,
@@ -51,6 +52,29 @@ const statusVariant = {
   rejected: "destructive",
 };
 
+const selectedIcon = new L.Icon({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+const searchResultIcon = L.divIcon({
+  className: "search-result-marker",
+  html: `<div style="
+    width: 14px; height: 14px;
+    background: #3b82f6;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  "></div>`,
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
+
 /* ============================================================
    MAP HELPERS (same pattern as Checkout.jsx)
 ============================================================ */
@@ -63,6 +87,40 @@ function MapController({ position }) {
       duration: 0.8,
     });
   }, [position, map]);
+  return null;
+}
+
+function FitSearchBounds({ results, selectedPosition }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!results?.length) return;
+
+    const points = results
+      .map((r) => {
+        const lat = Number(r.lat);
+        const lng = Number(r.lon);
+        return Number.isFinite(lat) && Number.isFinite(lng)
+          ? [lat, lng]
+          : null;
+      })
+      .filter(Boolean);
+
+    if (selectedPosition?.lat != null && selectedPosition?.lng != null) {
+      points.push([selectedPosition.lat, selectedPosition.lng]);
+    }
+
+    if (points.length === 0) return;
+
+    if (points.length === 1) {
+      map.flyTo(points[0], Math.max(map.getZoom(), 14), { duration: 0.5 });
+      return;
+    }
+
+    const bounds = L.latLngBounds(points);
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15, animate: true });
+  }, [results, selectedPosition, map]);
+
   return null;
 }
 
@@ -79,7 +137,9 @@ function LocationPicker({ position, setPosition }) {
   return (
     <Marker
       position={[position.lat, position.lng]}
+      icon={selectedIcon}
       draggable
+      zIndexOffset={1000}
       eventHandlers={{
         dragend(event) {
           const newPos = event.target.getLatLng();
@@ -87,6 +147,58 @@ function LocationPicker({ position, setPosition }) {
         },
       }}
     />
+  );
+}
+
+function SearchResultMarkers({ results, onSelect, selectedPosition }) {
+  if (!results?.length) return null;
+
+  return (
+    <>
+      {results.map((result, index) => {
+        const lat = Number(result.lat);
+        const lng = Number(result.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+        if (
+          selectedPosition &&
+          Math.abs(selectedPosition.lat - lat) < 1e-5 &&
+          Math.abs(selectedPosition.lng - lng) < 1e-5
+        ) {
+          return null;
+        }
+
+        const label =
+          result.name || result.display_name?.split(",")[0] || "Location";
+
+        return (
+          <Marker
+            key={`${result.place_id || index}-${lat}-${lng}`}
+            position={[lat, lng]}
+            icon={searchResultIcon}
+            eventHandlers={{
+              click: () => onSelect?.(result),
+            }}
+          >
+            <Popup>
+              <div className="min-w-40 text-sm">
+                <p className="font-semibold">{label}</p>
+                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                  {result.display_name}
+                </p>
+                <button
+                  type="button"
+                  className="mt-2 text-xs font-medium text-blue-600 hover:underline"
+                  onClick={() => onSelect?.(result)}
+                >
+                  Use this location
+                </button>
+              </div>
+            </Popup>
+          </Marker>
+        );
+      })}
+    </>
   );
 }
 
@@ -373,25 +485,47 @@ function LocationDialog({ vendor, open, onOpenChange, accessToken, onSaved }) {
           )}
         </div>
 
-        {position && (
-          <div className="h-64 w-full overflow-hidden rounded-md border">
-            <MapContainer
-              center={[position.lat, position.lng]}
-              zoom={DEFAULT_ZOOM}
-              className="h-full w-full"
-            >
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; OpenStreetMap contributors'
+        <div className="relative h-64 w-full overflow-hidden rounded-md border">
+          <MapContainer
+            center={
+              position
+                ? [position.lat, position.lng]
+                : [DEFAULT_POSITION.lat, DEFAULT_POSITION.lng]
+            }
+            zoom={DEFAULT_ZOOM}
+            className="h-full w-full"
+          >
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution="&copy; OpenStreetMap contributors"
+            />
+            {searchResults.length > 0 ? (
+              <FitSearchBounds
+                results={searchResults}
+                selectedPosition={position}
               />
-              <LocationPicker position={position} setPosition={setPosition} />
+            ) : (
               <MapController position={position} />
-            </MapContainer>
-          </div>
-        )}
+            )}
+            <SearchResultMarkers
+              results={searchResults}
+              onSelect={selectSearchResult}
+              selectedPosition={position}
+            />
+            <LocationPicker position={position} setPosition={setPosition} />
+          </MapContainer>
+          {searchResults.length > 0 && (
+            <p className="absolute bottom-2 left-2 z-1000 rounded-md bg-background/90 px-2 py-1 text-[11px] text-muted-foreground shadow">
+              {searchResults.length} place
+              {searchResults.length === 1 ? "" : "s"} on map — click a pin to
+              select
+            </p>
+          )}
+        </div>
 
         <p className="text-xs text-muted-foreground">
-          Search, click the map, or drag the marker to set the exact spot.
+          Search, click a result pin, click the map, or drag the marker to set
+          the exact spot.
           {position && (
             <>
               {" "}

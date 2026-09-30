@@ -80,6 +80,66 @@ function MapController({ location }) {
   return null;
 }
 
+/** Fit map to show all search-result markers in real time */
+function FitSearchBounds({ results, selectedLocation }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!results?.length) return;
+
+    const points = results
+      .map((r) => {
+        const lat = Number(r.lat);
+        const lng = Number(r.lon);
+        return Number.isFinite(lat) && Number.isFinite(lng)
+          ? [lat, lng]
+          : null;
+      })
+      .filter(Boolean);
+
+    if (selectedLocation?.lat != null && selectedLocation?.lng != null) {
+      points.push([selectedLocation.lat, selectedLocation.lng]);
+    }
+
+    if (points.length === 0) return;
+
+    if (points.length === 1) {
+      map.flyTo(points[0], Math.max(map.getZoom(), 14), { duration: 0.5 });
+      return;
+    }
+
+    const bounds = L.latLngBounds(points);
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15, animate: true });
+  }, [results, selectedLocation, map]);
+
+  return null;
+}
+
+/** Blue pin for the confirmed delivery location */
+const selectedIcon = new L.Icon({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+/** Smaller grey/outline pin for live search results */
+const searchResultIcon = L.divIcon({
+  className: "search-result-marker",
+  html: `<div style="
+    width: 14px; height: 14px;
+    background: #3b82f6;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  "></div>`,
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
+
 /* ============================================================
    LOCATION SELECTOR
 ============================================================ */
@@ -98,6 +158,7 @@ function LocationSelector({ location, setLocation, disabled = false }) {
   return (
     <Marker
       position={[location.lat, location.lng]}
+      icon={selectedIcon}
       draggable={!disabled}
       eventHandlers={{
         dragend(event) {
@@ -110,6 +171,7 @@ function LocationSelector({ location, setLocation, disabled = false }) {
           });
         },
       }}
+      zIndexOffset={1000}
     >
       <Popup>
         <div className="min-w-45 text-sm">
@@ -123,6 +185,60 @@ function LocationSelector({ location, setLocation, disabled = false }) {
         </div>
       </Popup>
     </Marker>
+  );
+}
+
+/** Real-time markers for live search results — click to select */
+function SearchResultMarkers({ results, onSelect, selectedLocation }) {
+  if (!results?.length) return null;
+
+  return (
+    <>
+      {results.map((result, index) => {
+        const lat = Number(result.lat);
+        const lng = Number(result.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+        // Skip if it matches the already-selected pin (avoid double marker)
+        if (
+          selectedLocation &&
+          Math.abs(selectedLocation.lat - lat) < 1e-5 &&
+          Math.abs(selectedLocation.lng - lng) < 1e-5
+        ) {
+          return null;
+        }
+
+        const label =
+          result.name || result.display_name?.split(",")[0] || "Location";
+
+        return (
+          <Marker
+            key={`${result.place_id || index}-${lat}-${lng}`}
+            position={[lat, lng]}
+            icon={searchResultIcon}
+            eventHandlers={{
+              click: () => onSelect?.(result),
+            }}
+          >
+            <Popup>
+              <div className="min-w-40 text-sm">
+                <p className="font-semibold">{label}</p>
+                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                  {result.display_name}
+                </p>
+                <button
+                  type="button"
+                  className="mt-2 text-xs font-medium text-blue-600 hover:underline"
+                  onClick={() => onSelect?.(result)}
+                >
+                  Use this location
+                </button>
+              </div>
+            </Popup>
+          </Marker>
+        );
+      })}
+    </>
   );
 }
 
@@ -1354,7 +1470,7 @@ export default function Checkout() {
                   )}
                 </div>
 
-                {/* MAP */}
+                {/* MAP — selected pin + live search-result markers */}
                 <div className="relative z-20 mt-5 overflow-hidden rounded-xl border">
                   <MapContainer
                     center={[DEFAULT_MAP_POSITION.lat, DEFAULT_MAP_POSITION.lng]}
@@ -1366,13 +1482,33 @@ export default function Checkout() {
                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
-                    <MapController location={location} />
+                    {/* When searching, fit all result pins; otherwise fly to selected */}
+                    {searchResults.length > 0 ? (
+                      <FitSearchBounds
+                        results={searchResults}
+                        selectedLocation={location}
+                      />
+                    ) : (
+                      <MapController location={location} />
+                    )}
+                    <SearchResultMarkers
+                      results={searchResults}
+                      onSelect={selectSearchResult}
+                      selectedLocation={location}
+                    />
                     <LocationSelector
                       location={location}
                       setLocation={setLocation}
                       disabled={submitting}
                     />
                   </MapContainer>
+                  {searchResults.length > 0 && (
+                    <p className="absolute bottom-2 left-2 z-1000 rounded-md bg-background/90 px-2 py-1 text-[11px] text-muted-foreground shadow">
+                      {searchResults.length} place
+                      {searchResults.length === 1 ? "" : "s"} on map — click a
+                      pin to select
+                    </p>
+                  )}
                 </div>
 
                 {/* Location status */}
