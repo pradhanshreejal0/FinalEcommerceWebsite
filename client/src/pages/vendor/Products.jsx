@@ -50,6 +50,7 @@ export default function Products() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [vendorStatus, setVendorStatus] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -83,14 +84,16 @@ export default function Products() {
     const load = async () => {
       setLoading(true);
       try {
-        const [productsData, categoriesData] = await Promise.all([
+        const [productsData, categoriesData, profile] = await Promise.all([
           loadProducts(),
           api("/categories"),
+          api("/vendors/me", { accessToken }).catch(() => null),
         ]);
 
         if (!cancelled) {
           setProducts(productsData);
           setCategories(categoriesData);
+          if (profile) setVendorStatus(profile.status || null);
         }
       } catch (err) {
         console.error(err);
@@ -236,8 +239,21 @@ export default function Products() {
     return <p className="text-muted-foreground">Loading products...</p>;
   }
 
+  const canAddProducts = vendorStatus === "approved" || vendorStatus === null;
+
   return (
     <div>
+      {vendorStatus === "pending" && (
+        <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+          Your store is pending admin approval. You can view this page, but adding
+          products is disabled until approved.
+        </div>
+      )}
+      {vendorStatus === "rejected" && (
+        <div className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          Your vendor application was rejected. Product creation is disabled.
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">
@@ -250,383 +266,390 @@ export default function Products() {
           )}
         </div>
 
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openCreateDialog}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Product
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editingProduct ? "Edit Product" : "New Product"}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) =>
-                    setFormData({ ...formData, title: e.target.value })
-                  }
-                  required
-                />
-              </div>
+        {vendorStatus && vendorStatus !== "approved" ? (
+          <Button disabled title="Your store must be approved before adding products">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Product
+          </Button>
+        ) : (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openCreateDialog}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Product
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingProduct ? "Edit Product" : "New Product"}
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Title</Label>
+                  <Input
+                    id="title"
+                    value={formData.title}
+                    onChange={(e) =>
+                      setFormData({ ...formData, title: e.target.value })
+                    }
+                    required
+                  />
+                </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <Label>Description sections</Label>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1.5 text-xs"
-                      disabled={generatingAi || !formData.title.trim()}
-                      onClick={async () => {
-                        if (!formData.title.trim()) return;
-                        setGeneratingAi(true);
-                        setError("");
-                        try {
-                          const cat = categories.find(
-                            (c) => c._id === formData.category
-                          );
-                          const data = await api(
-                            "/products/generate-description",
-                            {
-                              method: "POST",
-                              accessToken,
-                              body: {
-                                title: formData.title.trim(),
-                                categoryName: cat?.name || "",
-                                keywords: "",
-                              },
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>Description sections</Label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs"
+                        disabled={generatingAi || !formData.title.trim()}
+                        onClick={async () => {
+                          if (!formData.title.trim()) return;
+                          setGeneratingAi(true);
+                          setError("");
+                          try {
+                            const cat = categories.find(
+                              (c) => c._id === formData.category
+                            );
+                            const data = await api(
+                              "/products/generate-description",
+                              {
+                                method: "POST",
+                                accessToken,
+                                body: {
+                                  title: formData.title.trim(),
+                                  categoryName: cat?.name || "",
+                                  keywords: "",
+                                },
+                              }
+                            );
+                            if (data?.description) {
+                              setFormData((prev) => {
+                                const sections = [...prev.descriptionSections];
+                                // Fill first empty section, or replace first
+                                const emptyIdx = sections.findIndex(
+                                  (s) => !s.content.trim()
+                                );
+                                const idx = emptyIdx >= 0 ? emptyIdx : 0;
+                                sections[idx] = {
+                                  title: sections[idx]?.title || "Overview",
+                                  content: data.description,
+                                };
+                                return { ...prev, descriptionSections: sections };
+                              });
                             }
-                          );
-                          if (data?.description) {
-                            setFormData((prev) => {
-                              const sections = [...prev.descriptionSections];
-                              // Fill first empty section, or replace first
-                              const emptyIdx = sections.findIndex(
-                                (s) => !s.content.trim()
-                              );
-                              const idx = emptyIdx >= 0 ? emptyIdx : 0;
-                              sections[idx] = {
-                                title: sections[idx]?.title || "Overview",
-                                content: data.description,
-                              };
-                              return { ...prev, descriptionSections: sections };
-                            });
-                          }
-                        } catch (err) {
-                          setError(
-                            err.message ||
+                          } catch (err) {
+                            setError(
+                              err.message ||
                               "Could not generate description. Try again."
-                          );
-                        } finally {
-                          setGeneratingAi(false);
+                            );
+                          } finally {
+                            setGeneratingAi(false);
+                          }
+                        }}
+                      >
+                        {generatingAi ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3.5 w-3.5" />
+                        )}
+                        {generatingAi ? "Generating…" : "Generate with AI"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        disabled={formData.descriptionSections.length >= 4}
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            descriptionSections: [
+                              ...prev.descriptionSections,
+                              { title: "", content: "" },
+                            ],
+                          }))
                         }
-                      }}
-                    >
-                      {generatingAi ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-3.5 w-3.5" />
-                      )}
-                      {generatingAi ? "Generating…" : "Generate with AI"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs"
-                      disabled={formData.descriptionSections.length >= 4}
-                      onClick={() =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          descriptionSections: [
-                            ...prev.descriptionSections,
-                            { title: "", content: "" },
-                          ],
-                        }))
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        Add section
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Add up to 4 sections (e.g. Overview, Features, Specs, Care).
+                    You choose how they look on the product page.
+                  </p>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="descriptionStyle">How it looks</Label>
+                    <Select
+                      value={formData.descriptionStyle}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, descriptionStyle: value })
                       }
                     >
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      Add section
-                    </Button>
+                      <SelectTrigger id="descriptionStyle">
+                        <SelectValue placeholder="Choose layout" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="paragraphs">
+                          Paragraphs — clean stacked text
+                        </SelectItem>
+                        <SelectItem value="cards">
+                          Cards — each section in its own card
+                        </SelectItem>
+                        <SelectItem value="tabs">
+                          Tabs — switch between sections
+                        </SelectItem>
+                        <SelectItem value="accordion">
+                          Accordion — expand one section at a time
+                        </SelectItem>
+                        <SelectItem value="list">
+                          List — numbered sections
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {formData.descriptionSections.map((section, index) => (
+                    <div
+                      key={index}
+                      className="rounded-lg border bg-muted/30 p-3 space-y-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <Label className="text-xs text-muted-foreground">
+                          Section {index + 1} of 4
+                        </Label>
+                        {formData.descriptionSections.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs text-destructive"
+                            onClick={() =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                descriptionSections:
+                                  prev.descriptionSections.filter(
+                                    (_, i) => i !== index
+                                  ),
+                              }))
+                            }
+                          >
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                      <Input
+                        placeholder="Section title (optional) — e.g. Features"
+                        value={section.title}
+                        onChange={(e) => {
+                          const next = [...formData.descriptionSections];
+                          next[index] = { ...next[index], title: e.target.value };
+                          setFormData({ ...formData, descriptionSections: next });
+                        }}
+                      />
+                      <Textarea
+                        placeholder="Write this section…"
+                        value={section.content}
+                        onChange={(e) => {
+                          const next = [...formData.descriptionSections];
+                          next[index] = {
+                            ...next[index],
+                            content: e.target.value,
+                          };
+                          setFormData({ ...formData, descriptionSections: next });
+                        }}
+                        rows={3}
+                        className="min-h-20 resize-y"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="price">Price</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.price}
+                      onChange={(e) =>
+                        setFormData({ ...formData, price: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="stock">Stock</Label>
+                    <Input
+                      id="stock"
+                      type="number"
+                      min="0"
+                      value={formData.stock}
+                      onChange={(e) =>
+                        setFormData({ ...formData, stock: e.target.value })
+                      }
+                      required
+                    />
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Add up to 4 sections (e.g. Overview, Features, Specs, Care).
-                  You choose how they look on the product page.
-                </p>
 
                 <div className="space-y-2">
-                  <Label htmlFor="descriptionStyle">How it looks</Label>
+                  <Label htmlFor="discountPercentage">Discount (%)</Label>
+                  <Input
+                    id="discountPercentage"
+                    type="number"
+                    min="0"
+                    max="90"
+                    step="1"
+                    placeholder="0"
+                    value={formData.discountPercentage}
+                    onChange={(e) =>
+                      setFormData({ ...formData, discountPercentage: e.target.value })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave at 0 for no discount. Applies immediately to this product's listed price.
+                  </p>
+                  {Number(formData.discountPercentage) > 0 && formData.price && (
+                    <p className="text-xs text-muted-foreground">
+                      Customers will pay{" "}
+                      <span className="font-medium text-foreground">
+                        $
+                        {(
+                          Number(formData.price) -
+                          (Number(formData.price) * Number(formData.discountPercentage)) / 100
+                        ).toFixed(2)}
+                      </span>{" "}
+                      instead of ${Number(formData.price).toFixed(2)}.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Category</Label>
                   <Select
-                    value={formData.descriptionStyle}
+                    value={formData.category || ""}
                     onValueChange={(value) =>
-                      setFormData({ ...formData, descriptionStyle: value })
+                      setFormData({ ...formData, category: value })
                     }
                   >
-                    <SelectTrigger id="descriptionStyle">
-                      <SelectValue placeholder="Choose layout" />
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="paragraphs">
-                        Paragraphs — clean stacked text
-                      </SelectItem>
-                      <SelectItem value="cards">
-                        Cards — each section in its own card
-                      </SelectItem>
-                      <SelectItem value="tabs">
-                        Tabs — switch between sections
-                      </SelectItem>
-                      <SelectItem value="accordion">
-                        Accordion — expand one section at a time
-                      </SelectItem>
-                      <SelectItem value="list">
-                        List — numbered sections
-                      </SelectItem>
+                      {categories.length === 0 ? (
+                        <SelectItem value="none" disabled>
+                          No categories available
+                        </SelectItem>
+                      ) : (
+                        categories.map((c) => (
+                          <SelectItem key={c._id} value={String(c._id)}>
+                            {c.parentCategory ? `— ${c.name}` : c.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {categories.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      No categories found. Ask admin to create some first.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Images</Label>
+                  <div className="flex items-center gap-3">
+                    <Label
+                      htmlFor="product-image"
+                      className="flex cursor-pointer items-center gap-2 rounded-md border px-4 py-2 text-sm hover:bg-muted"
+                    >
+                      {uploading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4" />
+                          Add Image
+                        </>
+                      )}
+                    </Label>
+                    <Input
+                      id="product-image"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                      disabled={uploading}
+                    />
+                  </div>
+
+                  {formData.images.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {formData.images.map((img, index) => (
+                        <div key={index} className="relative">
+                          <img
+                            src={img}
+                            alt=""
+                            className="h-20 w-20 rounded object-cover border"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeImage(index)}
+                            className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-primary-foreground"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <Select
+                    value={formData.isPublished ? "published" : "draft"}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        isPublished: value === "published",
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="published">Published</SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                {formData.descriptionSections.map((section, index) => (
-                  <div
-                    key={index}
-                    className="rounded-lg border bg-muted/30 p-3 space-y-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <Label className="text-xs text-muted-foreground">
-                        Section {index + 1} of 4
-                      </Label>
-                      {formData.descriptionSections.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs text-destructive"
-                          onClick={() =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              descriptionSections:
-                                prev.descriptionSections.filter(
-                                  (_, i) => i !== index
-                                ),
-                            }))
-                          }
-                        >
-                          Remove
-                        </Button>
-                      )}
-                    </div>
-                    <Input
-                      placeholder="Section title (optional) — e.g. Features"
-                      value={section.title}
-                      onChange={(e) => {
-                        const next = [...formData.descriptionSections];
-                        next[index] = { ...next[index], title: e.target.value };
-                        setFormData({ ...formData, descriptionSections: next });
-                      }}
-                    />
-                    <Textarea
-                      placeholder="Write this section…"
-                      value={section.content}
-                      onChange={(e) => {
-                        const next = [...formData.descriptionSections];
-                        next[index] = {
-                          ...next[index],
-                          content: e.target.value,
-                        };
-                        setFormData({ ...formData, descriptionSections: next });
-                      }}
-                      rows={3}
-                      className="min-h-20 resize-y"
-                    />
-                  </div>
-                ))}
-              </div>
+                {error && <p className="text-sm text-destructive">{error}</p>}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="price">Price</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={(e) =>
-                      setFormData({ ...formData, price: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="stock">Stock</Label>
-                  <Input
-                    id="stock"
-                    type="number"
-                    min="0"
-                    value={formData.stock}
-                    onChange={(e) =>
-                      setFormData({ ...formData, stock: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="discountPercentage">Discount (%)</Label>
-                <Input
-                  id="discountPercentage"
-                  type="number"
-                  min="0"
-                  max="90"
-                  step="1"
-                  placeholder="0"
-                  value={formData.discountPercentage}
-                  onChange={(e) =>
-                    setFormData({ ...formData, discountPercentage: e.target.value })
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  Leave at 0 for no discount. Applies immediately to this product's listed price.
-                </p>
-                {Number(formData.discountPercentage) > 0 && formData.price && (
-                  <p className="text-xs text-muted-foreground">
-                    Customers will pay{" "}
-                    <span className="font-medium text-foreground">
-                      $
-                      {(
-                        Number(formData.price) -
-                        (Number(formData.price) * Number(formData.discountPercentage)) / 100
-                      ).toFixed(2)}
-                    </span>{" "}
-                    instead of ${Number(formData.price).toFixed(2)}.
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Select
-                  value={formData.category || ""}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, category: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.length === 0 ? (
-                      <SelectItem value="none" disabled>
-                        No categories available
-                      </SelectItem>
-                    ) : (
-                      categories.map((c) => (
-                        <SelectItem key={c._id} value={String(c._id)}>
-                          {c.parentCategory ? `— ${c.name}` : c.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-                {categories.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    No categories found. Ask admin to create some first.
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Images</Label>
-                <div className="flex items-center gap-3">
-                  <Label
-                    htmlFor="product-image"
-                    className="flex cursor-pointer items-center gap-2 rounded-md border px-4 py-2 text-sm hover:bg-muted"
-                  >
-                    {uploading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4" />
-                        Add Image
-                      </>
-                    )}
-                  </Label>
-                  <Input
-                    id="product-image"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleImageUpload}
-                    disabled={uploading}
-                  />
-                </div>
-
-                {formData.images.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.images.map((img, index) => (
-                      <div key={index} className="relative">
-                        <img
-                          src={img}
-                          alt=""
-                          className="h-20 w-20 rounded object-cover border"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeImage(index)}
-                          className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-primary-foreground"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select
-                  value={formData.isPublished ? "published" : "draft"}
-                  onValueChange={(value) =>
-                    setFormData({
-                      ...formData,
-                      isPublished: value === "published",
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="published">Published</SelectItem>
-                    <SelectItem value="draft">Draft</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {error && <p className="text-sm text-destructive">{error}</p>}
-
-              <DialogFooter>
-                <Button type="submit" disabled={uploading}>
-                  {editingProduct ? "Save" : "Create"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <DialogFooter>
+                  <Button type="submit" disabled={uploading}>
+                    {editingProduct ? "Save" : "Create"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <Table>

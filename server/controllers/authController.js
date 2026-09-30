@@ -6,6 +6,7 @@ import Cart from "../models/Cart.js";
 import Wishlist from "../models/Wishlist.js";
 import crypto from "crypto";
 import { sendEmail } from "../utils/sendEmail.js";
+import { notifyEmail } from "../utils/notify.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -38,7 +39,7 @@ const clearCookieOptions = {
 
 export const register = async (req, res) => {
   try {
-    const { name, email, password, role, phone } = req.body;
+    const { name, email, password, role, phone, storeName } = req.body;
 
     if (typeof name !== "string" || !name.trim()) {
       return res.status(400).json({ message: "Name is required" });
@@ -65,6 +66,16 @@ export const register = async (req, res) => {
       });
     }
 
+    const requestedRole = role === "vendor" ? "vendor" : "customer";
+
+    if (requestedRole === "vendor") {
+      if (!storeName || !String(storeName).trim()) {
+        return res.status(400).json({
+          message: "Store name is required for vendor registration",
+        });
+      }
+    }
+
     const normalizedEmail = email.trim().toLowerCase();
 
     const existing = await User.findOne({ email: normalizedEmail });
@@ -72,20 +83,71 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: "Email already registered" });
     }
 
-    // Public registration = customer only (vendors are created by admin)
-    if (role === "vendor") {
-      return res.status(403).json({
-        message: "Vendor registration is disabled. Please contact admin.",
-      });
-    }
-
     const user = await User.create({
       name: name.trim(),
       email: normalizedEmail,
       password,
       phone: digitsOnly,
-      role: "customer",
+      role: requestedRole,
     });
+
+    let vendorDoc = null;
+    if (requestedRole === "vendor") {
+      const slugBase = String(storeName)
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/\s+/g, "-");
+
+      vendorDoc = await Vendor.create({
+        user: user._id,
+        storeName: String(storeName).trim(),
+        storeSlug: `${slugBase}-${user._id.toString().slice(-4)}`,
+        phone: digitsOnly,
+        status: "pending",
+        location: {
+          latitude: 27.7172,
+          longitude: 85.324,
+          address: "",
+          city: "Kathmandu",
+          country: "Nepal",
+        },
+      });
+
+      // Notify all admins (and ADMIN_EMAIL env) about new vendor application
+      const admins = await User.find({ role: "admin" }).select("email");
+      const adminEmails = [
+        ...new Set(
+          [
+            process.env.ADMIN_EMAIL,
+            ...admins.map((a) => a.email),
+          ].filter(Boolean)
+        ),
+      ];
+      const clientUrl = String(process.env.CLIENT_URL || "")
+        .replace(/^["']|["']$/g, "")
+        .trim() || "http://localhost:5173";
+
+      for (const to of adminEmails) {
+        notifyEmail({
+          to,
+          subject: `New vendor application: ${vendorDoc.storeName}`,
+          html: `
+            <div style="font-family:sans-serif;max-width:560px">
+              <h2>New vendor registration</h2>
+              <p><strong>${user.name}</strong> applied to sell as <strong>${vendorDoc.storeName}</strong>.</p>
+              <ul>
+                <li>Email: ${user.email}</li>
+                <li>Phone: ${user.phone || "—"}</li>
+                <li>Store slug: ${vendorDoc.storeSlug}</li>
+              </ul>
+              <p><a href="${clientUrl}/admin/vendors">Review in admin panel</a></p>
+              <p style="color:#666;font-size:12px">Automated marketplace notification.</p>
+            </div>
+          `,
+        });
+      }
+    }
 
     const accessToken = generateAccessToken(user._id, user.role);
     const refreshToken = generateRefreshToken(user._id);

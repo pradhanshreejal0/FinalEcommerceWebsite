@@ -1,3 +1,4 @@
+import { notifyEmail } from "../utils/notify.js";
 import Vendor from "../models/Vendor.js";
 import User from "../models/User.js";
 
@@ -133,6 +134,27 @@ export const approveVendor = async (req, res) => {
       });
     }
 
+    const clientUrl = String(process.env.CLIENT_URL || "")
+      .replace(/^["']|["']$/g, "")
+      .trim() || "http://localhost:5173";
+
+    if (vendor.user?.email) {
+      notifyEmail({
+        to: vendor.user.email,
+        subject: `Your store "${vendor.storeName}" is approved`,
+        html: `
+          <div style="font-family:sans-serif;max-width:560px">
+            <h2>You're approved to sell</h2>
+            <p>Hi ${vendor.user.name || "there"},</p>
+            <p>Your store <strong>${vendor.storeName}</strong> has been approved.</p>
+            <p>You can now add products and start selling.</p>
+            <p><a href="${clientUrl}/vendor">Open vendor dashboard</a></p>
+            <p style="color:#666;font-size:12px">Automated marketplace notification.</p>
+          </div>
+        `,
+      });
+    }
+
     res.json(vendor);
   } catch (error) {
     res.status(500).json({
@@ -156,6 +178,22 @@ export const rejectVendor = async (req, res) => {
     if (!vendor) {
       return res.status(404).json({
         message: "Vendor not found",
+      });
+    }
+
+    if (vendor.user?.email) {
+      notifyEmail({
+        to: vendor.user.email,
+        subject: `Vendor application update: ${vendor.storeName}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:560px">
+            <h2>Application not approved</h2>
+            <p>Hi ${vendor.user.name || "there"},</p>
+            <p>Your application for <strong>${vendor.storeName}</strong> was not approved at this time.</p>
+            <p>You can update your store profile or contact support if you have questions.</p>
+            <p style="color:#666;font-size:12px">Automated marketplace notification.</p>
+          </div>
+        `,
       });
     }
 

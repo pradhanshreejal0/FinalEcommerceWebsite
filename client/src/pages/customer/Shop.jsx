@@ -1,542 +1,150 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Link, useParams } from "react-router-dom";
+import { MapPin, Package, Store as StoreIcon } from "lucide-react";
 import { api } from "@/lib/api";
-import { Search, SlidersHorizontal } from "lucide-react";
 import { PriceTag } from "@/components/PriceTag";
-import { AdBanner } from "@/components/AdBanner";
 
-export default function Shop() {
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  const search = searchParams.get("search") || "";
-  const category = searchParams.get("category") || "";
-  const minPrice = searchParams.get("minPrice") || "";
-  const maxPrice = searchParams.get("maxPrice") || "";
-  const sort = searchParams.get("sort") || "newest";
-
-  const [searchInput, setSearchInput] = useState(
-    () => searchParams.get("search") || ""
-  );
-
-  const [minPriceInput, setMinPriceInput] = useState(
-    () => searchParams.get("minPrice") || ""
-  );
-
-  const [maxPriceInput, setMaxPriceInput] = useState(
-    () => searchParams.get("maxPrice") || ""
-  );
-
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [sidebarAds, setSidebarAds] = useState([]);
+export default function Store() {
+  const { slug } = useParams();
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [filterOpen, setFilterOpen] = useState(false);
-
-  // =========================
-  // LOAD CATEGORIES + ADS
-  // =========================
   useEffect(() => {
     let cancelled = false;
-
-    const loadCategories = async () => {
+    (async () => {
       try {
-        const data = await api("/categories");
-
-        if (!cancelled) {
-          setCategories(data);
-        }
+        setLoading(true);
+        const res = await api(`/vendors/store/${encodeURIComponent(slug)}`);
+        if (!cancelled) setData(res);
       } catch (err) {
-        console.error(err);
-      }
-    };
-
-    const loadSidebarAds = async () => {
-      try {
-        const data = await api("/ads");
-
-        if (!cancelled) {
-          setSidebarAds(
-            data.filter(
-              (ad) => ad.position === "sidebar" && ad.isActive
-            )
-          );
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    loadCategories();
-    loadSidebarAds();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // =========================
-  // LOAD PRODUCTS
-  // =========================
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadProducts = async () => {
-      setLoading(true);
-
-      try {
-        const params = new URLSearchParams();
-
-        if (search) {
-          params.set("search", search);
-        }
-
-        if (category) {
-          params.set("category", category);
-        }
-
-        if (minPrice) {
-          params.set("minPrice", minPrice);
-        }
-
-        if (maxPrice) {
-          params.set("maxPrice", maxPrice);
-        }
-
-        if (sort) {
-          params.set("sort", sort);
-        }
-
-        params.set("page", "1");
-        params.set("limit", "24");
-
-        const data = await api(`/products?${params.toString()}`);
-
-        if (!cancelled) {
-          setProducts(data.products || data);
-        }
-      } catch (err) {
-        console.error(err);
-
-        if (!cancelled) {
-          setProducts([]);
-        }
+        if (!cancelled) setError(err.message || "Store not found");
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
-    };
-
-    loadProducts();
-
+    })();
     return () => {
       cancelled = true;
     };
-  }, [search, category, minPrice, maxPrice, sort]);
+  }, [slug]);
 
-  // =========================
-  // APPLY FILTERS
-  // =========================
-  const applyFilters = (e) => {
-    e?.preventDefault();
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">
+        Loading store…
+      </div>
+    );
+  }
 
-    const params = {};
-
-    if (searchInput.trim()) {
-      params.search = searchInput.trim();
-    }
-
-    if (category) {
-      params.category = category;
-    }
-
-    if (minPriceInput) {
-      params.minPrice = minPriceInput;
-    }
-
-    if (maxPriceInput) {
-      params.maxPrice = maxPriceInput;
-    }
-
-    if (sort) {
-      params.sort = sort;
-    }
-
-    setSearchParams(params);
-
-    // Close mobile drawer after applying
-    setFilterOpen(false);
-  };
-
-  // =========================
-  // CLEAR FILTERS
-  // =========================
-  const clearFilters = () => {
-    setSearchInput("");
-    setMinPriceInput("");
-    setMaxPriceInput("");
-    setSearchParams({});
-
-    // Close mobile drawer
-    setFilterOpen(false);
-  };
-
-  // =========================
-  // CATEGORY LIST
-  // =========================
-  const parents = categories.filter((c) => !c.parentCategory);
-
-  // =========================
-  // FILTER CONTENT
-  // =========================
-  const filterContent = (
-    <div className="space-y-4">
-      {/* Search */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">
-          Search
-        </label>
-
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-
-          <Input
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search..."
-            className="pl-8"
-          />
+  if (error || !data?.vendor) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
+          <StoreIcon className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h1 className="mt-4 text-xl font-semibold">Store not available</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {error || "This store does not exist or is not approved yet."}
+        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <Link
+            to="/products"
+            className="inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+          >
+            Browse products
+          </Link>
+          <Link
+            to="/"
+            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+          >
+            Go home
+          </Link>
         </div>
       </div>
+    );
+  }
 
-      {/* Category */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">
-          Category
-        </label>
-
-        <Select
-          value={category || "all"}
-          onValueChange={(val) => {
-            const params = Object.fromEntries(searchParams);
-
-            if (val === "all") {
-              delete params.category;
-            } else {
-              params.category = val;
-            }
-
-            setSearchParams(params);
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="All categories" />
-          </SelectTrigger>
-
-          <SelectContent>
-            <SelectItem value="all">
-              All categories
-            </SelectItem>
-
-            {parents.map((cat) => (
-              <SelectItem
-                key={cat._id}
-                value={cat._id}
-              >
-                {cat.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Min Price */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">
-          Min Price
-        </label>
-
-        <Input
-          type="number"
-          value={minPriceInput}
-          onChange={(e) =>
-            setMinPriceInput(e.target.value)
-          }
-          placeholder="0"
-        />
-      </div>
-
-      {/* Max Price */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">
-          Max Price
-        </label>
-
-        <Input
-          type="number"
-          value={maxPriceInput}
-          onChange={(e) =>
-            setMaxPriceInput(e.target.value)
-          }
-          placeholder="Any"
-        />
-      </div>
-
-      {/* Sort */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">
-          Sort by
-        </label>
-
-        <Select
-          value={sort}
-          onValueChange={(val) => {
-            const params = Object.fromEntries(searchParams);
-
-            params.sort = val;
-
-            setSearchParams(params);
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-
-          <SelectContent>
-            <SelectItem value="newest">
-              Newest
-            </SelectItem>
-
-            <SelectItem value="price_asc">
-              Price: Low to High
-            </SelectItem>
-
-            <SelectItem value="price_desc">
-              Price: High to Low
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Buttons */}
-      <div className="flex gap-2 pt-2">
-        <Button
-          onClick={applyFilters}
-          className="flex-1"
-        >
-          Apply
-        </Button>
-
-        <Button
-          variant="outline"
-          onClick={clearFilters}
-        >
-          Clear
-        </Button>
-      </div>
-    </div>
-  );
+  const { vendor, products } = data;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
-      {/* =====================================
-          MOBILE STICKY TOP BAR
-      ====================================== */}
-      <div className="sticky top-0 z-40 -mx-4 mb-5 flex items-center justify-between gap-3 border-b bg-background/95 px-4 py-3 backdrop-blur supports-backdrop-filter:bg-background/80 sm:-mx-6 sm:px-6 lg:hidden">
-        <div>
-          <h1 className="text-xl font-semibold">
-            Shop
-          </h1>
-
-          {!loading && (
-            <p className="text-sm text-muted-foreground">
-              {products.length}{" "}
-              {products.length === 1
-                ? "product"
-                : "products"}
-            </p>
-          )}
-        </div>
-
-        <Sheet
-          open={filterOpen}
-          onOpenChange={setFilterOpen}
-        >
-          <SheetTrigger asChild>
-            <Button
-              variant="outline"
-              className="gap-2"
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              Filters
-            </Button>
-          </SheetTrigger>
-
-          <SheetContent
-            side="right"
-            className="w-[85%] overflow-y-auto sm:max-w-md"
-          >
-            <SheetHeader className="mb-6">
-              <SheetTitle>
-                Filters
-              </SheetTitle>
-            </SheetHeader>
-
-            {filterContent}
-          </SheetContent>
-        </Sheet>
-      </div>
-
-      {/* =====================================
-          MAIN LAYOUT
-      ====================================== */}
-      <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
-        {/* =====================================
-            DESKTOP SIDEBAR
-        ====================================== */}
-        <aside className="hidden space-y-6 lg:block">
-          {/* Filters */}
-          <div className="space-y-4 rounded-xl border border-border bg-card p-4">
-            <h3 className="font-semibold">
-              Filters
-            </h3>
-
-            {filterContent}
-          </div>
-
-          {/* Sidebar Ads */}
-          {sidebarAds.length > 0 && (
-            <div>
-              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                Sponsored
-              </h3>
-
-              <AdBanner
-                ads={sidebarAds}
-                variant="sidebar"
-              />
-            </div>
-          )}
-        </aside>
-
-        {/* =====================================
-            PRODUCTS
-        ====================================== */}
-        <div>
-          {loading ? (
-            <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div
-                  key={i}
-                  className="h-72 animate-pulse rounded-xl border bg-muted sm:h-80"
-                />
-              ))}
-            </div>
-          ) : products.length === 0 ? (
-            <div className="rounded-xl border p-10 text-center">
-              <h2 className="text-xl font-semibold">
-                No products found
-              </h2>
-
-              <p className="mt-2 text-muted-foreground">
-                Try adjusting your filters.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3">
-              {products.map((product) => {
-                const image =
-                  product.images?.length > 0
-                    ? typeof product.images[0] ===
-                      "string"
-                      ? product.images[0]
-                      : product.images[0]?.url
-                    : null;
-
-                return (
-                  <Link
-                    key={product._id}
-                    to={`/products/${product._id}`}
-                    className="group overflow-hidden rounded-xl border border-border bg-card transition hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10"
-                  >
-                    {/* Product Image */}
-                    <div className="relative aspect-square overflow-hidden bg-muted">
-                      {product.discountPercentage >
-                        0 && (
-                        <div className="absolute left-2 top-2 z-10 rounded bg-primary px-2 py-1 text-[10px] font-bold text-primary-foreground shadow-sm sm:text-xs">
-                          {product.discountPercentage}% OFF
-                        </div>
-                      )}
-
-                      {image ? (
-                        <img
-                          src={image}
-                          alt={product.title}
-                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-xs text-muted-foreground sm:text-sm">
-                          No image
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Product Information */}
-                    <div className="p-3 sm:p-4">
-                      <h2 className="line-clamp-2 text-sm font-semibold sm:text-base">
-                        {product.title}
-                      </h2>
-
-                      {product.vendor?.storeName && (
-                        <p className="mt-1 line-clamp-1 text-xs text-muted-foreground sm:text-sm">
-                          {product.vendor.storeName}
-                        </p>
-                      )}
-
-                      <div className="mt-2 sm:mt-3">
-                        <PriceTag product={product} />
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* =====================================
-          MOBILE SPONSORED ADS
-      ====================================== */}
-      {sidebarAds.length > 0 && (
-        <div className="mt-8 lg:hidden">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Sponsored
-          </h3>
-
-          <AdBanner
-            ads={sidebarAds}
-            variant="sidebar"
+    <main className="mx-auto max-w-6xl px-4 py-8">
+      <div className="overflow-hidden rounded-2xl border bg-background shadow-sm">
+        {vendor.banner ? (
+          <img
+            src={vendor.banner}
+            alt=""
+            className="h-40 w-full object-cover sm:h-52"
           />
+        ) : (
+          <div className="h-32 bg-linear-to-r from-primary/20 to-primary/5 sm:h-40" />
+        )}
+        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-end sm:p-6">
+          <div className="-mt-12 flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-background bg-muted shadow-md sm:-mt-14 sm:h-24 sm:w-24">
+            {vendor.logo ? (
+              <img src={vendor.logo} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <StoreIcon className="h-8 w-8 text-muted-foreground" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl font-bold tracking-tight">{vendor.storeName}</h1>
+            {vendor.storeDescription && (
+              <p className="mt-1 text-sm text-muted-foreground">
+                {vendor.storeDescription}
+              </p>
+            )}
+            {(vendor.location?.city || vendor.location?.address) && (
+              <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5" />
+                {[vendor.location.address, vendor.location.city]
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <h2 className="mb-4 mt-10 flex items-center gap-2 text-lg font-semibold">
+        <Package className="h-5 w-5 text-primary" />
+        Products ({products?.length || 0})
+      </h2>
+
+      {!products?.length ? (
+        <p className="text-sm text-muted-foreground">No products yet.</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          {products.map((p) => (
+            <Link
+              key={p._id}
+              to={`/products/${p._id}`}
+              className="group overflow-hidden rounded-xl border bg-background transition hover:border-primary/40 hover:shadow-md"
+            >
+              <div className="aspect-square bg-muted">
+                {p.images?.[0] ? (
+                  <img
+                    src={p.images[0]}
+                    alt={p.title}
+                    className="h-full w-full object-cover transition group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-muted-foreground">
+                    <Package className="h-8 w-8" />
+                  </div>
+                )}
+              </div>
+              <div className="p-3">
+                <p className="line-clamp-2 text-sm font-medium group-hover:text-primary">
+                  {p.title}
+                </p>
+                <div className="mt-1">
+                  <PriceTag product={p} />
+                </div>
+              </div>
+            </Link>
+          ))}
         </div>
       )}
-    </div>
+    </main>
   );
 }
