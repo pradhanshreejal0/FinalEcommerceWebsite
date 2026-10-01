@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Pencil, Trash2, Plus, Upload, Loader2, Sparkles } from "lucide-react";
+import { Pencil, Trash2, Plus, Upload, Loader2, Sparkles, Search, ChevronDown, Check } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 import { uploadImage } from "@/lib/upload";
@@ -91,6 +91,8 @@ export default function Products() {
   const [colorList, setColorList] = useState([]);
   const [customSize, setCustomSize] = useState("");
   const [customColor, setCustomColor] = useState("");
+  const [categorySearch, setCategorySearch] = useState("");
+  const [categoryOpen, setCategoryOpen] = useState(false);
 
   const { accessToken } = useAuth();
   const [searchParams] = useSearchParams();
@@ -154,6 +156,8 @@ export default function Products() {
     setColorList([]);
     setCustomSize("");
     setCustomColor("");
+    setCategorySearch("");
+    setCategoryOpen(false);
     setError("");
     setDialogOpen(true);
   };
@@ -213,6 +217,8 @@ export default function Products() {
     setColorList([...colors]);
     setCustomSize("");
     setCustomColor("");
+    setCategorySearch("");
+    setCategoryOpen(false);
     setError("");
     setDialogOpen(true);
   };
@@ -251,6 +257,47 @@ export default function Products() {
     if (!formData.category) {
       setError("Please select a category");
       return;
+    }
+
+    if (formData.hasVariants) {
+      const variants = formData.variants || [];
+      if (variants.length === 0) {
+        setError("Add at least one size/color variant, or turn off options");
+        return;
+      }
+      for (let i = 0; i < variants.length; i++) {
+        const v = variants[i];
+        const attrs = (v.attributes || []).filter(
+          (a) => a.name?.trim() && a.value?.trim()
+        );
+        if (attrs.length === 0) {
+          setError(`Variant ${i + 1}: add at least one option (e.g. Size or Color)`);
+          return;
+        }
+        const p = Number(v.price);
+        const s = Number(v.stock);
+        if (!Number.isFinite(p) || p < 0) {
+          setError(`Variant ${i + 1}: enter a valid price`);
+          return;
+        }
+        if (!Number.isFinite(s) || s < 0 || !Number.isInteger(s)) {
+          setError(`Variant ${i + 1}: stock must be a whole number ≥ 0`);
+          return;
+        }
+      }
+    } else {
+      if (!Number.isFinite(Number(formData.price)) || Number(formData.price) < 0) {
+        setError("Enter a valid price");
+        return;
+      }
+      if (
+        !Number.isFinite(Number(formData.stock)) ||
+        Number(formData.stock) < 0 ||
+        !Number.isInteger(Number(formData.stock))
+      ) {
+        setError("Stock must be a whole number ≥ 0");
+        return;
+      }
     }
 
     const payload = {
@@ -610,6 +657,33 @@ export default function Products() {
 
                 {formData.hasVariants && (
                   <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Default price (RS)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="Used when generating"
+                          value={formData.price}
+                          onChange={(e) =>
+                            setFormData({ ...formData, price: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Default stock</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          value={formData.stock}
+                          onChange={(e) =>
+                            setFormData({ ...formData, stock: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
                     {/* Size selector */}
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Sizes</Label>
@@ -801,8 +875,14 @@ export default function Products() {
                             if (attributes.length === 0) continue;
                             combos.push({
                               attributes,
-                              price: formData.price || "",
-                              stock: formData.stock || "0",
+                              price:
+                                formData.price !== "" && formData.price != null
+                                  ? formData.price
+                                  : formData.variants?.[0]?.price || "",
+                              stock:
+                                formData.stock !== "" && formData.stock != null
+                                  ? formData.stock
+                                  : "0",
                               sku: "",
                             });
                           }
@@ -970,29 +1050,144 @@ export default function Products() {
 
               <div className="space-y-2">
                 <Label>Category</Label>
-                <Select
-                  value={formData.category || ""}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, category: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.length === 0 ? (
-                      <SelectItem value="none" disabled>
-                        No categories available
-                      </SelectItem>
-                    ) : (
-                      categories.map((c) => (
-                        <SelectItem key={c._id} value={String(c._id)}>
-                          {c.parentCategory ? `— ${c.name}` : c.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                {(() => {
+                  const getParentId = (c) => {
+                    if (!c?.parentCategory) return null;
+                    return typeof c.parentCategory === "object"
+                      ? c.parentCategory?._id
+                      : c.parentCategory;
+                  };
+                  const getParentName = (c) => {
+                    const pid = getParentId(c);
+                    if (!pid) return null;
+                    const parent = categories.find(
+                      (x) => String(x._id) === String(pid)
+                    );
+                    return parent?.name || null;
+                  };
+                  const selected = categories.find(
+                    (c) => String(c._id) === String(formData.category)
+                  );
+                  const selectedLabel = selected
+                    ? getParentName(selected)
+                      ? `${getParentName(selected)} → ${selected.name}`
+                      : selected.name
+                    : "";
+
+                  const q = categorySearch.trim().toLowerCase();
+                  // Sort: parents first, then children under them
+                  const sorted = [...categories].sort((a, b) => {
+                    const aParent = getParentId(a);
+                    const bParent = getParentId(b);
+                    if (!aParent && bParent) return -1;
+                    if (aParent && !bParent) return 1;
+                    if (aParent && bParent && String(aParent) !== String(bParent)) {
+                      const ap = categories.find((x) => String(x._id) === String(aParent));
+                      const bp = categories.find((x) => String(x._id) === String(bParent));
+                      return (ap?.name || "").localeCompare(bp?.name || "");
+                    }
+                    return (a.name || "").localeCompare(b.name || "");
+                  });
+                  const filtered = q
+                    ? sorted.filter((c) => {
+                        const parentName = getParentName(c) || "";
+                        return (
+                          (c.name || "").toLowerCase().includes(q) ||
+                          parentName.toLowerCase().includes(q)
+                        );
+                      })
+                    : sorted;
+
+                  return (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setCategoryOpen((o) => !o)}
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      >
+                        <span
+                          className={
+                            selectedLabel
+                              ? "truncate text-foreground"
+                              : "text-muted-foreground"
+                          }
+                        >
+                          {selectedLabel || "Search & select category"}
+                        </span>
+                        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                      </button>
+
+                      {categoryOpen && (
+                        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover text-popover-foreground shadow-md">
+                          <div className="flex items-center gap-2 border-b px-3 py-2">
+                            <Search className="h-4 w-4 text-muted-foreground" />
+                            <input
+                              autoFocus
+                              type="text"
+                              placeholder="Search categories..."
+                              value={categorySearch}
+                              onChange={(e) => setCategorySearch(e.target.value)}
+                              className="flex h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                            />
+                          </div>
+                          <div className="max-h-56 overflow-y-auto p-1">
+                            {categories.length === 0 ? (
+                              <p className="px-2 py-3 text-center text-sm text-muted-foreground">
+                                No categories found. Ask admin to create some first.
+                              </p>
+                            ) : filtered.length === 0 ? (
+                              <p className="px-2 py-3 text-center text-sm text-muted-foreground">
+                                No match for &quot;{categorySearch}&quot;
+                              </p>
+                            ) : (
+                              filtered.map((c) => {
+                                const isParent = !getParentId(c);
+                                const parentName = getParentName(c);
+                                const isSelected =
+                                  String(formData.category) === String(c._id);
+                                return (
+                                  <button
+                                    key={c._id}
+                                    type="button"
+                                    onClick={() => {
+                                      setFormData({
+                                        ...formData,
+                                        category: String(c._id),
+                                      });
+                                      setCategoryOpen(false);
+                                      setCategorySearch("");
+                                    }}
+                                    className={`flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground ${
+                                      isSelected ? "bg-accent" : ""
+                                    }`}
+                                  >
+                                    <Check
+                                      className={`h-4 w-4 shrink-0 ${
+                                        isSelected ? "opacity-100" : "opacity-0"
+                                      }`}
+                                    />
+                                    <span className={isParent ? "font-semibold" : ""}>
+                                      {isParent
+                                        ? c.name
+                                        : parentName
+                                          ? `${parentName} → ${c.name}`
+                                          : c.name}
+                                    </span>
+                                    {!isParent && (
+                                      <span className="ml-auto text-[10px] text-muted-foreground">
+                                        sub
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
                 {categories.length === 0 && (
                   <p className="text-xs text-muted-foreground">
                     No categories found. Ask admin to create some first.

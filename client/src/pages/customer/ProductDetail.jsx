@@ -109,15 +109,14 @@ export default function ProductDetails() {
 
         if (!cancelled) {
           setProduct(data);
-          // Auto-select first in-stock variant when product has options
+          // Only auto-select when there is exactly one variant
           let initialKey = "";
           if (
             data?.hasVariants &&
             Array.isArray(data.variants) &&
-            data.variants.length > 0
+            data.variants.length === 1
           ) {
-            const firstAvailable = data.variants.find((v) => Number(v.stock) > 0);
-            initialKey = (firstAvailable || data.variants[0])?.key || "";
+            initialKey = data.variants[0]?.key || "";
           }
           setSelectedVariantKey(initialKey);
           setActiveImage(0);
@@ -524,11 +523,14 @@ export default function ProductDetails() {
               product.variants.length > 0 && (
                 <div className="space-y-4">
                   {(() => {
+                    // Normalize attribute name for consistent matching
+                    const normName = (n) => String(n || "").trim();
+
                     // Group attribute names (Size, Color, …) from all variants
                     const attrNames = [];
                     for (const v of product.variants) {
                       for (const a of v.attributes || []) {
-                        const n = (a.name || "").trim();
+                        const n = normName(a.name);
                         if (n && !attrNames.includes(n)) attrNames.push(n);
                       }
                     }
@@ -570,63 +572,62 @@ export default function ProductDetails() {
                       return null;
                     };
 
-                    // Current selection map from selectedVariantKey
+                    // Exactly one selected value per attribute (from selected variant)
                     const selectedMap = {};
+                    let selectedLabel = "";
                     if (selectedVariantKey) {
                       const cur = product.variants.find(
                         (v) => v.key === selectedVariantKey
                       );
                       if (cur) {
+                        selectedLabel = cur.label || "";
                         for (const a of cur.attributes || []) {
-                          if (a.name) selectedMap[a.name] = a.value;
+                          const n = normName(a.name);
+                          const val = String(a.value || "").trim();
+                          if (n && val) selectedMap[n] = val;
                         }
                       }
                     }
 
-                    // All unique values for an attribute (for initial display)
                     const allValuesFor = (name) => {
                       const set = new Set();
                       for (const v of product.variants) {
                         for (const a of v.attributes || []) {
-                          if (a.name === name && a.value) set.add(a.value);
+                          if (normName(a.name) === name && a.value) {
+                            set.add(String(a.value).trim());
+                          }
                         }
                       }
                       return [...set];
                     };
 
-                    // Values that are still possible given *other* selected attributes
-                    // (cascading: pick Color → only show Sizes that exist for that Color)
+                    // Cascading filter: only show values compatible with other selections
                     const valuesFor = (name) => {
                       const set = new Set();
                       for (const v of product.variants) {
                         if (Number(v.stock) < 1) continue;
                         const attrs = v.attributes || [];
-                        const hasValue = attrs.some(
-                          (a) => a.name === name && a.value
-                        );
-                        if (!hasValue) continue;
-                        // Must be compatible with every *other* selected attr
+                        if (!attrs.some((a) => normName(a.name) === name && a.value))
+                          continue;
                         const compatible = attrNames.every((n) => {
                           if (n === name) return true;
                           if (selectedMap[n] == null) return true;
                           return attrs.some(
-                            (a) => a.name === n && a.value === selectedMap[n]
+                            (a) =>
+                              normName(a.name) === n &&
+                              String(a.value).trim() === selectedMap[n]
                           );
                         });
                         if (compatible) {
                           for (const a of attrs) {
-                            if (a.name === name && a.value) set.add(a.value);
+                            if (normName(a.name) === name && a.value) {
+                              set.add(String(a.value).trim());
+                            }
                           }
                         }
                       }
-                      // Always include currently selected value even if out of stock
-                      // so user can see/deselect it
                       if (selectedMap[name]) set.add(selectedMap[name]);
-                      // If nothing selected yet for this attr, fall back to all values
-                      // that have any stock (or all if empty)
-                      if (set.size === 0) {
-                        return allValuesFor(name);
-                      }
+                      if (set.size === 0) return allValuesFor(name);
                       return [...set];
                     };
 
@@ -635,42 +636,55 @@ export default function ProductDetails() {
                         if (Number(v.stock) < 1) return false;
                         const attrs = v.attributes || [];
                         if (
-                          !attrs.some((a) => a.name === name && a.value === value)
+                          !attrs.some(
+                            (a) =>
+                              normName(a.name) === name &&
+                              String(a.value).trim() === value
+                          )
                         )
                           return false;
                         return attrNames.every((n) => {
                           if (n === name) return true;
                           if (selectedMap[n] == null) return true;
                           return attrs.some(
-                            (a) => a.name === n && a.value === selectedMap[n]
+                            (a) =>
+                              normName(a.name) === n &&
+                              String(a.value).trim() === selectedMap[n]
                           );
                         });
                       });
                     };
 
-                    // Find best matching variant for a desired selection map
                     const findBestMatch = (want) => {
-                      // Prefer exact match with stock
+                      const entries = Object.entries(want);
                       let match = product.variants.find((v) => {
                         if (Number(v.stock) < 1) return false;
                         const attrs = v.attributes || [];
-                        return Object.entries(want).every(([n, val]) =>
-                          attrs.some((a) => a.name === n && a.value === val)
+                        return entries.every(([n, val]) =>
+                          attrs.some(
+                            (a) =>
+                              normName(a.name) === n &&
+                              String(a.value).trim() === val
+                          )
                         );
                       });
                       if (match) return match;
-                      // Any stock match
-                      match = product.variants.find((v) => {
-                        const attrs = v.attributes || [];
-                        return Object.entries(want).every(([n, val]) =>
-                          attrs.some((a) => a.name === n && a.value === val)
-                        );
-                      });
-                      return match || null;
+                      return (
+                        product.variants.find((v) => {
+                          const attrs = v.attributes || [];
+                          return entries.every(([n, val]) =>
+                            attrs.some(
+                              (a) =>
+                                normName(a.name) === n &&
+                                String(a.value).trim() === val
+                            )
+                          );
+                        }) || null
+                      );
                     };
 
                     const pick = (name, value) => {
-                      // Toggle / deselect if clicking the already-selected value
+                      // Click same value again = deselect
                       if (selectedMap[name] === value) {
                         const remaining = { ...selectedMap };
                         delete remaining[name];
@@ -683,18 +697,24 @@ export default function ProductDetails() {
                         return;
                       }
 
-                      // Build next selection: keep only attrs still compatible with the new value
                       const next = { [name]: value };
                       for (const n of attrNames) {
                         if (n === name) continue;
                         if (selectedMap[n] == null) continue;
-                        // Keep other attr only if some in-stock variant has both
                         const stillOk = product.variants.some((v) => {
                           if (Number(v.stock) < 1) return false;
                           const attrs = v.attributes || [];
                           return (
-                            attrs.some((a) => a.name === name && a.value === value) &&
-                            attrs.some((a) => a.name === n && a.value === selectedMap[n])
+                            attrs.some(
+                              (a) =>
+                                normName(a.name) === name &&
+                                String(a.value).trim() === value
+                            ) &&
+                            attrs.some(
+                              (a) =>
+                                normName(a.name) === n &&
+                                String(a.value).trim() === selectedMap[n]
+                            )
                           );
                         });
                         if (stillOk) next[n] = selectedMap[n];
@@ -704,111 +724,129 @@ export default function ProductDetails() {
                       if (match) {
                         setSelectedVariantKey(match.key);
                       } else {
-                        // Fallback: select any variant with this single attr
                         const fallback = findBestMatch({ [name]: value });
                         setSelectedVariantKey(fallback ? fallback.key : "");
                       }
                     };
 
-                    return attrNames.map((name) => {
-                      const values = valuesFor(name);
-                      const colorMode = isColorAttr(name);
-
-                      return (
-                        <div key={name} className="space-y-2">
-                          <p className="text-sm font-medium">
-                            {name}
-                            {selectedMap[name] ? (
-                              <span className="ml-2 font-normal text-muted-foreground">
-                                {selectedMap[name]}
-                                <button
-                                  type="button"
-                                  className="ml-1 text-xs text-muted-foreground underline hover:text-foreground"
-                                  onClick={() => pick(name, selectedMap[name])}
-                                >
-                                  clear
-                                </button>
+                    return (
+                      <>
+                        {/* Visible summary of current selection */}
+                        <div className="rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+                          {selectedVariantKey && selectedLabel ? (
+                            <p>
+                              <span className="text-muted-foreground">Selected: </span>
+                              <span className="font-semibold text-foreground">
+                                {selectedLabel}
                               </span>
-                            ) : (
-                              <span className="ml-2 font-normal text-muted-foreground">
-                                (optional)
-                              </span>
-                            )}
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {values.map((value) => {
-                              const selected = selectedMap[name] === value;
-                              const available = isValueAvailable(name, value);
-                              const hex = colorMode ? colorToHex(value) : null;
-
-                              if (colorMode) {
-                                return (
-                                  <button
-                                    key={value}
-                                    type="button"
-                                    title={value}
-                                    disabled={!available && !selected}
-                                    onClick={() => pick(name, value)}
-                                    className={cn(
-                                      "relative h-9 w-9 shrink-0 rounded-full border-2 transition",
-                                      selected
-                                        ? "border-primary ring-2 ring-primary/30 scale-105"
-                                        : "border-border hover:border-primary/50",
-                                      !available &&
-                                        !selected &&
-                                        "opacity-40 cursor-not-allowed"
-                                    )}
-                                    style={{
-                                      backgroundColor: hex || "#e5e5e5",
-                                    }}
-                                  >
-                                    {!hex && (
-                                      <span className="sr-only">{value}</span>
-                                    )}
-                                    {selected && (
-                                      <span
-                                        className={cn(
-                                          "absolute inset-0 flex items-center justify-center text-xs font-bold",
-                                          hex === "#f5f5f5" ||
-                                            hex === "#fffdd0" ||
-                                            hex === "#d6c6a8" ||
-                                            hex === "#eab308"
-                                            ? "text-neutral-800"
-                                            : "text-white"
-                                        )}
-                                      >
-                                        ✓
-                                      </span>
-                                    )}
-                                  </button>
-                                );
-                              }
-
-                              // Size / other: compact value-only chips
-                              return (
-                                <button
-                                  key={value}
-                                  type="button"
-                                  disabled={!available && !selected}
-                                  onClick={() => pick(name, value)}
-                                  className={cn(
-                                    "min-w-11 rounded-lg border px-3 py-2 text-sm font-medium transition",
-                                    selected
-                                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                                      : "border-border bg-background hover:border-primary/50",
-                                    !available &&
-                                      !selected &&
-                                      "opacity-40 cursor-not-allowed line-through"
-                                  )}
-                                >
-                                  {value}
-                                </button>
-                              );
-                            })}
-                          </div>
+                              <button
+                                type="button"
+                                className="ml-2 text-xs text-primary underline hover:no-underline"
+                                onClick={() => setSelectedVariantKey("")}
+                              >
+                                Clear all
+                              </button>
+                            </p>
+                          ) : (
+                            <p className="text-muted-foreground">
+                              Please select your options below
+                            </p>
+                          )}
                         </div>
-                      );
-                    });
+
+                        {attrNames.map((name) => {
+                          const values = valuesFor(name);
+                          const colorMode = isColorAttr(name);
+                          const currentVal = selectedMap[name] || null;
+
+                          return (
+                            <div key={name} className="space-y-2">
+                              <p className="text-sm font-medium">
+                                {name}{" "}
+                                {currentVal ? (
+                                  <span className="ml-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                                    {currentVal}
+                                  </span>
+                                ) : (
+                                  <span className="ml-1 text-xs font-normal text-muted-foreground">
+                                    (choose one)
+                                  </span>
+                                )}
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {values.map((value) => {
+                                  const selected = currentVal === value;
+                                  const available = isValueAvailable(name, value);
+                                  const hex = colorMode ? colorToHex(value) : null;
+
+                                  if (colorMode) {
+                                    return (
+                                      <button
+                                        key={value}
+                                        type="button"
+                                        title={value}
+                                        disabled={!available && !selected}
+                                        onClick={() => pick(name, value)}
+                                        className={cn(
+                                          "relative h-10 w-10 shrink-0 rounded-full border-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                                          selected
+                                            ? "border-primary ring-2 ring-primary ring-offset-2 scale-110 z-10"
+                                            : "border-muted-foreground/30 hover:border-primary/60",
+                                          !available &&
+                                            !selected &&
+                                            "opacity-30 cursor-not-allowed"
+                                        )}
+                                        style={{
+                                          backgroundColor: hex || "#e5e5e5",
+                                        }}
+                                      >
+                                        {selected && (
+                                          <span
+                                            className={cn(
+                                              "absolute inset-0 flex items-center justify-center text-sm font-bold",
+                                              hex === "#f5f5f5" ||
+                                                hex === "#fffdd0" ||
+                                                hex === "#d6c6a8" ||
+                                                hex === "#eab308"
+                                                ? "text-neutral-900"
+                                                : "text-white"
+                                            )}
+                                          >
+                                            ✓
+                                          </span>
+                                        )}
+                                        <span className="sr-only">{value}</span>
+                                      </button>
+                                    );
+                                  }
+
+                                  return (
+                                    <button
+                                      key={value}
+                                      type="button"
+                                      disabled={!available && !selected}
+                                      onClick={() => pick(name, value)}
+                                      className={cn(
+                                        "min-w-12 rounded-lg border-2 px-3 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                                        selected
+                                          ? "border-primary bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30"
+                                          : "border-border bg-background hover:border-primary/50",
+                                        !available &&
+                                          !selected &&
+                                          "opacity-30 cursor-not-allowed line-through"
+                                      )}
+                                    >
+                                      {value}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </>
+                    );
+
                   })()}
                 </div>
               )}

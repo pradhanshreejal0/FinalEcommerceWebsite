@@ -377,9 +377,21 @@ export default function Checkout() {
   const subtotal = useMemo(() => {
     return items.reduce((sum, item) => {
       if (!item?.product) return sum;
-      const price = Number(getFinalPrice(item.product) || 0);
+      const product = item.product;
+      const variantKey = item.variantKey || "";
+      let unitPrice = Number(getFinalPrice(product) || 0);
+      if (variantKey && Array.isArray(product.variants)) {
+        const match = product.variants.find((v) => v.key === variantKey);
+        if (match) {
+          const disc = Number(product.discountPercentage) || 0;
+          unitPrice =
+            disc > 0
+              ? match.price - (match.price * disc) / 100
+              : match.price;
+        }
+      }
       const quantity = Number(item.quantity || 0);
-      return sum + price * quantity;
+      return sum + unitPrice * quantity;
     }, 0);
   }, [items]);
 
@@ -1937,10 +1949,25 @@ export default function Checkout() {
                   {items.map((item) => {
                     const product = item?.product;
                     if (!product) return null;
-                    const price = Number(getFinalPrice(product) || 0);
+                    const variantKey = item.variantKey || "";
+                    const variantLabel = item.variantLabel || "";
+                    let unitPrice = Number(getFinalPrice(product) || 0);
+                    if (variantKey && Array.isArray(product.variants)) {
+                      const match = product.variants.find((v) => v.key === variantKey);
+                      if (match) {
+                        const disc = Number(product.discountPercentage) || 0;
+                        unitPrice =
+                          disc > 0
+                            ? match.price - (match.price * disc) / 100
+                            : match.price;
+                      }
+                    }
                     const quantity = Number(item.quantity || 0);
                     return (
-                      <div key={product._id} className="flex gap-3">
+                      <div
+                        key={`${product._id}:${variantKey}`}
+                        className="flex gap-3"
+                      >
                         <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-muted">
                           {product.images?.[0] ? (
                             <img
@@ -1956,9 +1983,14 @@ export default function Checkout() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="line-clamp-2 text-sm font-medium">{product.title}</p>
+                          {variantLabel ? (
+                            <p className="text-xs text-muted-foreground">{variantLabel}</p>
+                          ) : null}
                           <div className="mt-1 flex justify-between text-sm">
                             <span className="text-muted-foreground">Qty: {quantity}</span>
-                            <span className="font-medium">RS {(price * quantity).toFixed(2)}</span>
+                            <span className="font-medium">
+                              RS {(unitPrice * quantity).toFixed(2)}
+                            </span>
                           </div>
                         </div>
                       </div>

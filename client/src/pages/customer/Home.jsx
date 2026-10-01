@@ -3,19 +3,23 @@ import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { PriceTag } from "@/components/PriceTag";
 import { AdBanner } from "@/components/AdBanner";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import {
   ChevronRight,
   Zap,
   TrendingUp,
   Tag,
+  LayoutGrid,
 } from "lucide-react";
 
 export default function Home() {
   const [ads, setAds] = useState([]);
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
 
   const [loadingAds, setLoadingAds] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadingCategories, setLoadingCategories] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,8 +76,27 @@ export default function Home() {
       }
     };
 
+    const loadCategories = async () => {
+      try {
+        const data = await api("/categories");
+        if (!cancelled) {
+          let list = [];
+          if (Array.isArray(data)) list = data;
+          else if (Array.isArray(data?.data)) list = data.data;
+          else if (Array.isArray(data?.categories)) list = data.categories;
+          setCategories(list);
+        }
+      } catch (err) {
+        console.error("Failed to load categories:", err);
+        if (!cancelled) setCategories([]);
+      } finally {
+        if (!cancelled) setLoadingCategories(false);
+      }
+    };
+
     loadAds();
     loadProducts();
+    loadCategories();
 
     return () => {
       cancelled = true;
@@ -117,6 +140,13 @@ export default function Home() {
     return firstImage?.url || null;
   };
 
+  // Parent (top-level) categories for the home grid
+  const parentCategories = categories.filter((c) => {
+    if (!c?.parentCategory) return true;
+    if (typeof c.parentCategory === "object") return !c.parentCategory?._id;
+    return false;
+  });
+
   return (
     <div className="min-h-screen bg-background">
       {/* =========================================================
@@ -133,6 +163,46 @@ export default function Home() {
           MAIN CONTENT
       ========================================================== */}
       <main className="mx-auto max-w-7xl space-y-12 px-4 py-8 sm:px-6 lg:px-8">
+
+        {/* =======================================================
+            CATEGORIES
+        ======================================================== */}
+        {!loadingCategories && parentCategories.length > 0 && (
+          <section>
+            <div className="mb-5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <LayoutGrid className="h-4.5 w-4.5" />
+                </span>
+                <h2 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
+                  Shop by Category
+                </h2>
+              </div>
+              <Link
+                to="/categories"
+                className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+              >
+                View All
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+              {parentCategories.slice(0, 16).map((cat) => (
+                <Link
+                  key={cat._id}
+                  to={`/products?category=${cat._id}`}
+                  className="group flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-3 text-center transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                >
+                  <CategoryIcon category={cat} size="md" />
+                  <span className="line-clamp-2 text-xs font-medium text-foreground group-hover:text-primary">
+                    {cat.name}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* =======================================================
             DEAL OF THE DAY
