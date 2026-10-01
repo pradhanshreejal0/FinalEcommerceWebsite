@@ -167,7 +167,7 @@ export default function Home() {
         {/* =======================================================
             CATEGORIES
         ======================================================== */}
-        {!loadingCategories && parentCategories.length > 0 && (
+        {/*{!loadingCategories && parentCategories.length > 0 && (
           <section>
             <div className="mb-5 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -202,7 +202,7 @@ export default function Home() {
               ))}
             </div>
           </section>
-        )}
+        )}*/}
 
         {/* =======================================================
             DEAL OF THE DAY
