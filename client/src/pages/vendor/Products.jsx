@@ -45,6 +45,25 @@ import { api } from "@/lib/api";
 import { uploadImage } from "@/lib/upload";
 import { PriceTag } from "@/components/PriceTag";
 
+const COMMON_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "3XL"];
+const COMMON_COLORS = [
+  { name: "Black", hex: "#171717" },
+  { name: "White", hex: "#f5f5f5" },
+  { name: "Red", hex: "#ef4444" },
+  { name: "Blue", hex: "#3b82f6" },
+  { name: "Green", hex: "#22c55e" },
+  { name: "Yellow", hex: "#eab308" },
+  { name: "Orange", hex: "#f97316" },
+  { name: "Purple", hex: "#a855f7" },
+  { name: "Pink", hex: "#ec4899" },
+  { name: "Gray", hex: "#9ca3af" },
+  { name: "Brown", hex: "#92400e" },
+  { name: "Navy", hex: "#1e3a5f" },
+  { name: "Beige", hex: "#d6c6a8" },
+  { name: "Cream", hex: "#fffdd0" },
+];
+
+
 export default function Products() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -68,6 +87,10 @@ export default function Products() {
     variants: [],
   });
   const [vendorStatus, setVendorStatus] = useState(null);
+  const [sizeList, setSizeList] = useState([]);
+  const [colorList, setColorList] = useState([]);
+  const [customSize, setCustomSize] = useState("");
+  const [customColor, setCustomColor] = useState("");
 
   const { accessToken } = useAuth();
   const [searchParams] = useSearchParams();
@@ -127,6 +150,10 @@ export default function Products() {
       hasVariants: false,
       variants: [],
     });
+    setSizeList([]);
+    setColorList([]);
+    setCustomSize("");
+    setCustomColor("");
     setError("");
     setDialogOpen(true);
   };
@@ -171,6 +198,21 @@ export default function Products() {
           }))
         : [],
     });
+    // Derive size/color lists from existing variants for the selector UI
+    const sizes = new Set();
+    const colors = new Set();
+    if (Array.isArray(product.variants)) {
+      for (const v of product.variants) {
+        for (const a of v.attributes || []) {
+          if (/^size$/i.test(a.name || "")) sizes.add(a.value);
+          if (/^colou?r$/i.test(a.name || "")) colors.add(a.value);
+        }
+      }
+    }
+    setSizeList([...sizes]);
+    setColorList([...colors]);
+    setCustomSize("");
+    setCustomColor("");
     setError("");
     setDialogOpen(true);
   };
@@ -528,13 +570,13 @@ export default function Products() {
                 </div>
               )}
 
-              {/* Flexible variants: color, size, volume, etc. */}
+              {/* Size & Color selector + flexible variants */}
               <div className="space-y-3 rounded-xl border p-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <Label className="text-base">Options (size, color, etc.)</Label>
+                    <Label className="text-base">Size & Color Options</Label>
                     <p className="text-xs text-muted-foreground">
-                      Optional. Add sizes, colors, or any option with its own price & stock.
+                      Optional. Pick sizes and colors, then generate variants with their own price & stock.
                     </p>
                   </div>
                   <Button
@@ -548,6 +590,8 @@ export default function Products() {
                           hasVariants: false,
                           variants: [],
                         });
+                        setSizeList([]);
+                        setColorList([]);
                       } else {
                         setFormData({
                           ...formData,
@@ -555,14 +599,7 @@ export default function Products() {
                           variants:
                             formData.variants?.length > 0
                               ? formData.variants
-                              : [
-                                  {
-                                    attributes: [{ name: "Size", value: "" }],
-                                    price: formData.price || "",
-                                    stock: formData.stock || "",
-                                    sku: "",
-                                  },
-                                ],
+                              : [],
                         });
                       }
                     }}
@@ -572,226 +609,329 @@ export default function Products() {
                 </div>
 
                 {formData.hasVariants && (
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() =>
-                          setFormData({
-                            ...formData,
-                            variants: [
-                              {
-                                attributes: [
-                                  { name: "Color", value: "" },
-                                  { name: "Size", value: "" },
-                                ],
-                                price: formData.price || "",
-                                stock: "",
-                                sku: "",
-                              },
-                            ],
-                          })
-                        }
-                      >
-                        Template: Clothing
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() =>
-                          setFormData({
-                            ...formData,
-                            variants: [
-                              {
-                                attributes: [{ name: "Size", value: "50ml" }],
-                                price: formData.price || "",
-                                stock: "",
-                                sku: "",
-                              },
-                            ],
-                          })
-                        }
-                      >
-                        Template: Beauty size
-                      </Button>
-                    </div>
-
-                    {(formData.variants || []).map((variant, vIndex) => (
-                      <div
-                        key={vIndex}
-                        className="space-y-2 rounded-lg border bg-muted/30 p-3"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium">
-                            Option {vIndex + 1}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive"
-                            onClick={() => {
-                              const next = formData.variants.filter(
-                                (_, i) => i !== vIndex
-                              );
-                              setFormData({ ...formData, variants: next });
-                            }}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-
-                        {(variant.attributes || []).map((attr, aIndex) => (
-                          <div
-                            key={aIndex}
-                            className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_auto]"
-                          >
-                            <Input
-                              placeholder="Type (e.g. Size, Color)"
-                              value={attr.name}
-                              onChange={(e) => {
-                                const variants = [...formData.variants];
-                                const attributes = [
-                                  ...(variants[vIndex].attributes || []),
-                                ];
-                                attributes[aIndex] = {
-                                  ...attributes[aIndex],
-                                  name: e.target.value,
-                                };
-                                variants[vIndex] = {
-                                  ...variants[vIndex],
-                                  attributes,
-                                };
-                                setFormData({ ...formData, variants });
-                              }}
-                            />
-                            <Input
-                              placeholder="Value (e.g. M, Red, 100ml)"
-                              value={attr.value}
-                              onChange={(e) => {
-                                const variants = [...formData.variants];
-                                const attributes = [
-                                  ...(variants[vIndex].attributes || []),
-                                ];
-                                attributes[aIndex] = {
-                                  ...attributes[aIndex],
-                                  value: e.target.value,
-                                };
-                                variants[vIndex] = {
-                                  ...variants[vIndex],
-                                  attributes,
-                                };
-                                setFormData({ ...formData, variants });
-                              }}
-                            />
-                            <Button
+                  <div className="space-y-4">
+                    {/* Size selector */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Sizes</Label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {COMMON_SIZES.map((s) => {
+                          const active = sizeList.includes(s);
+                          return (
+                            <button
+                              key={s}
                               type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="hidden sm:inline-flex"
                               onClick={() => {
-                                const variants = [...formData.variants];
-                                const attributes = (
-                                  variants[vIndex].attributes || []
-                                ).filter((_, i) => i !== aIndex);
-                                variants[vIndex] = {
-                                  ...variants[vIndex],
-                                  attributes:
-                                    attributes.length > 0
-                                      ? attributes
-                                      : [{ name: "", value: "" }],
-                                };
-                                setFormData({ ...formData, variants });
+                                setSizeList((prev) =>
+                                  active
+                                    ? prev.filter((x) => x !== s)
+                                    : [...prev, s]
+                                );
                               }}
+                              className={`min-w-10 rounded-lg border px-2.5 py-1.5 text-sm font-medium transition ${
+                                active
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-border bg-background hover:border-primary/50"
+                              }`}
                             >
-                              ×
-                            </Button>
-                          </div>
-                        ))}
-
+                              {s}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Custom size (e.g. 42, 100ml)"
+                          value={customSize}
+                          onChange={(e) => setCustomSize(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const v = customSize.trim();
+                              if (v && !sizeList.includes(v)) {
+                                setSizeList((prev) => [...prev, v]);
+                                setCustomSize("");
+                              }
+                            }
+                          }}
+                          className="h-8 text-sm"
+                        />
                         <Button
                           type="button"
-                          variant="outline"
                           size="sm"
+                          variant="secondary"
                           onClick={() => {
-                            const variants = [...formData.variants];
-                            variants[vIndex] = {
-                              ...variants[vIndex],
-                              attributes: [
-                                ...(variants[vIndex].attributes || []),
-                                { name: "", value: "" },
-                              ],
-                            };
-                            setFormData({ ...formData, variants });
+                            const v = customSize.trim();
+                            if (v && !sizeList.includes(v)) {
+                              setSizeList((prev) => [...prev, v]);
+                              setCustomSize("");
+                            }
                           }}
                         >
-                          + Attribute (e.g. add Color)
+                          Add
                         </Button>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Price (RS)</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={variant.price}
-                              onChange={(e) => {
-                                const variants = [...formData.variants];
-                                variants[vIndex] = {
-                                  ...variants[vIndex],
-                                  price: e.target.value,
-                                };
-                                setFormData({ ...formData, variants });
-                              }}
-                              required
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Stock</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={variant.stock}
-                              onChange={(e) => {
-                                const variants = [...formData.variants];
-                                variants[vIndex] = {
-                                  ...variants[vIndex],
-                                  stock: e.target.value,
-                                };
-                                setFormData({ ...formData, variants });
-                              }}
-                              required
-                            />
-                          </div>
-                        </div>
                       </div>
-                    ))}
+                      {sizeList.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {sizeList.map((s) => (
+                            <Badge
+                              key={s}
+                              variant="secondary"
+                              className="cursor-pointer gap-1 pr-1"
+                              onClick={() =>
+                                setSizeList((prev) => prev.filter((x) => x !== s))
+                              }
+                            >
+                              {s}
+                              <span className="text-muted-foreground">×</span>
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
+                    {/* Color selector */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Colors</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {COMMON_COLORS.map((c) => {
+                          const active = colorList.includes(c.name);
+                          return (
+                            <button
+                              key={c.name}
+                              type="button"
+                              title={c.name}
+                              onClick={() => {
+                                setColorList((prev) =>
+                                  active
+                                    ? prev.filter((x) => x !== c.name)
+                                    : [...prev, c.name]
+                                );
+                              }}
+                              className={`relative h-8 w-8 rounded-full border-2 transition ${
+                                active
+                                  ? "border-primary ring-2 ring-primary/30 scale-110"
+                                  : "border-border hover:border-primary/50"
+                              }`}
+                              style={{ backgroundColor: c.hex }}
+                            >
+                              {active && (
+                                <span
+                                  className={`absolute inset-0 flex items-center justify-center text-[10px] font-bold ${
+                                    ["#f5f5f5", "#fffdd0", "#d6c6a8", "#eab308"].includes(
+                                      c.hex
+                                    )
+                                      ? "text-neutral-800"
+                                      : "text-white"
+                                  }`}
+                                >
+                                  ✓
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Custom color name"
+                          value={customColor}
+                          onChange={(e) => setCustomColor(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const v = customColor.trim();
+                              if (v && !colorList.includes(v)) {
+                                setColorList((prev) => [...prev, v]);
+                                setCustomColor("");
+                              }
+                            }
+                          }}
+                          className="h-8 text-sm"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            const v = customColor.trim();
+                            if (v && !colorList.includes(v)) {
+                              setColorList((prev) => [...prev, v]);
+                              setCustomColor("");
+                            }
+                          }}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                      {colorList.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {colorList.map((c) => (
+                            <Badge
+                              key={c}
+                              variant="secondary"
+                              className="cursor-pointer gap-1 pr-1"
+                              onClick={() =>
+                                setColorList((prev) => prev.filter((x) => x !== c))
+                              }
+                            >
+                              {c}
+                              <span className="text-muted-foreground">×</span>
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Generate button */}
                     <Button
                       type="button"
+                      variant="default"
+                      size="sm"
                       className="w-full"
-                      variant="secondary"
-                      onClick={() =>
+                      disabled={sizeList.length === 0 && colorList.length === 0}
+                      onClick={() => {
+                        const sizes = sizeList.length ? sizeList : [null];
+                        const colors = colorList.length ? colorList : [null];
+                        const combos = [];
+                        for (const size of sizes) {
+                          for (const color of colors) {
+                            const attributes = [];
+                            if (color) attributes.push({ name: "Color", value: color });
+                            if (size) attributes.push({ name: "Size", value: size });
+                            if (attributes.length === 0) continue;
+                            combos.push({
+                              attributes,
+                              price: formData.price || "",
+                              stock: formData.stock || "0",
+                              sku: "",
+                            });
+                          }
+                        }
                         setFormData({
                           ...formData,
-                          variants: [
-                            ...(formData.variants || []),
-                            {
-                              attributes: [{ name: "Size", value: "" }],
-                              price: formData.price || "",
-                              stock: "",
-                              sku: "",
-                            },
-                          ],
-                        })
-                      }
+                          hasVariants: true,
+                          variants: combos,
+                        });
+                      }}
                     >
-                      + Add option
+                      Generate variants ({Math.max(sizeList.length, 1) * Math.max(colorList.length, 1)} combinations)
                     </Button>
+
+                    {/* Generated / manual variants list */}
+                    {(formData.variants || []).length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">
+                          Variants ({formData.variants.length}) — set price & stock
+                        </Label>
+                        {(formData.variants || []).map((variant, vIndex) => {
+                          const label =
+                            (variant.attributes || [])
+                              .map((a) => a.value)
+                              .filter(Boolean)
+                              .join(" / ") || `Option ${vIndex + 1}`;
+                          return (
+                            <div
+                              key={vIndex}
+                              className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-2.5 sm:flex-row sm:items-center"
+                            >
+                              <div className="min-w-0 flex-1 truncate text-sm font-medium">
+                                {label}
+                              </div>
+                              <div className="grid grid-cols-3 gap-2 sm:w-auto">
+                                <div className="space-y-0.5">
+                                  <Label className="text-[10px] text-muted-foreground">
+                                    Price
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    className="h-8"
+                                    value={variant.price}
+                                    onChange={(e) => {
+                                      const variants = [...formData.variants];
+                                      variants[vIndex] = {
+                                        ...variants[vIndex],
+                                        price: e.target.value,
+                                      };
+                                      setFormData({ ...formData, variants });
+                                    }}
+                                    required
+                                  />
+                                </div>
+                                <div className="space-y-0.5">
+                                  <Label className="text-[10px] text-muted-foreground">
+                                    Stock
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    className="h-8"
+                                    value={variant.stock}
+                                    onChange={(e) => {
+                                      const variants = [...formData.variants];
+                                      variants[vIndex] = {
+                                        ...variants[vIndex],
+                                        stock: e.target.value,
+                                      };
+                                      setFormData({ ...formData, variants });
+                                    }}
+                                    required
+                                  />
+                                </div>
+                                <div className="flex items-end">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 text-destructive"
+                                    onClick={() => {
+                                      const next = formData.variants.filter(
+                                        (_, i) => i !== vIndex
+                                      );
+                                      setFormData({ ...formData, variants: next });
+                                    }}
+                                  >
+                                    Remove
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Advanced: free-form attribute add */}
+                    <details className="text-sm">
+                      <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                        Advanced: add custom attribute variant
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        <Button
+                          type="button"
+                          className="w-full"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() =>
+                            setFormData({
+                              ...formData,
+                              variants: [
+                                ...(formData.variants || []),
+                                {
+                                  attributes: [{ name: "Size", value: "" }],
+                                  price: formData.price || "",
+                                  stock: "",
+                                  sku: "",
+                                },
+                              ],
+                            })
+                          }
+                        >
+                          + Add free-form option
+                        </Button>
+                      </div>
+                    </details>
                   </div>
                 )}
               </div>

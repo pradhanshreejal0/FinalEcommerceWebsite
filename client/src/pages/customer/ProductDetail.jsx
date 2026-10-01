@@ -109,7 +109,17 @@ export default function ProductDetails() {
 
         if (!cancelled) {
           setProduct(data);
-          setSelectedVariantKey("");
+          // Auto-select first in-stock variant when product has options
+          let initialKey = "";
+          if (
+            data?.hasVariants &&
+            Array.isArray(data.variants) &&
+            data.variants.length > 0
+          ) {
+            const firstAvailable = data.variants.find((v) => Number(v.stock) > 0);
+            initialKey = (firstAvailable || data.variants[0])?.key || "";
+          }
+          setSelectedVariantKey(initialKey);
           setActiveImage(0);
           setActiveDescTab(0);
           setOpenAccordion(0);
