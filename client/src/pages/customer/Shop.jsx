@@ -1,27 +1,55 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Search, LayoutGrid, Package, X } from "lucide-react";
+import {
+  Search,
+  LayoutGrid,
+  Package,
+  X,
+  SlidersHorizontal,
+  ArrowUpDown,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { PriceTag } from "@/components/PriceTag";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function Shop() {
   const [searchParams, setSearchParams] = useSearchParams();
   const categoryId = searchParams.get("category") || "";
   const qParam = searchParams.get("q") || "";
+  const sortParam = searchParams.get("sort") || "newest";
+  const minPriceParam = searchParams.get("minPrice") || "";
+  const maxPriceParam = searchParams.get("maxPrice") || "";
+  const onSaleParam = searchParams.get("onSale") === "1";
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState(qParam);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const [minPrice, setMinPrice] = useState(minPriceParam);
+  const [maxPrice, setMaxPrice] = useState(maxPriceParam);
 
   useEffect(() => {
     setSearch(qParam);
   }, [qParam]);
+
+  useEffect(() => {
+    setMinPrice(minPriceParam);
+    setMaxPrice(maxPriceParam);
+  }, [minPriceParam, maxPriceParam]);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,6 +62,9 @@ export default function Shop() {
         const params = new URLSearchParams();
         if (categoryId) params.set("category", categoryId);
         if (qParam) params.set("search", qParam);
+        if (sortParam && sortParam !== "newest") params.set("sort", sortParam);
+        if (minPriceParam) params.set("minPrice", minPriceParam);
+        if (maxPriceParam) params.set("maxPrice", maxPriceParam);
         params.set("limit", "48");
 
         const [productsRes, categoriesRes] = await Promise.all([
@@ -68,7 +99,7 @@ export default function Shop() {
     return () => {
       cancelled = true;
     };
-  }, [categoryId, qParam]);
+  }, [categoryId, qParam, sortParam, minPriceParam, maxPriceParam]);
 
   const getParentId = (c) => {
     if (!c?.parentCategory) return null;
@@ -87,19 +118,53 @@ export default function Shop() {
     [categories, categoryId]
   );
 
-  const applySearch = (e) => {
-    e?.preventDefault?.();
+  const displayedProducts = useMemo(() => {
+    if (!onSaleParam) return products;
+    return products.filter((p) => Number(p.discountPercentage || 0) > 0);
+  }, [products, onSaleParam]);
+
+  const activeFilterCount = [
+    sortParam !== "newest" ? 1 : 0,
+    minPriceParam ? 1 : 0,
+    maxPriceParam ? 1 : 0,
+    onSaleParam ? 1 : 0,
+  ].reduce((a, b) => a + b, 0);
+
+  const updateParams = (patch) => {
     const next = new URLSearchParams(searchParams);
-    if (search.trim()) next.set("q", search.trim());
-    else next.delete("q");
+    Object.entries(patch).forEach(([key, value]) => {
+      if (value === "" || value == null || value === false) {
+        next.delete(key);
+      } else if (value === true) {
+        next.set(key, "1");
+      } else {
+        next.set(key, String(value));
+      }
+    });
     setSearchParams(next);
   };
 
+  const applySearch = (e) => {
+    e?.preventDefault?.();
+    updateParams({ q: search.trim() || "" });
+  };
+
+  const applyPriceFilter = () => {
+    updateParams({
+      minPrice: minPrice.trim(),
+      maxPrice: maxPrice.trim(),
+    });
+  };
+
   const selectCategory = (id) => {
-    const next = new URLSearchParams(searchParams);
-    if (id) next.set("category", id);
-    else next.delete("category");
-    setSearchParams(next);
+    updateParams({ category: id || "" });
+  };
+
+  const clearAllFilters = () => {
+    setSearch("");
+    setMinPrice("");
+    setMaxPrice("");
+    setSearchParams({});
   };
 
   const getImage = (product) => {
@@ -118,13 +183,18 @@ export default function Shop() {
           <p className="mt-1 text-sm text-muted-foreground">
             {loading
               ? "Loading..."
-              : `${products.length} product${products.length === 1 ? "" : "s"}`}
+              : `${displayedProducts.length} product${
+                  displayedProducts.length === 1 ? "" : "s"
+                }`}
             {selectedCategory ? ` in ${selectedCategory.name}` : ""}
             {qParam ? ` matching “${qParam}”` : ""}
           </p>
         </div>
 
-        <form onSubmit={applySearch} className="flex w-full gap-2 sm:w-auto sm:min-w-80">
+        <form
+          onSubmit={applySearch}
+          className="flex w-full gap-2 sm:w-auto sm:min-w-80"
+        >
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -138,9 +208,8 @@ export default function Shop() {
         </form>
       </div>
 
-      {/* Category chips */}
       {parents.length > 0 && (
-        <div className="mb-6 flex flex-wrap items-center gap-2">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
           <Button
             type="button"
             size="sm"
@@ -162,11 +231,12 @@ export default function Shop() {
               onClick={() => selectCategory(String(cat._id))}
               className="gap-1.5"
             >
-              <CategoryIcon category={cat} size="sm" className="h-5! w-5!" />
+              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full">
+                <CategoryIcon category={cat} size="sm" />
+              </span>
               {cat.name}
             </Button>
           ))}
-          {/* Subcategories of selected parent */}
           {categoryId &&
             categories
               .filter((c) => String(getParentId(c)) === String(categoryId))
@@ -176,30 +246,194 @@ export default function Shop() {
                   type="button"
                   size="sm"
                   variant={
-                    String(categoryId) === String(sub._id) ? "default" : "secondary"
+                    String(categoryId) === String(sub._id)
+                      ? "default"
+                      : "secondary"
                   }
                   onClick={() => selectCategory(String(sub._id))}
                 >
                   {sub.name}
                 </Button>
               ))}
-          {(categoryId || qParam) && (
+        </div>
+      )}
+
+      <div className="mb-6 rounded-xl border bg-card p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={filtersOpen ? "default" : "outline"}
+            onClick={() => setFiltersOpen((o) => !o)}
+            className="gap-1.5"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            Filters
+            {activeFilterCount > 0 && (
+              <Badge variant="secondary" className="ml-0.5 h-5 min-w-5 px-1.5">
+                {activeFilterCount}
+              </Badge>
+            )}
+          </Button>
+
+          <div className="flex items-center gap-1.5">
+            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+            <Select
+              value={sortParam}
+              onValueChange={(value) =>
+                updateParams({ sort: value === "newest" ? "" : value })
+              }
+            >
+              <SelectTrigger className="h-8 w-[150px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest</SelectItem>
+                <SelectItem value="price_asc">Price: Low → High</SelectItem>
+                <SelectItem value="price_desc">Price: High → Low</SelectItem>
+                <SelectItem value="oldest">Oldest</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button
+            type="button"
+            size="sm"
+            variant={onSaleParam ? "default" : "outline"}
+            onClick={() => updateParams({ onSale: !onSaleParam })}
+          >
+            On sale
+          </Button>
+
+          {(categoryId || qParam || activeFilterCount > 0) && (
             <Button
               type="button"
               size="sm"
               variant="ghost"
-              onClick={() => {
-                setSearchParams({});
-                setSearch("");
-              }}
+              onClick={clearAllFilters}
               className="gap-1 text-muted-foreground"
             >
               <X className="h-3.5 w-3.5" />
-              Clear filters
+              Clear all
             </Button>
           )}
         </div>
-      )}
+
+        {filtersOpen && (
+          <div className="mt-3 grid gap-3 border-t pt-3 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Min price (RS)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                placeholder="0"
+                value={minPrice}
+                onChange={(e) => setMinPrice(e.target.value)}
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Max price (RS)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                placeholder="Any"
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(e.target.value)}
+                className="h-9"
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <Button type="button" size="sm" onClick={applyPriceFilter}>
+                Apply price
+              </Button>
+              {(minPriceParam || maxPriceParam) && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setMinPrice("");
+                    setMaxPrice("");
+                    updateParams({ minPrice: "", maxPrice: "" });
+                  }}
+                >
+                  Reset
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {(minPriceParam ||
+          maxPriceParam ||
+          onSaleParam ||
+          sortParam !== "newest") && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {sortParam !== "newest" && (
+              <Badge variant="secondary" className="gap-1">
+                Sort:{" "}
+                {sortParam === "price_asc"
+                  ? "Price ↑"
+                  : sortParam === "price_desc"
+                    ? "Price ↓"
+                    : sortParam}
+                <button
+                  type="button"
+                  onClick={() => updateParams({ sort: "" })}
+                  aria-label="Clear sort"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {minPriceParam && (
+              <Badge variant="secondary" className="gap-1">
+                Min RS {minPriceParam}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMinPrice("");
+                    updateParams({ minPrice: "" });
+                  }}
+                  aria-label="Clear min price"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {maxPriceParam && (
+              <Badge variant="secondary" className="gap-1">
+                Max RS {maxPriceParam}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMaxPrice("");
+                    updateParams({ maxPrice: "" });
+                  }}
+                  aria-label="Clear max price"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {onSaleParam && (
+              <Badge variant="secondary" className="gap-1">
+                On sale
+                <button
+                  type="button"
+                  onClick={() => updateParams({ onSale: false })}
+                  aria-label="Clear on sale"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+          </div>
+        )}
+      </div>
 
       {selectedCategory && (
         <div className="mb-4">
@@ -227,12 +461,12 @@ export default function Shop() {
         <div className="flex min-h-50 items-center justify-center text-muted-foreground">
           Loading products...
         </div>
-      ) : products.length === 0 ? (
+      ) : displayedProducts.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border py-16 text-center">
           <Package className="h-10 w-10 text-muted-foreground" />
           <p className="mt-3 font-medium">No products found</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Try another category or search term.
+            Try another category, search, or filter.
           </p>
           <Button asChild className="mt-4" variant="outline">
             <Link to="/products">View all products</Link>
@@ -240,7 +474,7 @@ export default function Shop() {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {products.map((product) => {
+          {displayedProducts.map((product) => {
             const image = getImage(product);
             return (
               <Link

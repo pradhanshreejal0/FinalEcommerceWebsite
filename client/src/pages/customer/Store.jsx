@@ -61,7 +61,7 @@ export default function Store() {
             className="h-40 w-full object-cover sm:h-52"
           />
         ) : (
-          <div className="h-32 bg-gradient-to-r from-primary/20 to-primary/5 sm:h-40" />
+          <div className="h-32 bg-linear-to-r from-primary/20 to-primary/5 sm:h-40" />
         )}
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-end sm:p-6">
           <div className="-mt-12 flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-background bg-muted shadow-md sm:-mt-14 sm:h-24 sm:w-24">

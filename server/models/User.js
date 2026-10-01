@@ -18,7 +18,10 @@ const userSchema = new mongoose.Schema(
       default: "customer",
     },
     isBanned: { type: Boolean, default: false },
-        refreshToken: { type: String },
+    // Incremented whenever a new login/logout/password reset invalidates
+    // previously issued access tokens.
+    sessionVersion: { type: Number, default: 0 },
+    refreshToken: { type: String, select: false },
         resetPasswordToken: { type: String },
         resetPasswordExpires: { type: Date },
   },

@@ -85,6 +85,9 @@ const vendorSchema = new mongoose.Schema(
       enum: ["pending", "approved", "rejected"],
       default: "pending",
     },
+
+    // Short-lived application lock used to serialize payout creation.
+    payoutLockUntil: { type: Date, default: null },
   },
   {
     timestamps: true,

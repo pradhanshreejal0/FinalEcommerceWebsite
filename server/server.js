@@ -1,6 +1,7 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 
 import {
   loginLimiter,
@@ -39,11 +40,40 @@ const app = express();
 // either apply to everyone at once or don't work at all.
 app.set("trust proxy", 1);
 
+// Basic security headers without adding another runtime dependency.
+app.disable("x-powered-by");
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)");
+  if (req.secure || req.headers["x-forwarded-proto"] === "https") {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  next();
+});
+
 // =====================================================
 // DATABASE
 // =====================================================
 
-connectDB();
+connectDB().then(() => {
+  app.locals.dbReady = true;
+}).catch(() => {
+  app.locals.dbReady = false;
+});
+
+// =====================================================
+// HEALTH / READINESS
+// =====================================================
+
+app.get("/health", (req, res) => {
+  const state = req.app.locals.dbReady ? "ok" : "starting";
+  res.status(state === "ok" ? 200 : 503).json({
+    status: state,
+    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+  });
+});
 
 // =====================================================
 // CORS
@@ -148,11 +178,8 @@ app.use((req, res, next) => {
 // MIDDLEWARE
 // =====================================================
 
-app.use(
-  express.json({
-    limit: "2mb",
-  })
-);
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: false, limit: "100kb" }));
 
 app.use(cookieParser());
 
@@ -296,12 +323,12 @@ app.use(
       err
     );
 
-    res.status(
-      err.status || 500
-    ).json({
-      message:
-        err.message ||
-        "Something went wrong",
+    const status = Number(err.status || err.statusCode) || 500;
+    const safeStatus = status >= 400 && status < 600 ? status : 500;
+    res.status(safeStatus).json({
+      message: safeStatus >= 500 && process.env.NODE_ENV === "production"
+        ? "Internal server error"
+        : err.message || "Something went wrong",
     });
   }
 );

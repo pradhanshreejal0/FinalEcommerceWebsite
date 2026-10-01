@@ -34,9 +34,15 @@ const returnRequestSchema = new mongoose.Schema(
       default: "pending",
     },
     adminNote: { type: String, default: "" },
-    refundAmount: { type: Number, default: 0 },
+    refundAmount: { type: Number, default: 0, min: 0 },
+    stockRestored: { type: Boolean, default: false },
+    refundedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
+
+returnRequestSchema.index({ order: 1, orderItemId: 1 }, { unique: true });
+returnRequestSchema.index({ user: 1, createdAt: -1 });
+returnRequestSchema.index({ vendor: 1, status: 1, createdAt: -1 });
 
 export default mongoose.model("ReturnRequest", returnRequestSchema);

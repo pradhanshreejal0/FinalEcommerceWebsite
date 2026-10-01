@@ -13,6 +13,15 @@ export const protect = async (req, res, next) => {
     req.user = await User.findById(decoded.id).select("-password");
     if (!req.user) return res.status(401).json({ message: "User not found" });
 
+    if (
+      Number(decoded.sessionVersion ?? 0) !==
+      Number(req.user.sessionVersion ?? 0)
+    ) {
+      return res.status(401).json({
+        message: "Session expired. Please log in again.",
+      });
+    }
+
     // Without this check, a user banned mid-session could keep using their
     // existing access token until it naturally expires (up to 15 minutes).
     if (req.user.isBanned) {
