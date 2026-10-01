@@ -503,6 +503,12 @@ export default function Orders() {
                                   "Product"}
                               </h3>
 
+                              {(item.variantLabel || item.variantKey) && (
+                                <p className="mt-0.5 text-sm text-muted-foreground">
+                                  {item.variantLabel || item.variantKey}
+                                </p>
+                              )}
+
                               {item.vendor?.storeName && (
                                 <p className="mt-1 text-sm text-muted-foreground">
                                   Sold by{" "}

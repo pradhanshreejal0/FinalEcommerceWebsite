@@ -583,7 +583,8 @@ export default function ProductDetails() {
                       }
                     }
 
-                    const valuesFor = (name) => {
+                    // All unique values for an attribute (for initial display)
+                    const allValuesFor = (name) => {
                       const set = new Set();
                       for (const v of product.variants) {
                         for (const a of v.attributes || []) {
@@ -593,40 +594,40 @@ export default function ProductDetails() {
                       return [...set];
                     };
 
-                    // Variant that matches selectedMap + optional override
-                    const findMatch = (overrides = {}) => {
-                      const want = { ...selectedMap, ...overrides };
-                      return product.variants.find((v) => {
+                    // Values that are still possible given *other* selected attributes
+                    // (cascading: pick Color → only show Sizes that exist for that Color)
+                    const valuesFor = (name) => {
+                      const set = new Set();
+                      for (const v of product.variants) {
+                        if (Number(v.stock) < 1) continue;
                         const attrs = v.attributes || [];
-                        return attrNames.every((n) => {
-                          if (want[n] == null || want[n] === "") return true;
-                          return attrs.some(
-                            (a) => a.name === n && a.value === want[n]
-                          );
-                        });
-                      });
-                    };
-
-                    const pick = (name, value) => {
-                      const next = { ...selectedMap, [name]: value };
-                      // Prefer exact match with all attrs; else match this attr only
-                      let match = product.variants.find((v) => {
-                        const attrs = v.attributes || [];
-                        return attrNames.every((n) => {
-                          if (next[n] == null) return true;
-                          return attrs.some(
-                            (a) => a.name === n && a.value === next[n]
-                          );
-                        });
-                      });
-                      if (!match) {
-                        match = product.variants.find((v) =>
-                          (v.attributes || []).some(
-                            (a) => a.name === name && a.value === value
-                          )
+                        const hasValue = attrs.some(
+                          (a) => a.name === name && a.value
                         );
+                        if (!hasValue) continue;
+                        // Must be compatible with every *other* selected attr
+                        const compatible = attrNames.every((n) => {
+                          if (n === name) return true;
+                          if (selectedMap[n] == null) return true;
+                          return attrs.some(
+                            (a) => a.name === n && a.value === selectedMap[n]
+                          );
+                        });
+                        if (compatible) {
+                          for (const a of attrs) {
+                            if (a.name === name && a.value) set.add(a.value);
+                          }
+                        }
                       }
-                      if (match) setSelectedVariantKey(match.key);
+                      // Always include currently selected value even if out of stock
+                      // so user can see/deselect it
+                      if (selectedMap[name]) set.add(selectedMap[name]);
+                      // If nothing selected yet for this attr, fall back to all values
+                      // that have any stock (or all if empty)
+                      if (set.size === 0) {
+                        return allValuesFor(name);
+                      }
+                      return [...set];
                     };
 
                     const isValueAvailable = (name, value) => {
@@ -637,7 +638,6 @@ export default function ProductDetails() {
                           !attrs.some((a) => a.name === name && a.value === value)
                         )
                           return false;
-                        // compatible with other selected attrs
                         return attrNames.every((n) => {
                           if (n === name) return true;
                           if (selectedMap[n] == null) return true;
@@ -646,6 +646,68 @@ export default function ProductDetails() {
                           );
                         });
                       });
+                    };
+
+                    // Find best matching variant for a desired selection map
+                    const findBestMatch = (want) => {
+                      // Prefer exact match with stock
+                      let match = product.variants.find((v) => {
+                        if (Number(v.stock) < 1) return false;
+                        const attrs = v.attributes || [];
+                        return Object.entries(want).every(([n, val]) =>
+                          attrs.some((a) => a.name === n && a.value === val)
+                        );
+                      });
+                      if (match) return match;
+                      // Any stock match
+                      match = product.variants.find((v) => {
+                        const attrs = v.attributes || [];
+                        return Object.entries(want).every(([n, val]) =>
+                          attrs.some((a) => a.name === n && a.value === val)
+                        );
+                      });
+                      return match || null;
+                    };
+
+                    const pick = (name, value) => {
+                      // Toggle / deselect if clicking the already-selected value
+                      if (selectedMap[name] === value) {
+                        const remaining = { ...selectedMap };
+                        delete remaining[name];
+                        if (Object.keys(remaining).length === 0) {
+                          setSelectedVariantKey("");
+                          return;
+                        }
+                        const match = findBestMatch(remaining);
+                        setSelectedVariantKey(match ? match.key : "");
+                        return;
+                      }
+
+                      // Build next selection: keep only attrs still compatible with the new value
+                      const next = { [name]: value };
+                      for (const n of attrNames) {
+                        if (n === name) continue;
+                        if (selectedMap[n] == null) continue;
+                        // Keep other attr only if some in-stock variant has both
+                        const stillOk = product.variants.some((v) => {
+                          if (Number(v.stock) < 1) return false;
+                          const attrs = v.attributes || [];
+                          return (
+                            attrs.some((a) => a.name === name && a.value === value) &&
+                            attrs.some((a) => a.name === n && a.value === selectedMap[n])
+                          );
+                        });
+                        if (stillOk) next[n] = selectedMap[n];
+                      }
+
+                      const match = findBestMatch(next);
+                      if (match) {
+                        setSelectedVariantKey(match.key);
+                      } else {
+                        // Fallback: select any variant with this single attr
+                        const fallback = findBestMatch({ [name]: value });
+                        setSelectedVariantKey(fallback ? fallback.key : "");
+                      }
                     };
 
                     return attrNames.map((name) => {
@@ -659,8 +721,19 @@ export default function ProductDetails() {
                             {selectedMap[name] ? (
                               <span className="ml-2 font-normal text-muted-foreground">
                                 {selectedMap[name]}
+                                <button
+                                  type="button"
+                                  className="ml-1 text-xs text-muted-foreground underline hover:text-foreground"
+                                  onClick={() => pick(name, selectedMap[name])}
+                                >
+                                  clear
+                                </button>
                               </span>
-                            ) : null}
+                            ) : (
+                              <span className="ml-2 font-normal text-muted-foreground">
+                                (optional)
+                              </span>
+                            )}
                           </p>
                           <div className="flex flex-wrap gap-2">
                             {values.map((value) => {
@@ -674,7 +747,7 @@ export default function ProductDetails() {
                                     key={value}
                                     type="button"
                                     title={value}
-                                    disabled={!available}
+                                    disabled={!available && !selected}
                                     onClick={() => pick(name, value)}
                                     className={cn(
                                       "relative h-9 w-9 shrink-0 rounded-full border-2 transition",
@@ -682,6 +755,7 @@ export default function ProductDetails() {
                                         ? "border-primary ring-2 ring-primary/30 scale-105"
                                         : "border-border hover:border-primary/50",
                                       !available &&
+                                        !selected &&
                                         "opacity-40 cursor-not-allowed"
                                     )}
                                     style={{
@@ -697,7 +771,8 @@ export default function ProductDetails() {
                                           "absolute inset-0 flex items-center justify-center text-xs font-bold",
                                           hex === "#f5f5f5" ||
                                             hex === "#fffdd0" ||
-                                            hex === "#d6c6a8"
+                                            hex === "#d6c6a8" ||
+                                            hex === "#eab308"
                                             ? "text-neutral-800"
                                             : "text-white"
                                         )}
@@ -714,7 +789,7 @@ export default function ProductDetails() {
                                 <button
                                   key={value}
                                   type="button"
-                                  disabled={!available}
+                                  disabled={!available && !selected}
                                   onClick={() => pick(name, value)}
                                   className={cn(
                                     "min-w-11 rounded-lg border px-3 py-2 text-sm font-medium transition",
@@ -722,6 +797,7 @@ export default function ProductDetails() {
                                       ? "border-primary bg-primary text-primary-foreground shadow-sm"
                                       : "border-border bg-background hover:border-primary/50",
                                     !available &&
+                                      !selected &&
                                       "opacity-40 cursor-not-allowed line-through"
                                   )}
                                 >

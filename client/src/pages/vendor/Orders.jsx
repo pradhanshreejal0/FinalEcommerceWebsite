@@ -188,6 +188,11 @@ export default function VendorOrders() {
                       )}
                       <span>
                         {item.title} × {item.quantity}
+                        {(item.variantLabel || item.variantKey) && (
+                          <span className="block text-xs text-muted-foreground">
+                            {item.variantLabel || item.variantKey}
+                          </span>
+                        )}
                       </span>
                     </div>
                     <span className="font-medium">

@@ -85,6 +85,11 @@ export default function AdminOrders() {
                         <span>
                           {item.title} × {item.quantity}
                         </span>
+                        {(item.variantLabel || item.variantKey) && (
+                          <p className="text-xs text-muted-foreground">
+                            {item.variantLabel || item.variantKey}
+                          </p>
+                        )}
                         {item.vendor?.storeName && (
                           <p className="text-xs text-muted-foreground">
                             {item.vendor.storeName}
