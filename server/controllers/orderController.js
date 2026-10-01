@@ -7,34 +7,120 @@ import Coupon from "../models/Coupon.js";
 import User from "../models/User.js";
 import { notifyEmail, orderSummaryHtml } from "../utils/notify.js";
 
-/** Decrement stock atomically; throws if any product lacks stock. */
+/**
+ * Decrement product + variant stock atomically.
+ * items: [{ product, quantity, title?, variantKey? }]
+ * Throws with statusCode 400 if any line lacks stock.
+ * On partial failure, rolls back already-reserved lines.
+ */
 async function reserveStock(items) {
-  for (const { product, quantity, title } of items) {
-    const updated = await Product.findOneAndUpdate(
-      { _id: product._id || product, stock: { $gte: quantity } },
-      { $inc: { stock: -quantity } },
-      { new: true }
-    );
-    if (!updated) {
-      const error = new Error(
-        `Insufficient stock for "${title || product.title || "product"}"`
-      );
-      error.statusCode = 400;
-      throw error;
+  const reserved = [];
+  try {
+    for (const { product, quantity, title, variantKey } of items) {
+      const productId = product._id || product;
+      const qty = Number(quantity) || 0;
+      if (qty <= 0) continue;
+
+      const key = String(variantKey || "").trim();
+      let updated;
+
+      if (key) {
+        // Variant product: decrement both total stock and the matching variant
+        updated = await Product.findOneAndUpdate(
+          {
+            _id: productId,
+            stock: { $gte: qty },
+            variants: {
+              $elemMatch: { key, stock: { $gte: qty } },
+            },
+          },
+          {
+            $inc: {
+              stock: -qty,
+              "variants.$[v].stock": -qty,
+            },
+          },
+          {
+            arrayFilters: [{ "v.key": key }],
+            new: true,
+          }
+        );
+      } else {
+        updated = await Product.findOneAndUpdate(
+          { _id: productId, stock: { $gte: qty } },
+          { $inc: { stock: -qty } },
+          { new: true }
+        );
+      }
+
+      if (!updated) {
+        const error = new Error(
+          `Insufficient stock for "${title || product.title || "product"}"${
+            key ? ` (${key})` : ""
+          }`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+      reserved.push({ productId, quantity: qty, variantKey: key });
     }
+  } catch (err) {
+    // Best-effort rollback of already-reserved lines
+    for (const r of reserved.reverse()) {
+      try {
+        if (r.variantKey) {
+          await Product.findOneAndUpdate(
+            { _id: r.productId, "variants.key": r.variantKey },
+            {
+              $inc: {
+                stock: r.quantity,
+                "variants.$[v].stock": r.quantity,
+              },
+            },
+            { arrayFilters: [{ "v.key": r.variantKey }] }
+          );
+        } else {
+          await Product.findByIdAndUpdate(r.productId, {
+            $inc: { stock: r.quantity },
+          });
+        }
+      } catch (_) {
+        /* ignore rollback errors */
+      }
+    }
+    throw err;
   }
+  return reserved;
 }
 
-/** Restore stock for cancelled line items that have not been restored yet. */
+/**
+ * Restore product + variant stock for cancelled line items
+ * that have not been restored yet. Sets item.stockRestored = true.
+ */
 async function restoreStockForItems(orderItems) {
   for (const item of orderItems) {
     if (item.stockRestored) continue;
     if (item.status !== "cancelled") continue;
     const qty = Number(item.quantity) || 0;
     if (qty <= 0 || !item.product) continue;
-    await Product.findByIdAndUpdate(item.product, {
-      $inc: { stock: qty },
-    });
+
+    const key = String(item.variantKey || "").trim();
+    if (key) {
+      await Product.findOneAndUpdate(
+        { _id: item.product, "variants.key": key },
+        {
+          $inc: {
+            stock: qty,
+            "variants.$[v].stock": qty,
+          },
+        },
+        { arrayFilters: [{ "v.key": key }] }
+      );
+    } else {
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: { stock: qty },
+      });
+    }
     item.stockRestored = true;
   }
 }
@@ -539,7 +625,7 @@ export const createOrder = async (req, res) => {
     ) / 100;
 
     // Reserve inventory before creating the order
-    await reserveStock(
+    const reservedLines = await reserveStock(
       items.map(({ product, quantity, variantKey }) => ({
         product,
         quantity,
@@ -548,45 +634,115 @@ export const createOrder = async (req, res) => {
       }))
     );
 
-    const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
-    const order = await Order.create({
-      user: req.user._id,
-      orderNumber,
-      items: orderItems,
-      shippingAddress: {
-        fullName: shippingAddress.fullName.trim(),
-        phone: shippingAddress.phone.trim(),
-        address: shippingAddress.address.trim(),
-        city: shippingAddress.city.trim(),
-        postalCode: String(shippingAddress.postalCode || "").trim(),
-        country: shippingAddress.country.trim(),
-        latitude: customerLatitude,
-        longitude: customerLongitude,
-      },
-      subtotal: pricing.subtotal,
-      deliveryFee: pricing.deliveryFee,
-      discountAmount,
-      totalAmount,
-      delivery: pricing.delivery,
-      commissionPercentage,
-      platformCommission,
-      vendorEarnings,
-      couponCode: appliedCoupon ? appliedCoupon.code : "",
-      coupon: appliedCoupon ? appliedCoupon._id : null,
-      paymentMethod,
-      paymentStatus: paymentMethod === "cod" ? "pending" : "pending",
-      status: "pending",
-      stockReserved: true,
-    });
-
+    // Atomically consume coupon usage limit (prevents concurrent over-use)
     if (appliedCoupon) {
-      appliedCoupon.usedCount = (appliedCoupon.usedCount || 0) + 1;
-      await appliedCoupon.save();
+      const couponFilter = {
+        _id: appliedCoupon._id,
+        isActive: true,
+      };
+      if (appliedCoupon.usageLimit != null) {
+        couponFilter.usedCount = { $lt: appliedCoupon.usageLimit };
+      }
+      const couponUpdated = await Coupon.findOneAndUpdate(
+        couponFilter,
+        { $inc: { usedCount: 1 } },
+        { new: true }
+      );
+      if (!couponUpdated) {
+        // Roll back stock and reject
+        for (const r of reservedLines.reverse()) {
+          try {
+            if (r.variantKey) {
+              await Product.findOneAndUpdate(
+                { _id: r.productId, "variants.key": r.variantKey },
+                {
+                  $inc: {
+                    stock: r.quantity,
+                    "variants.$[v].stock": r.quantity,
+                  },
+                },
+                { arrayFilters: [{ "v.key": r.variantKey }] }
+              );
+            } else {
+              await Product.findByIdAndUpdate(r.productId, {
+                $inc: { stock: r.quantity },
+              });
+            }
+          } catch (_) {}
+        }
+        return res.status(400).json({
+          message: "Coupon usage limit reached",
+        });
+      }
     }
 
-    cart.items = [];
-    await cart.save();
+    let order;
+    try {
+      const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+      order = await Order.create({
+        user: req.user._id,
+        orderNumber,
+        items: orderItems,
+        shippingAddress: {
+          fullName: shippingAddress.fullName.trim(),
+          phone: shippingAddress.phone.trim(),
+          address: shippingAddress.address.trim(),
+          city: shippingAddress.city.trim(),
+          postalCode: String(shippingAddress.postalCode || "").trim(),
+          country: shippingAddress.country.trim(),
+          latitude: customerLatitude,
+          longitude: customerLongitude,
+        },
+        subtotal: pricing.subtotal,
+        deliveryFee: pricing.deliveryFee,
+        discountAmount,
+        totalAmount,
+        delivery: pricing.delivery,
+        commissionPercentage,
+        platformCommission,
+        vendorEarnings,
+        couponCode: appliedCoupon ? appliedCoupon.code : "",
+        coupon: appliedCoupon ? appliedCoupon._id : null,
+        paymentMethod,
+        paymentStatus: paymentMethod === "cod" ? "pending" : "pending",
+        status: "pending",
+        stockReserved: true,
+      });
+
+      cart.items = [];
+      await cart.save();
+    } catch (createErr) {
+      // Roll back stock (and coupon usage) if order/cart write fails
+      for (const r of reservedLines.reverse()) {
+        try {
+          if (r.variantKey) {
+            await Product.findOneAndUpdate(
+              { _id: r.productId, "variants.key": r.variantKey },
+              {
+                $inc: {
+                  stock: r.quantity,
+                  "variants.$[v].stock": r.quantity,
+                },
+              },
+              { arrayFilters: [{ "v.key": r.variantKey }] }
+            );
+          } else {
+            await Product.findByIdAndUpdate(r.productId, {
+              $inc: { stock: r.quantity },
+            });
+          }
+        } catch (_) {}
+      }
+      if (appliedCoupon) {
+        try {
+          await Coupon.findByIdAndUpdate(appliedCoupon._id, {
+            $inc: { usedCount: -1 },
+          });
+        } catch (_) {}
+      }
+      throw createErr;
+    }
 
     const populated = await populateOrder(Order.findById(order._id));
 

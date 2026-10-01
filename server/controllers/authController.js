@@ -12,6 +12,11 @@ import {
   generateRefreshToken,
 } from "../utils/generateTokens.js";
 
+/** Store only a hash of the refresh token so DB leaks cannot reuse it. */
+function hashRefreshToken(token) {
+  return crypto.createHash("sha256").update(String(token)).digest("hex");
+}
+
 // Cross-site (Vercel frontend → Render backend) needs SameSite=None + Secure.
 // Local (localhost → localhost) uses Lax so cookies work on HTTP.
 const clientUrl = String(process.env.CLIENT_URL || "")
@@ -151,7 +156,7 @@ export const register = async (req, res) => {
 
     const accessToken = generateAccessToken(user._id, user.role);
     const refreshToken = generateRefreshToken(user._id);
-    user.refreshToken = refreshToken;
+    user.refreshToken = hashRefreshToken(refreshToken);
     await user.save();
 
     res.cookie("refreshToken", refreshToken, cookieOptions);
@@ -190,7 +195,7 @@ export const login = async (req, res) => {
 
     const accessToken = generateAccessToken(user._id, user.role);
     const refreshToken = generateRefreshToken(user._id);
-    user.refreshToken = refreshToken;
+    user.refreshToken = hashRefreshToken(refreshToken);
     await user.save();
 
     res.cookie("refreshToken", refreshToken, cookieOptions);
@@ -216,15 +221,22 @@ export const refresh = async (req, res) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
-    const user = await User.findById(decoded.id);
+    // refreshToken is select:false — explicitly request it
+    const user = await User.findById(decoded.id).select("+refreshToken");
 
-    if (!user || user.refreshToken !== token) {
+    if (!user || user.refreshToken !== hashRefreshToken(token)) {
       return res.status(401).json({ message: "Invalid refresh token" });
     }
 
     if (user.isBanned) {
       return res.status(403).json({ message: "Account has been banned" });
     }
+
+    // Rotate refresh token on every use
+    const newRefreshToken = generateRefreshToken(user._id);
+    user.refreshToken = hashRefreshToken(newRefreshToken);
+    await user.save();
+    res.cookie("refreshToken", newRefreshToken, cookieOptions);
 
     const accessToken = generateAccessToken(user._id, user.role);
 

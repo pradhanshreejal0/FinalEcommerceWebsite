@@ -118,20 +118,52 @@ export const updateReturnStatus = async (req, res) => {
       return res.status(404).json({ message: "Return request not found" });
     }
 
+    // Once terminal, block further transitions
+    const terminal = ["rejected", "refunded", "cancelled"];
+    if (terminal.includes(request.status) && request.status !== status) {
+      return res.status(400).json({
+        message: `Return is already "${request.status}" and cannot be changed to "${status}"`,
+      });
+    }
+
     request.status = status;
     if (adminNote != null) request.adminNote = adminNote;
 
-    // Restock when approved/refunded
+    // Restock exactly once when the return is accepted (approved).
+    // "refunded" does not re-restock — prevents double inventory inflation.
+    // NOTE: actual payment-provider refund remains a manual/admin action;
+    // this only marks state and restores inventory.
     if (
-      (status === "approved" || status === "refunded") &&
-      request.product
+      status === "approved" &&
+      request.product &&
+      !request.stockRestored
     ) {
       const order = await Order.findById(request.order);
       const item = order?.items?.id(request.orderItemId);
       const qty = item?.quantity || 1;
-      await Product.findByIdAndUpdate(request.product, {
-        $inc: { stock: qty },
-      });
+      const key = String(item?.variantKey || "").trim();
+
+      if (key) {
+        await Product.findOneAndUpdate(
+          { _id: request.product, "variants.key": key },
+          {
+            $inc: {
+              stock: qty,
+              "variants.$[v].stock": qty,
+            },
+          },
+          { arrayFilters: [{ "v.key": key }] }
+        );
+      } else {
+        await Product.findByIdAndUpdate(request.product, {
+          $inc: { stock: qty },
+        });
+      }
+      request.stockRestored = true;
+    }
+
+    if (status === "refunded" && !request.refundedAt) {
+      request.refundedAt = new Date();
     }
 
     await request.save();

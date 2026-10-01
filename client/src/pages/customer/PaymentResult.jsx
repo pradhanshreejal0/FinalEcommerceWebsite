@@ -30,9 +30,13 @@ export default function PaymentResult() {
     searchParams.get("paymentMethod") ||
     "";
 
-  const isSuccess = result === "success";
+  const isSuccessRoute = result === "success";
 
-  const [verifying, setVerifying] = useState(isSuccess && !!orderId);
+  const [verifying, setVerifying] = useState(isSuccessRoute && !!orderId);
+  const [verifyStatus, setVerifyStatus] = useState(
+    // "pending" | "verified" | "failed" | "skipped"
+    isSuccessRoute && orderId ? "pending" : "skipped"
+  );
   const [verifyMsg, setVerifyMsg] = useState("");
 
   // Collect gateway callback params for server verification
@@ -45,7 +49,7 @@ export default function PaymentResult() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (!isSuccess || !orderId || !accessToken) {
+    if (!isSuccessRoute || !orderId || !accessToken) {
       setVerifying(false);
       return;
     }
@@ -63,13 +67,16 @@ export default function PaymentResult() {
             ...gatewayPayload,
           },
         });
-        if (!cancelled) setVerifyMsg("Payment verified successfully.");
-      } catch (err) {
-        // Soft-fail: order page still shows server paymentStatus
         if (!cancelled) {
+          setVerifyStatus("verified");
+          setVerifyMsg("Payment verified successfully.");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setVerifyStatus("failed");
           setVerifyMsg(
             err?.message ||
-              "We received your payment response. Status will update shortly."
+              "We could not confirm payment with the server. Check your order status — do not pay again."
           );
         }
       } finally {
@@ -80,7 +87,13 @@ export default function PaymentResult() {
     return () => {
       cancelled = true;
     };
-  }, [isSuccess, orderId, accessToken, method, gatewayPayload]);
+  }, [isSuccessRoute, orderId, accessToken, method, gatewayPayload]);
+
+  const showSuccess =
+    isSuccessRoute &&
+    (verifyStatus === "verified" || verifyStatus === "skipped");
+  const showPendingFail =
+    isSuccessRoute && verifyStatus === "failed";
 
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center px-4 py-12 text-center">
@@ -92,7 +105,7 @@ export default function PaymentResult() {
             Please wait while we verify your transaction.
           </p>
         </>
-      ) : isSuccess ? (
+      ) : showSuccess ? (
         <>
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
             <CheckCircle2 className="h-9 w-9" />
@@ -104,6 +117,22 @@ export default function PaymentResult() {
             Thank you! Your online payment
             {method ? ` via ${getPaymentMethodLabel(method)}` : ""} was
             received.
+          </p>
+          {verifyMsg && (
+            <p className="mt-2 text-xs text-muted-foreground">{verifyMsg}</p>
+          )}
+        </>
+      ) : showPendingFail ? (
+        <>
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/15 text-amber-600">
+            <Loader2 className="h-9 w-9" />
+          </div>
+          <h1 className="mt-5 text-2xl font-bold tracking-tight">
+            Verification pending
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            We could not confirm the payment with the server yet. Please open
+            your order page to see the latest status — do not pay again.
           </p>
           {verifyMsg && (
             <p className="mt-2 text-xs text-muted-foreground">{verifyMsg}</p>
@@ -133,7 +162,7 @@ export default function PaymentResult() {
             </Link>
           </Button>
         )}
-        {!isSuccess && orderId && (
+        {!showSuccess && !verifying && orderId && (
           <Button asChild variant="outline" size="lg">
             <Link to={`/orders/${orderId}/pay`}>
               Try again
