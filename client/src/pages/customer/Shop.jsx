@@ -162,7 +162,7 @@ export default function Shop() {
               onClick={() => selectCategory(String(cat._id))}
               className="gap-1.5"
             >
-              <CategoryIcon category={cat} size="sm" className="!h-5 !w-5" />
+              <CategoryIcon category={cat} size="sm" className="h-5! w-5!" />
               {cat.name}
             </Button>
           ))}
