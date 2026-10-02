@@ -1,44 +1,34 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
+// protect: requires a valid "Authorization: Bearer <accessToken>" header and
+// puts the logged-in user on req.user.
 export const protect = async (req, res, next) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (!authHeader?.startsWith("Bearer ")) {
     return res.status(401).json({ message: "Not authorized, no token" });
   }
 
   try {
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(authHeader.split(" ")[1], process.env.JWT_SECRET);
     req.user = await User.findById(decoded.id).select("-password");
     if (!req.user) return res.status(401).json({ message: "User not found" });
 
-    if (
-      Number(decoded.sessionVersion ?? 0) !==
-      Number(req.user.sessionVersion ?? 0)
-    ) {
-      return res.status(401).json({
-        message: "Session expired. Please log in again.",
-      });
+    // sessionVersion changes on password reset, which kills older access tokens.
+    if (Number(decoded.sessionVersion ?? 0) !== Number(req.user.sessionVersion ?? 0)) {
+      return res.status(401).json({ message: "Session expired. Please log in again." });
     }
 
-    // Without this check, a user banned mid-session could keep using their
-    // existing access token until it naturally expires (up to 15 minutes).
-    if (req.user.isBanned) {
-      return res.status(403).json({ message: "Account has been banned" });
-    }
+    // A user banned mid-session is blocked right away, not after the token expires.
+    if (req.user.isBanned) return res.status(403).json({ message: "Account has been banned" });
 
     next();
-  } catch (error) {
-    return res.status(401).json({ message: "Not authorized, token invalid" });
+  } catch {
+    res.status(401).json({ message: "Not authorized, token invalid" });
   }
 };
 
-export const authorize = (...roles) => {
-  return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-    next();
-  };
-};
+// authorize("admin", "vendor"): allows only users whose role is in the list.
+// Always use it after protect.
+export const authorize = (...roles) => (req, res, next) =>
+  roles.includes(req.user.role) ? next() : res.status(403).json({ message: "Access denied" });

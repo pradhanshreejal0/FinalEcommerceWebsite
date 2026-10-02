@@ -6,6 +6,7 @@ import Settings from "../models/Settings.js";
 import Coupon from "../models/Coupon.js";
 import User from "../models/User.js";
 import { notifyEmail, orderSummaryHtml } from "../utils/notify.js";
+import { httpError } from "../utils/httpError.js";
 
 /**
  * Decrement product + variant stock atomically.
@@ -54,13 +55,9 @@ async function reserveStock(items) {
       }
 
       if (!updated) {
-        const error = new Error(
-          `Insufficient stock for "${title || product.title || "product"}"${
+        throw httpError(`Insufficient stock for "${title || product.title || "product"}"${
             key ? ` (${key})` : ""
-          }`
-        );
-        error.statusCode = 400;
-        throw error;
+          }`);
       }
       reserved.push({ productId, quantity: qty, variantKey: key });
     }
@@ -153,7 +150,7 @@ function computeCouponDiscount(coupon, subtotal) {
 // =====================================================
 
 const DELIVERY_RATES = {
-  upTo3Km: 50,
+  upTo3Km: 100,
   upTo7Km: 150,
   upTo12Km: 250,
   above12Km: 350,
@@ -288,9 +285,7 @@ const getValidatedCart = async (userId) => {
   const cart = await Cart.findOne({ user: userId }).populate("items.product");
 
   if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
-    const error = new Error("Cart is empty");
-    error.statusCode = 400;
-    throw error;
+    throw httpError("Cart is empty");
   }
 
   const validatedItems = [];
@@ -299,19 +294,11 @@ const getValidatedCart = async (userId) => {
     const product = item.product;
 
     if (!product || !product.isPublished) {
-      const error = new Error(
-        `Product unavailable: ${product?.title || "Unknown"}`
-      );
-      error.statusCode = 400;
-      throw error;
+      throw httpError(`Product unavailable: ${product?.title || "Unknown"}`);
     }
 
     if (!product.vendor) {
-      const error = new Error(
-        `Product has no valid vendor: ${product.title}`
-      );
-      error.statusCode = 400;
-      throw error;
+      throw httpError(`Product has no valid vendor: ${product.title}`);
     }
 
     const vendor = await Vendor.findOne({
@@ -320,11 +307,7 @@ const getValidatedCart = async (userId) => {
     });
 
     if (!vendor) {
-      const error = new Error(
-        `Vendor is not currently approved for product: ${product.title}`
-      );
-      error.statusCode = 400;
-      throw error;
+      throw httpError(`Vendor is not currently approved for product: ${product.title}`);
     }
 
     if (
@@ -334,11 +317,7 @@ const getValidatedCart = async (userId) => {
         vendor.location.longitude
       )
     ) {
-      const error = new Error(
-        `Vendor location is not configured: ${vendor.storeName}`
-      );
-      error.statusCode = 400;
-      throw error;
+      throw httpError(`Vendor location is not configured: ${vendor.storeName}`);
     }
 
     const quantity = Number(item.quantity);
@@ -348,11 +327,7 @@ const getValidatedCart = async (userId) => {
       quantity <= 0 ||
       !Number.isInteger(quantity)
     ) {
-      const error = new Error(
-        `Invalid quantity for product: ${product.title}`
-      );
-      error.statusCode = 400;
-      throw error;
+      throw httpError(`Invalid quantity for product: ${product.title}`);
     }
 
     const variantKey = String(item.variantKey || "").trim();
@@ -362,19 +337,11 @@ const getValidatedCart = async (userId) => {
 
     if (product.hasVariants && Array.isArray(product.variants) && product.variants.length > 0) {
       if (!variantKey) {
-        const error = new Error(
-          `Please select an option for "${product.title}"`
-        );
-        error.statusCode = 400;
-        throw error;
+        throw httpError(`Please select an option for "${product.title}"`);
       }
       const match = product.variants.find((v) => v.key === variantKey);
       if (!match) {
-        const error = new Error(
-          `Selected option is unavailable for "${product.title}"`
-        );
-        error.statusCode = 400;
-        throw error;
+        throw httpError(`Selected option is unavailable for "${product.title}"`);
       }
       availableStock = Number(match.stock);
       basePrice = Number(match.price);
@@ -382,17 +349,11 @@ const getValidatedCart = async (userId) => {
     }
 
     if (availableStock < quantity) {
-      const error = new Error(
-        `Insufficient stock for "${product.title}"${variantLabel ? ` (${variantLabel})` : ""} (available: ${availableStock})`
-      );
-      error.statusCode = 400;
-      throw error;
+      throw httpError(`Insufficient stock for "${product.title}"${variantLabel ? ` (${variantLabel})` : ""} (available: ${availableStock})`);
     }
 
     if (!Number.isFinite(basePrice) || basePrice < 0) {
-      const error = new Error(`Invalid price for product: ${product.title}`);
-      error.statusCode = 400;
-      throw error;
+      throw httpError(`Invalid price for product: ${product.title}`);
     }
 
     let discount = Number(product.discountPercentage || 0);

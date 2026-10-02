@@ -1,15 +1,10 @@
 import jwt from "jsonwebtoken";
 
-export const generateAccessToken = (userId, role, sessionVersion = 0) => {
-  return jwt.sign(
-    { id: userId, role, sessionVersion },
-    process.env.JWT_SECRET,
-    { expiresIn: "15m" }
-  );
-};
+// Short-lived token (15 min) sent with every API request.
+// sessionVersion lets the server invalidate old tokens (see authMiddleware).
+export const generateAccessToken = (userId, role, sessionVersion = 0) =>
+  jwt.sign({ id: userId, role, sessionVersion }, process.env.JWT_SECRET, { expiresIn: "15m" });
 
-export const generateRefreshToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_REFRESH_SECRET, {
-    expiresIn: "7d",
-  });
-};
+// Long-lived token (7 days) stored in an httpOnly cookie, used only to get new access tokens.
+export const generateRefreshToken = (userId) =>
+  jwt.sign({ id: userId }, process.env.JWT_REFRESH_SECRET, { expiresIn: "7d" });

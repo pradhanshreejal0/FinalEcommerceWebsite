@@ -47,10 +47,11 @@ import ForgotPassword from "@/pages/auth/ForgotPassword";
 import ResetPassword from "@/pages/auth/ResetPassword";
 import Vendors from "@/pages/admin/Vendors";
 
+// All page routes, grouped by who may see them: public/customer, auth pages, vendor, admin.
 function App() {
   return (
     <Routes>
-      {/* Public / customer routes */}
+      {/* Public + customer pages (shared navbar/footer layout) */}
       <Route element={<CustomerLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/products/:id" element={<ProductDetails />} />
@@ -78,12 +79,13 @@ function App() {
         <Route path="/faq" element={<FAQ />} />
       </Route>
 
+      {/* Auth pages (no layout) */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-      {/* Vendor routes */}
+      {/* Vendor dashboard: vendors only */}
       <Route
         element={
           <ProtectedRoute allowedRoles={["vendor"]}>
@@ -98,7 +100,7 @@ function App() {
         <Route path="/vendor/profile" element={<VendorProfile />} />
       </Route>
 
-      {/* Admin routes */}
+      {/* Admin panel: admins only */}
       <Route
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
@@ -106,10 +108,9 @@ function App() {
           </ProtectedRoute>
         }
       >
-            {/* inside admin ProtectedRoute */}
-            <Route path="/admin/chats" element={<Chats />} />
-            <Route path="/admin/chats/:id" element={<ChatPage />} />
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/chats" element={<Chats />} />
+        <Route path="/admin/chats/:id" element={<ChatPage />} />
         <Route path="/admin/categories" element={<Categories />} />
         <Route path="/admin/vendors" element={<VendorApprovals />} />
         <Route path="/admin/ads" element={<Ads />} />

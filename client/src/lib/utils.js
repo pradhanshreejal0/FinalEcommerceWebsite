@@ -3,72 +3,21 @@ import { cn } from "cn";
 export { cn };
 
 /**
- * Calculate the actual customer-facing price.
- *
- * Uses finalPrice when the backend provides it.
- * Otherwise calculates the discount locally.
+ * Price the customer actually pays for a product.
+ * Uses the backend's finalPrice when present, otherwise applies
+ * discountPercentage (capped at 100%) to the base price.
  */
 export function getFinalPrice(product) {
-  if (!product) {
-    return 0;
+  const base = Number(product?.price);
+  if (!Number.isFinite(base) || base < 0) return 0;
+
+  if (product.finalPrice != null) {
+    const final = Number(product.finalPrice);
+    if (Number.isFinite(final) && final >= 0) return final;
   }
 
-  const basePrice =
-    Number(product.price);
+  const discount = Number(product.discountPercentage || 0);
+  if (!Number.isFinite(discount) || discount <= 0) return base;
 
-  if (
-    !Number.isFinite(basePrice) ||
-    basePrice < 0
-  ) {
-    return 0;
-  }
-
-  /*
-   * Prefer the backend-calculated finalPrice.
-   */
-  if (
-    product.finalPrice !== undefined &&
-    product.finalPrice !== null
-  ) {
-    const finalPrice =
-      Number(product.finalPrice);
-
-    if (
-      Number.isFinite(finalPrice) &&
-      finalPrice >= 0
-    ) {
-      return finalPrice;
-    }
-  }
-
-  let discount =
-    Number(
-      product.discountPercentage || 0
-    );
-
-  if (
-    !Number.isFinite(discount) ||
-    discount <= 0
-  ) {
-    return basePrice;
-  }
-
-  /*
-   * Never allow a discount above 100%.
-   */
-  discount = Math.min(
-    Math.max(discount, 0),
-    100
-  );
-
-  const finalPrice =
-    basePrice -
-    (basePrice * discount) /
-      100;
-
-  return (
-    Math.round(
-      finalPrice * 100
-    ) / 100
-  );
+  return Math.round((base - (base * Math.min(discount, 100)) / 100) * 100) / 100;
 }

@@ -1,17 +1,14 @@
 import rateLimit from "express-rate-limit";
 
-export const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 attempts per IP per window
-  message: { message: "Too many login attempts. Please try again later." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// Shared settings: 15-minute window, standard RateLimit-* headers.
+const limiter = (max, message) =>
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max,
+    message: { message },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
 
-export const forgotPasswordLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 reset requests per IP per window
-  message: { message: "Too many requests. Please try again later." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+export const loginLimiter = limiter(10, "Too many login attempts. Please try again later."); // 10 per IP
+export const forgotPasswordLimiter = limiter(5, "Too many requests. Please try again later."); // 5 per IP
