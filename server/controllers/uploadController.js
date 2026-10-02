@@ -19,8 +19,8 @@ const uploadToCloudinary = (buffer, options = {}) => {
         folder: "ecommerce",
         resource_type: "image",
         transformation: [
-          { width: 1200, height: 1200, crop: "limit" },
-          { quality: "auto:good" },
+          { width: 1600, height: 1600, crop: "limit" },
+          { quality: "auto" },
           { fetch_format: "auto" },
         ],
         ...options,

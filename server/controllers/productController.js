@@ -510,12 +510,16 @@ export const getProducts = async (req, res) => {
       maxPrice = "",
       sort = "newest",
       page = 1,
-      limit = 20,          // default 20 products per page
+      limit = 20,
+      includeTotal = "true",
+      compact = "false",
     } = req.query;
 
     const pageNum = Math.max(1, parseInt(page) || 1);
-    const limitNum = Math.min(50, Math.max(1, parseInt(limit) || 20)); // max 50
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit) || 20));
     const skip = (pageNum - 1) * limitNum;
+    const shouldIncludeTotal = includeTotal !== "false";
+    const compactResponse = compact === "true";
 
     const filter = {
       isPublished: true,
@@ -532,14 +536,21 @@ export const getProducts = async (req, res) => {
 
     // Category filter
     if (category) {
-      const validCategory = await Category.findById(category);
-      if (!validCategory) {
+      // One query instead of a parent lookup followed by a child lookup.
+      // This matters on every filtered Shop request.
+      const categoryIds = await Category.find({
+        $or: [{ _id: category }, { parentCategory: category }],
+      })
+        .select("_id")
+        .lean();
+
+      if (categoryIds.length === 0) {
         return res.status(400).json({ message: "Selected category does not exist" });
       }
 
-      const children = await Category.find({ parentCategory: category }).select("_id");
-      const categoryIds = [validCategory._id, ...children.map((c) => c._id)];
-      filter.category = { $in: categoryIds };
+      filter.category = {
+        $in: categoryIds.map((item) => item._id),
+      };
     }
 
     // Price filter
@@ -584,20 +595,46 @@ export const getProducts = async (req, res) => {
     if (sort === "price_desc") sortOption = { price: -1 };
     if (sort === "oldest") sortOption = { createdAt: 1 };
 
-    // Run count + find in parallel for speed
-    const [total, products] = await Promise.all([
-      Product.countDocuments(filter),
-      Product.find(filter, projection)
-        .populate("category", "name parentCategory")
-        .populate({
-          path: "vendor",
-          select: "storeName storeSlug logo banner ",
-        })
-        .sort(sortOption)
-        .skip(skip)
-        .limit(limitNum)
-        .lean(),
-    ]);
+    let findProjection = projection;
+
+    if (compactResponse) {
+      // Product cards do not need descriptions, variants, timestamps, views,
+      // or other large fields. Keep the full response available for detail/admin pages.
+      findProjection = {
+        title: 1,
+        price: 1,
+        images: 1,
+        category: 1,
+        vendor: 1,
+        discountPercentage: 1,
+        ratings: 1,
+        stock: 1,
+        ...(searchTerm ? { score: { $meta: "textScore" } } : {}),
+      };
+    }
+
+    const productsQuery = Product.find(filter, findProjection)
+      .populate("category", "name parentCategory")
+      .populate({
+        path: "vendor",
+        select: compactResponse ? "storeName storeSlug logo" : "storeName storeSlug logo banner",
+      })
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
+
+    let products;
+    let total = null;
+
+    if (shouldIncludeTotal) {
+      [products, total] = await Promise.all([
+        productsQuery,
+        Product.countDocuments(filter),
+      ]);
+    } else {
+      products = await productsQuery;
+    }
 
     res.json({
       products,
@@ -605,7 +642,7 @@ export const getProducts = async (req, res) => {
         page: pageNum,
         limit: limitNum,
         total,
-        pages: Math.ceil(total / limitNum),
+        pages: total == null ? null : Math.ceil(total / limitNum),
       },
     });
   } catch (error) {
@@ -636,14 +673,16 @@ export const getProductById = async (req, res) => {
       });
     }
 
-    // Customer interest tracker
-    await Product.findByIdAndUpdate(product._id, {
-      $inc: {
-        views: 1,
-      },
-    });
-
+    // Do not make the customer wait for analytics. The product response is
+    // the critical path; view tracking can finish in the background.
     res.json(product);
+
+    void Product.updateOne(
+      { _id: product._id },
+      { $inc: { views: 1 } }
+    ).catch((error) => {
+      console.error("Failed to update product view:", error);
+    });
   } catch (error) {
     console.error("Get product error:", error);
 

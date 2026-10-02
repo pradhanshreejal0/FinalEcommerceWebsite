@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
+import zlib from "node:zlib";
 
 import { loginLimiter, forgotPasswordLimiter } from "./middleware/rateLimiters.js";
 import { connectDB } from "./config/db.js";
@@ -38,6 +39,39 @@ const app = express();
 // not the proxy's.
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
+
+// Compress JSON API responses when the browser supports gzip. This avoids
+// adding another dependency and keeps larger product/category payloads small.
+app.use((req, res, next) => {
+  if (req.method === "HEAD" || req.method === "OPTIONS") return next();
+
+  const acceptEncoding = String(req.headers["accept-encoding"] || "");
+  if (!acceptEncoding.includes("gzip")) return next();
+
+  const originalJson = res.json.bind(res);
+
+  res.json = (body) => {
+    try {
+      const json = JSON.stringify(body);
+
+      // Tiny responses are faster without compression overhead.
+      if (json.length < 1024 || res.headersSent) {
+        return originalJson(body);
+      }
+
+      const compressed = zlib.gzipSync(Buffer.from(json));
+      res.setHeader("Content-Encoding", "gzip");
+      res.setHeader("Vary", "Accept-Encoding");
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.removeHeader("Content-Length");
+      return res.end(compressed);
+    } catch (error) {
+      return originalJson(body);
+    }
+  };
+
+  next();
+});
 
 // Basic security headers (no extra dependency needed).
 app.use((req, res, next) => {

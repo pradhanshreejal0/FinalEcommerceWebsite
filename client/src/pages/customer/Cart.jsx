@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { getFinalPrice } from "@/lib/utils";
+import { cloudinaryImage } from "@/lib/cloudinary";
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -329,7 +330,7 @@ export default function Cart() {
                             >
                               {image ? (
                                 <img
-                                  src={image}
+                                  src={cloudinaryImage(image, { width: 300 })}
                                   alt={product.title}
                                   className="h-full w-full object-cover transition hover:scale-105"
                                 />

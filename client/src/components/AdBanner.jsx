@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { cloudinaryImage } from "@/lib/cloudinary";
 
 export function AdBanner({ ads = [], variant = "carousel" }) {
   const [current, setCurrent] = useState(0);
@@ -22,7 +23,7 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
   if (variant === "sidebar") {
     return (
       <div className="space-y-4">
-        {ads.map((ad) => (
+        {ads.map((ad, index) => (
           <div
             key={ad._id}
             className="relative overflow-hidden rounded-lg border border-border group"
@@ -30,8 +31,10 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
             {ad.link ? (
               <Link to={ad.link}>
                 <img
-                  src={ad.image}
+                  src={cloudinaryImage(ad.image, { width: 1400 })}
                   alt={ad.title}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-40 object-cover transition duration-300 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent" />
@@ -42,8 +45,10 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
             ) : (
               <>
                 <img
-                  src={ad.image}
+                  src={cloudinaryImage(ad.image, { width: 1400 })}
                   alt={ad.title}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-40 object-cover"
                 />
                 <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent" />
@@ -66,8 +71,10 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
         {ad.link ? (
           <Link to={ad.link} className="block">
             <img
-              src={ad.image}
+              src={cloudinaryImage(ad.image, { width: 1400 })}
               alt={ad.title}
+              loading="lazy"
+              decoding="async"
               className="w-full h-48 md:h-64 object-cover"
             />
             <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
@@ -81,8 +88,10 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
         ) : (
           <>
             <img
-              src={ad.image}
+              src={cloudinaryImage(ad.image, { width: 1400 })}
               alt={ad.title}
+              loading="lazy"
+              decoding="async"
               className="w-full h-48 md:h-64 object-cover"
             />
             <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
@@ -109,20 +118,26 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
         className="flex transition-transform duration-500 ease-out"
         style={{ transform: `translateX(-${current * 100}%)` }}
       >
-        {ads.map((ad) => (
+        {ads.map((ad, index) => (
           <div key={ad._id} className="w-full shrink-0 relative">
             {ad.link ? (
               <Link to={ad.link} className="block">
                 <img
-                  src={ad.image}
+                  src={cloudinaryImage(ad.image, { width: 1400 })}
                   alt={ad.title}
+                  loading={index === 0 ? "eager" : "lazy"}
+                  fetchPriority={index === 0 ? "high" : "auto"}
+                  decoding="async"
                   className="w-full h-55 sm:h-70 md:h-85 object-cover"
                 />
               </Link>
             ) : (
               <img
-                src={ad.image}
+                src={cloudinaryImage(ad.image, { width: 1400 })}
                 alt={ad.title}
+                loading={index === 0 ? "eager" : "lazy"}
+                fetchPriority={index === 0 ? "high" : "auto"}
+                decoding="async"
                 className="w-full h-55 sm:h-70 md:h-85 object-cover"
               />
             )}

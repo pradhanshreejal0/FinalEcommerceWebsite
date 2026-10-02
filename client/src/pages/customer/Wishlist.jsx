@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Heart, Trash2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import { cloudinaryImage } from "@/lib/cloudinary";
 
 export default function Wishlist() {
   const { user, accessToken } = useAuth();
@@ -115,7 +116,7 @@ export default function Wishlist() {
                 <Link to={`/products/${product._id}`}>
                   {image ? (
                     <img
-                      src={image}
+                      src={cloudinaryImage(image, { width: 160 })}
                       alt={product.title}
                       className="h-20 w-20 rounded-md border object-cover"
                     />

@@ -11,6 +11,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { cloudinaryImage } from "@/lib/cloudinary";
 import { getFinalPrice } from "@/lib/utils";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
@@ -370,7 +371,7 @@ export default function FastSearchModal({
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
                       {image ? (
                         <img
-                          src={image}
+                          src={cloudinaryImage(image, { width: 160 })}
                           alt={product.title}
                           className="h-full w-full object-cover"
                           loading="lazy"

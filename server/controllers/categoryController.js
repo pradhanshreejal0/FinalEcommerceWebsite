@@ -159,6 +159,9 @@ export const createCategory = async (req, res) => {
  */
 export const getCategories = async (req, res) => {
   try {
+    // Categories change infrequently. Allow the browser/CDN to reuse the
+    // response briefly while still revalidating regularly.
+    res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
     const categories = await Category.find()
       .populate(
         "parentCategory",

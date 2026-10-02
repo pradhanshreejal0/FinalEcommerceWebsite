@@ -21,6 +21,9 @@ export const createAd = async (req, res) => {
 
 export const getAds = async (req, res) => {
   try {
+    if (req.user?.role !== "admin") {
+      res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    }
     // If user is admin → return all, otherwise only active
     const filter = req.user?.role === "admin" ? {} : { isActive: true };
     const ads = await Ad.find(filter).sort({ createdAt: -1 });

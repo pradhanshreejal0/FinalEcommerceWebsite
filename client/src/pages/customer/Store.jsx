@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { MapPin, Package, Store as StoreIcon } from "lucide-react";
 import { api } from "@/lib/api";
+import { cloudinaryImage } from "@/lib/cloudinary";
 import { PriceTag } from "@/components/PriceTag";
 
 export default function Store() {
@@ -108,7 +109,7 @@ export default function Store() {
               <div className="aspect-square bg-muted">
                 {p.images?.[0] ? (
                   <img
-                    src={p.images[0]}
+                    src={cloudinaryImage(p.images[0], { width: 400 })}
                     alt={p.title}
                     className="h-full w-full object-cover transition group-hover:scale-105"
                   />

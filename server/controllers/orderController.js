@@ -150,7 +150,7 @@ function computeCouponDiscount(coupon, subtotal) {
 // =====================================================
 
 const DELIVERY_RATES = {
-  upTo3Km: 100,
+  upTo3Km: 50,
   upTo7Km: 150,
   upTo12Km: 250,
   above12Km: 350,

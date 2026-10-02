@@ -39,6 +39,7 @@ import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
 import { api } from "@/lib/api";
+import { cloudinaryImage } from "@/lib/cloudinary";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -1971,7 +1972,7 @@ export default function Checkout() {
                         <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-muted">
                           {product.images?.[0] ? (
                             <img
-                              src={product.images[0]}
+                              src={cloudinaryImage(product.images[0], { width: 160 })}
                               alt={product.title}
                               className="h-full w-full object-cover"
                             />

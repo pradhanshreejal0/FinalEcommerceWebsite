@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
+import { cloudinaryImage } from "@/lib/cloudinary";
 import { PriceTag } from "@/components/PriceTag";
 import { AdBanner } from "@/components/AdBanner";
 import { CategoryIcon } from "@/components/CategoryIcon";
@@ -54,7 +55,7 @@ export default function Home() {
 
     const loadProducts = async () => {
       try {
-        const data = await api("/products?limit=20");
+        const data = await api("/products?limit=20&compact=true&includeTotal=false");
 
         if (!cancelled) {
           const productList = Array.isArray(data)
@@ -251,7 +252,9 @@ export default function Home() {
                     <div className="aspect-square overflow-hidden bg-muted">
                       {image ? (
                         <img
-                          src={image}
+                          src={cloudinaryImage(image, { width: 400 })}
+                          srcSet={`${cloudinaryImage(image, { width: 300 })} 300w, ${cloudinaryImage(image, { width: 400 })} 400w, ${cloudinaryImage(image, { width: 600 })} 600w`}
+                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 300px"
                           alt={product.title || "Product"}
                           loading="lazy"
                           decoding="async"
@@ -352,7 +355,9 @@ export default function Home() {
 
                       {image ? (
                         <img
-                          src={image}
+                          src={cloudinaryImage(image, { width: 400 })}
+                          srcSet={`${cloudinaryImage(image, { width: 300 })} 300w, ${cloudinaryImage(image, { width: 400 })} 400w, ${cloudinaryImage(image, { width: 600 })} 600w`}
+                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 300px"
                           alt={product.title || "Product"}
                           loading="lazy"
                           decoding="async"

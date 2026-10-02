@@ -1,0 +1,24 @@
+# Performance changes
+
+This version keeps the existing ecommerce architecture and applies performance improvements:
+
+- Cloudinary delivery URLs use automatic format/quality, DPR, and size transformations.
+- Product-card images use responsive `srcSet` sizes instead of downloading full-size originals.
+- Product-detail main images use responsive delivery sizes and prioritize only the first image.
+- Shop initial product count was reduced from 48 to 24.
+- Customer product-list requests use compact API responses.
+- Customer product lists can skip the expensive `countDocuments()` operation when pagination totals are not displayed.
+- Product detail view tracking no longer blocks the product response.
+- Category filtering uses one category query instead of two.
+- MongoDB uses a connection pool and sensible connection/socket timeouts.
+- JSON API responses larger than 1 KB are gzip compressed when supported by the browser.
+- Public category and ad responses have short browser/CDN cache lifetimes.
+- Cloudinary upload source transformations now preserve up to 1600px while delivery transformations handle client-specific sizes.
+
+## Important deployment note
+
+If the backend is hosted on a sleeping Render instance, the first request after inactivity can still be slow because of a cold start. Code optimization cannot eliminate that platform-level startup delay. Use an always-on backend plan/instance if you need consistently low first-request latency.
+
+## Environment files
+
+No real `.env` files were included or modified. Configure your existing environment variables using the supplied `.env.example` files.

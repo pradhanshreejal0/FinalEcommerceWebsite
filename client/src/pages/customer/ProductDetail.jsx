@@ -8,6 +8,7 @@ import { StarRating } from "@/components/StarRating";
 import { ProductReviews } from "@/components/ProductReviews";
 import { PriceTag } from "@/components/PriceTag";
 import { cn, getFinalPrice } from "@/lib/utils";
+import { cloudinaryImage } from "@/lib/cloudinary";
 import { Heart, MessageCircle, Sparkles, Package } from "lucide-react";
 import {
   Dialog,
@@ -36,7 +37,9 @@ function ProductCard({ product }) {
       <div className="aspect-square overflow-hidden bg-muted">
         {image ? (
           <img
-            src={image}
+            src={cloudinaryImage(image, { width: 400 })}
+            srcSet={`${cloudinaryImage(image, { width: 300 })} 300w, ${cloudinaryImage(image, { width: 400 })} 400w, ${cloudinaryImage(image, { width: 600 })} 600w`}
+            sizes="(max-width: 640px) 50vw, 300px"
             alt={product.title}
             className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
             loading="lazy"
@@ -158,9 +161,9 @@ export default function ProductDetails() {
 
         const [relatedRes, recommendedRes] = await Promise.all([
           categoryId
-            ? api(`/products?category=${categoryId}&limit=8`).catch(() => null)
+            ? api(`/products?category=${categoryId}&limit=8&compact=true&includeTotal=false`).catch(() => null)
             : Promise.resolve(null),
-          api(`/products?limit=8`).catch(() => null),
+          api(`/products?limit=8&compact=true&includeTotal=false`).catch(() => null),
         ]);
 
         if (cancelled) return;
@@ -427,7 +430,9 @@ export default function ProductDetails() {
           <div className="mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-xl border bg-muted sm:max-w-md">
             {currentImage ? (
               <img
-                src={currentImage}
+                src={cloudinaryImage(currentImage, { width: 900 })}
+                srcSet={`${cloudinaryImage(currentImage, { width: 500 })} 500w, ${cloudinaryImage(currentImage, { width: 700 })} 700w, ${cloudinaryImage(currentImage, { width: 900 })} 900w, ${cloudinaryImage(currentImage, { width: 1200 })} 1200w`}
+                sizes="(max-width: 768px) 100vw, 50vw"
                 alt={product.title}
                 className="h-full w-full object-contain bg-card p-4"
               />
@@ -456,7 +461,7 @@ export default function ProductDetails() {
                   )}
                 >
                   <img
-                    src={img}
+                    src={cloudinaryImage(img, { width: 160 })}
                     alt=""
                     className="h-full w-full object-contain p-1"
                   />

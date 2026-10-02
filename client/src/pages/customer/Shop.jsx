@@ -9,6 +9,7 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { cloudinaryImage } from "@/lib/cloudinary";
 import { PriceTag } from "@/components/PriceTag";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { Input } from "@/components/ui/input";
@@ -65,7 +66,8 @@ export default function Shop() {
         if (sortParam && sortParam !== "newest") params.set("sort", sortParam);
         if (minPriceParam) params.set("minPrice", minPriceParam);
         if (maxPriceParam) params.set("maxPrice", maxPriceParam);
-        params.set("limit", "48");
+        params.set("limit", "24");
+        params.set("includeTotal", "false");
 
         const [productsRes, categoriesRes] = await Promise.all([
           api(`/products?${params.toString()}`),
@@ -490,7 +492,9 @@ export default function Shop() {
                 <div className="aspect-square overflow-hidden bg-muted">
                   {image ? (
                     <img
-                      src={image}
+                      src={cloudinaryImage(image, { width: 400 })}
+                      srcSet={`${cloudinaryImage(image, { width: 300 })} 300w, ${cloudinaryImage(image, { width: 400 })} 400w, ${cloudinaryImage(image, { width: 600 })} 600w`}
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 300px"
                       alt={product.title || "Product"}
                       loading="lazy"
                       className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
