@@ -56,4 +56,37 @@ export async function uploadCategoryIcon(file, accessToken) {
   return api("/category-icons", { method: "POST", body: formData, accessToken });
 }
 
+export async function downloadReport(path, { accessToken } = {}) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "GET",
+    credentials: "include",
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+
+  if (!response.ok) {
+    let message = response.statusText || "Failed to download report";
+    try {
+      const data = await response.json();
+      message = data?.message || message;
+    } catch {
+      // The response may be a non-JSON server error.
+    }
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="?([^";]+)"?/i);
+  const filename = match?.[1] || "sales-report.pdf";
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export { API_BASE };

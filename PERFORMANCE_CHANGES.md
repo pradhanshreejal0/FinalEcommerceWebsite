@@ -22,3 +22,29 @@ If the backend is hosted on a sleeping Render instance, the first request after 
 ## Environment files
 
 No real `.env` files were included or modified. Configure your existing environment variables using the supplied `.env.example` files.
+
+## Analytics and PDF reporting
+
+Added a shared analytics/reporting system for admin and approved vendors:
+
+- Monthly sales bar graph on Admin Dashboard.
+- Monthly gross-sales bar graph on Vendor Dashboard.
+- Date-range selector for 3, 6, or 12 months.
+- Admin PDF report with platform sales, order value, commission, paid orders, marketplace counts, monthly sales, order status, and top products.
+- Vendor PDF report with gross sales, vendor earnings, platform fee, orders, units sold, product count, low-stock count, monthly sales, top products, and order status.
+- Reports are generated server-side from MongoDB data and protected by the existing role authorization middleware.
+- Vendor report aggregation is restricted to the authenticated vendor's own `Vendor._id`.
+- PDF download uses the authenticated access token and does not expose report data through a public URL.
+
+### New server dependency
+
+`pdfkit` is required by `server/utils/reportPdf.js`.
+
+After replacing the project files, run:
+
+```bash
+cd server
+npm install
+```
+
+Then start the server normally.

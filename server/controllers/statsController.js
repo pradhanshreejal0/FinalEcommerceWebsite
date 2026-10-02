@@ -4,127 +4,229 @@ import Order from "../models/Order.js";
 import Category from "../models/Category.js";
 import Vendor from "../models/Vendor.js";
 import Settings from "../models/Settings.js";
+import { buildAdminReport, buildVendorReport } from "../utils/reportPdf.js";
+
+const round = (value) => Math.round(Number(value || 0) * 100) / 100;
+
+function getPeriod(req) {
+  const end = req.query.endDate ? new Date(req.query.endDate) : new Date();
+  const start = req.query.startDate
+    ? new Date(req.query.startDate)
+    : new Date(end.getFullYear(), end.getMonth() - 5, 1);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    const error = new Error("Invalid report date range");
+    error.status = 400;
+    throw error;
+  }
+
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+function monthLabel(value) {
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
+  });
+}
 
 export const getAdminStats = async (req, res) => {
   try {
-    const [totalUsers, totalProducts, totalOrders, totalCategories, settings] =
-      await Promise.all([
-        User.countDocuments(),
-        Product.countDocuments(),
-        Order.countDocuments(),
-        Category.countDocuments(),
-        Settings.getSingleton(),
-      ]);
-
-    // Platform cut = sum of platformCommission on non-cancelled orders
-    const commissionAgg = await Order.aggregate([
-      { $match: { status: { $ne: "cancelled" } } },
-      {
-        $group: {
+    const { start, end } = getPeriod(req);
+    const [totalUsers, totalProducts, totalOrders, totalCategories, totalVendors, settings, aggregate, monthly, orderStatus, topProducts] = await Promise.all([
+      User.countDocuments(),
+      Product.countDocuments(),
+      Order.countDocuments({ createdAt: { $gte: start, $lte: end } }),
+      Category.countDocuments(),
+      Vendor.countDocuments({ status: "approved" }),
+      Settings.getSingleton(),
+      Order.aggregate([
+        { $match: { status: { $ne: "cancelled" }, createdAt: { $gte: start, $lte: end } } },
+        { $group: {
           _id: null,
           totalPlatformCommission: { $sum: "$platformCommission" },
           totalSalesSubtotal: { $sum: "$subtotal" },
           totalOrderValue: { $sum: "$totalAmount" },
-          paidOrders: {
-            $sum: {
-              $cond: [{ $eq: ["$paymentStatus", "paid"] }, 1, 0],
-            },
-          },
-        },
-      },
+          paidOrders: { $sum: { $cond: [{ $eq: ["$paymentStatus", "paid"] }, 1, 0] } },
+        } },
+      ]),
+      Order.aggregate([
+        { $match: { status: { $ne: "cancelled" }, createdAt: { $gte: start, $lte: end } } },
+        { $group: {
+          _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
+          sales: { $sum: "$subtotal" },
+          commission: { $sum: "$platformCommission" },
+          orders: { $sum: 1 },
+        } },
+        { $sort: { "_id.year": 1, "_id.month": 1 } },
+      ]),
+      Order.aggregate([
+        { $match: { createdAt: { $gte: start, $lte: end } } },
+        { $group: { _id: "$status", orders: { $sum: 1 }, value: { $sum: "$totalAmount" } } },
+        { $sort: { orders: -1 } },
+      ]),
+      Order.aggregate([
+        { $match: { status: { $ne: "cancelled" }, createdAt: { $gte: start, $lte: end } } },
+        { $unwind: "$items" },
+        { $group: {
+          _id: "$items.product",
+          title: { $first: "$items.title" },
+          units: { $sum: "$items.quantity" },
+          sales: { $sum: { $ifNull: ["$items.subtotal", { $multiply: ["$items.price", "$items.quantity"] }] } },
+        } },
+        { $sort: { sales: -1 } },
+        { $limit: 8 },
+      ]),
     ]);
 
-    const agg = commissionAgg[0] || {};
+    const agg = aggregate[0] || {};
+    const monthlyMap = new Map(monthly.map((row) => [
+      `${row._id.year}-${String(row._id.month).padStart(2, "0")}`,
+      row,
+    ]));
+    const monthlySeries = [];
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+    const last = new Date(end.getFullYear(), end.getMonth(), 1);
+    while (cursor <= last) {
+      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
+      const row = monthlyMap.get(key);
+      monthlySeries.push({
+        label: monthLabel(cursor),
+        sales: round(row?.sales),
+        commission: round(row?.commission),
+        orders: row?.orders || 0,
+      });
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
 
     res.json({
+      period: { startDate: start.toISOString(), endDate: end.toISOString() },
       totalUsers,
       totalProducts,
       totalOrders,
       totalCategories,
+      totalVendors,
       commissionPercentage: settings.commissionPercentage ?? 10,
-      // Admin earnings from sales (product subtotal × commission %)
-      totalPlatformCommission: Math.round((agg.totalPlatformCommission || 0) * 100) / 100,
-      totalSalesSubtotal: Math.round((agg.totalSalesSubtotal || 0) * 100) / 100,
-      totalOrderValue: Math.round((agg.totalOrderValue || 0) * 100) / 100,
+      totalPlatformCommission: round(agg.totalPlatformCommission),
+      totalSalesSubtotal: round(agg.totalSalesSubtotal),
+      totalOrderValue: round(agg.totalOrderValue),
       paidOrders: agg.paidOrders || 0,
+      monthlySales: monthlySeries,
+      orderStatus: orderStatus.map((row) => ({
+        status: row._id,
+        orders: row.orders,
+        value: round(row.value),
+      })),
+      topProducts: topProducts.map((row) => ({
+        title: row.title,
+        units: row.units,
+        sales: round(row.sales),
+      })),
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(error.status || 500).json({ message: error.message });
   }
 };
 
 export const getVendorStats = async (req, res) => {
   try {
-    const vendor = await Vendor.findOne({
-      user: req.user._id,
-      status: "approved",
-    });
+    const { start, end } = getPeriod(req);
+    const vendor = await Vendor.findOne({ user: req.user._id, status: "approved" }).lean();
 
     if (!vendor) {
       return res.status(403).json({ message: "Vendor not approved" });
     }
 
-    const products = await Product.find({ vendor: vendor._id });
+    const [productCount, lowStock, aggregate, monthly, topProducts, orderStatus] = await Promise.all([
+      Product.countDocuments({ vendor: vendor._id }),
+      Product.countDocuments({ vendor: vendor._id, stock: { $lte: 5 } }),
+      Order.aggregate([
+        { $match: { "items.vendor": vendor._id, status: { $ne: "cancelled" }, createdAt: { $gte: start, $lte: end } } },
+        { $unwind: "$items" },
+        { $match: { "items.vendor": vendor._id, "items.status": { $ne: "cancelled" } } },
+        { $group: {
+          _id: null,
+          totalSales: { $sum: { $ifNull: ["$items.subtotal", { $multiply: ["$items.price", "$items.quantity"] }] } },
+          totalEarnings: { $sum: { $ifNull: ["$items.vendorEarnings", 0] } },
+          totalCommission: { $sum: { $ifNull: ["$items.platformCommission", 0] } },
+          totalUnits: { $sum: "$items.quantity" },
+          orderIds: { $addToSet: "$_id" },
+        } },
+      ]),
+      Order.aggregate([
+        { $match: { "items.vendor": vendor._id, status: { $ne: "cancelled" }, createdAt: { $gte: start, $lte: end } } },
+        { $unwind: "$items" },
+        { $match: { "items.vendor": vendor._id, "items.status": { $ne: "cancelled" } } },
+        { $group: {
+          _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
+          sales: { $sum: { $ifNull: ["$items.subtotal", { $multiply: ["$items.price", "$items.quantity"] }] } },
+          earnings: { $sum: { $ifNull: ["$items.vendorEarnings", 0] } },
+          orders: { $addToSet: "$_id" },
+        } },
+        { $project: { _id: 1, sales: 1, earnings: 1, orders: { $size: "$orders" } } },
+        { $sort: { "_id.year": 1, "_id.month": 1 } },
+      ]),
+      Order.aggregate([
+        { $match: { "items.vendor": vendor._id, status: { $ne: "cancelled" }, createdAt: { $gte: start, $lte: end } } },
+        { $unwind: "$items" },
+        { $match: { "items.vendor": vendor._id, "items.status": { $ne: "cancelled" } } },
+        { $group: {
+          _id: "$items.product",
+          title: { $first: "$items.title" },
+          units: { $sum: "$items.quantity" },
+          sales: { $sum: { $ifNull: ["$items.subtotal", { $multiply: ["$items.price", "$items.quantity"] }] } },
+        } },
+        { $sort: { sales: -1 } },
+        { $limit: 8 },
+      ]),
+      Order.aggregate([
+        { $match: { "items.vendor": vendor._id, createdAt: { $gte: start, $lte: end } } },
+        { $unwind: "$items" },
+        { $match: { "items.vendor": vendor._id } },
+        { $group: { _id: "$status", orders: { $addToSet: "$_id" }, value: { $sum: { $ifNull: ["$items.subtotal", 0] } } } },
+        { $project: { _id: 1, orders: { $size: "$orders" }, value: 1 } },
+        { $sort: { orders: -1 } },
+      ]),
+    ]);
 
-    const orders = await Order.find({ "items.vendor": vendor._id });
-
-    let totalSales = 0;
-    let totalEarnings = 0; // after platform commission
-    let totalCommissionDeducted = 0;
-    let pendingOrders = 0;
-
-    orders.forEach((order) => {
-      if (order.status === "cancelled") return;
-
-      const vendorItems = order.items.filter(
-        (item) => item.vendor.toString() === vendor._id.toString()
-      );
-
-      const subtotal = vendorItems.reduce(
-        (sum, item) => sum + (item.subtotal || item.price * item.quantity),
-        0
-      );
-      totalSales += subtotal;
-
-      const earnings = vendorItems.reduce(
-        (sum, item) =>
-          sum +
-          (item.vendorEarnings != null
-            ? item.vendorEarnings
-            : (item.subtotal || item.price * item.quantity) *
-              (1 - (order.commissionPercentage || 0) / 100)),
-        0
-      );
-      totalEarnings += earnings;
-
-      const commission = vendorItems.reduce(
-        (sum, item) =>
-          sum +
-          (item.platformCommission != null
-            ? item.platformCommission
-            : (item.subtotal || item.price * item.quantity) *
-              ((order.commissionPercentage || 0) / 100)),
-        0
-      );
-      totalCommissionDeducted += commission;
-
-      if (order.status === "pending" || order.status === "processing") {
-        pendingOrders += 1;
-      }
-    });
-
-    const lowStock = products.filter((p) => p.stock <= 5).length;
+    const agg = aggregate[0] || {};
+    const monthlyMap = new Map(monthly.map((row) => [
+      `${row._id.year}-${String(row._id.month).padStart(2, "0")}`,
+      row,
+    ]));
+    const monthlySeries = [];
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+    const last = new Date(end.getFullYear(), end.getMonth(), 1);
+    while (cursor <= last) {
+      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
+      const row = monthlyMap.get(key);
+      monthlySeries.push({
+        label: monthLabel(cursor),
+        sales: round(row?.sales),
+        earnings: round(row?.earnings),
+        orders: row?.orders || 0,
+      });
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
 
     res.json({
-      totalSales: Math.round(totalSales * 100) / 100,
-      totalEarnings: Math.round(totalEarnings * 100) / 100,
-      totalCommissionDeducted: Math.round(totalCommissionDeducted * 100) / 100,
-      totalProducts: products.length,
-      pendingOrders,
+      period: { startDate: start.toISOString(), endDate: end.toISOString() },
+      totalSales: round(agg.totalSales),
+      totalEarnings: round(agg.totalEarnings),
+      totalCommissionDeducted: round(agg.totalCommission),
+      totalUnits: agg.totalUnits || 0,
+      totalOrders: agg.orderIds?.length || 0,
+      totalProducts: productCount,
+      pendingOrders: orderStatus.find((row) => ["pending", "processing"].includes(row._id))?.orders || 0,
       lowStock,
+      monthlySales: monthlySeries,
+      topProducts: topProducts.map((row) => ({ title: row.title, units: row.units, sales: round(row.sales) })),
+      orderStatus: orderStatus.map((row) => ({ status: row._id, orders: row.orders, value: round(row.value) })),
+      storeName: vendor.storeName || "Vendor",
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(error.status || 500).json({ message: error.message });
   }
 };
 
@@ -135,10 +237,142 @@ export const getPopularProducts = async (req, res) => {
       .limit(10)
       .populate("category", "name")
       .populate("vendor", "storeName")
-      .select("title price images views stock category vendor");
+      .select("title price images views stock category vendor")
+      .lean();
 
     res.json(products);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+async function buildAdminReportData(start, end) {
+  const [summary, monthly, orderStatus, topProducts, totalUsers, totalProducts, totalVendors] = await Promise.all([
+    Order.aggregate([
+      { $match: { status: { $ne: "cancelled" }, createdAt: { $gte: start, $lte: end } } },
+      { $group: { _id: null, totalPlatformCommission: { $sum: "$platformCommission" }, totalSalesSubtotal: { $sum: "$subtotal" }, totalOrderValue: { $sum: "$totalAmount" }, paidOrders: { $sum: { $cond: [{ $eq: ["$paymentStatus", "paid"] }, 1, 0] } }, totalOrders: { $sum: 1 } } },
+    ]),
+    Order.aggregate([
+      { $match: { status: { $ne: "cancelled" }, createdAt: { $gte: start, $lte: end } } },
+      { $group: { _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } }, sales: { $sum: "$subtotal" }, commission: { $sum: "$platformCommission" }, orders: { $sum: 1 } } },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]),
+    Order.aggregate([
+      { $match: { createdAt: { $gte: start, $lte: end } } },
+      { $group: { _id: "$status", orders: { $sum: 1 }, value: { $sum: "$totalAmount" } } },
+      { $sort: { orders: -1 } },
+    ]),
+    Order.aggregate([
+      { $match: { status: { $ne: "cancelled" }, createdAt: { $gte: start, $lte: end } } },
+      { $unwind: "$items" },
+      { $group: { _id: "$items.product", title: { $first: "$items.title" }, units: { $sum: "$items.quantity" }, sales: { $sum: { $ifNull: ["$items.subtotal", { $multiply: ["$items.price", "$items.quantity"] }] } } } },
+      { $sort: { sales: -1 } },
+      { $limit: 10 },
+    ]),
+    User.countDocuments(),
+    Product.countDocuments(),
+    Vendor.countDocuments({ status: "approved" }),
+  ]);
+
+  const agg = summary[0] || {};
+  return {
+    summary: {
+      totalPlatformCommission: round(agg.totalPlatformCommission),
+      totalSalesSubtotal: round(agg.totalSalesSubtotal),
+      totalOrderValue: round(agg.totalOrderValue),
+      paidOrders: agg.paidOrders || 0,
+      totalOrders: agg.totalOrders || 0,
+      totalUsers,
+      totalProducts,
+      totalVendors,
+    },
+    monthly: monthly.map((row) => ({ label: monthLabel(new Date(row._id.year, row._id.month - 1, 1)), sales: round(row.sales), commission: round(row.commission), orders: row.orders })),
+    orderStatus: orderStatus.map((row) => ({ status: row._id, orders: row.orders, value: round(row.value) })),
+    topProducts: topProducts.map((row) => ({ title: row.title, units: row.units, sales: round(row.sales) })),
+  };
+}
+
+async function buildVendorReportData(vendor, start, end) {
+  const [summary, monthly, topProducts, orderStatus, totalProducts, lowStock] = await Promise.all([
+    Order.aggregate([
+      { $match: { "items.vendor": vendor._id, status: { $ne: "cancelled" }, createdAt: { $gte: start, $lte: end } } },
+      { $unwind: "$items" },
+      { $match: { "items.vendor": vendor._id, "items.status": { $ne: "cancelled" } } },
+      { $group: { _id: null, totalSales: { $sum: { $ifNull: ["$items.subtotal", { $multiply: ["$items.price", "$items.quantity"] }] } }, totalEarnings: { $sum: { $ifNull: ["$items.vendorEarnings", 0] } }, totalCommissionDeducted: { $sum: { $ifNull: ["$items.platformCommission", 0] } }, totalUnits: { $sum: "$items.quantity" }, orderIds: { $addToSet: "$_id" } } },
+    ]),
+    Order.aggregate([
+      { $match: { "items.vendor": vendor._id, status: { $ne: "cancelled" }, createdAt: { $gte: start, $lte: end } } },
+      { $unwind: "$items" },
+      { $match: { "items.vendor": vendor._id, "items.status": { $ne: "cancelled" } } },
+      { $group: { _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } }, sales: { $sum: { $ifNull: ["$items.subtotal", { $multiply: ["$items.price", "$items.quantity"] }] } }, earnings: { $sum: { $ifNull: ["$items.vendorEarnings", 0] } }, orders: { $addToSet: "$_id" } } },
+      { $project: { _id: 1, sales: 1, earnings: 1, orders: { $size: "$orders" } } },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]),
+    Order.aggregate([
+      { $match: { "items.vendor": vendor._id, status: { $ne: "cancelled" }, createdAt: { $gte: start, $lte: end } } },
+      { $unwind: "$items" },
+      { $match: { "items.vendor": vendor._id, "items.status": { $ne: "cancelled" } } },
+      { $group: { _id: "$items.product", title: { $first: "$items.title" }, units: { $sum: "$items.quantity" }, sales: { $sum: { $ifNull: ["$items.subtotal", { $multiply: ["$items.price", "$items.quantity"] }] } } } },
+      { $sort: { sales: -1 } },
+      { $limit: 10 },
+    ]),
+    Order.aggregate([
+      { $match: { "items.vendor": vendor._id, createdAt: { $gte: start, $lte: end } } },
+      { $unwind: "$items" },
+      { $match: { "items.vendor": vendor._id } },
+      { $group: { _id: "$status", orders: { $addToSet: "$_id" }, value: { $sum: { $ifNull: ["$items.subtotal", 0] } } } },
+      { $project: { _id: 1, orders: { $size: "$orders" }, value: 1 } },
+      { $sort: { orders: -1 } },
+    ]),
+    Product.countDocuments({ vendor: vendor._id }),
+    Product.countDocuments({ vendor: vendor._id, stock: { $lte: 5 } }),
+  ]);
+
+  const agg = summary[0] || {};
+  return {
+    storeName: vendor.storeName || "Vendor",
+    summary: {
+      totalSales: round(agg.totalSales),
+      totalEarnings: round(agg.totalEarnings),
+      totalCommissionDeducted: round(agg.totalCommissionDeducted),
+      totalUnits: agg.totalUnits || 0,
+      totalOrders: agg.orderIds?.length || 0,
+      totalProducts,
+      lowStock,
+    },
+    monthly: monthly.map((row) => ({ label: monthLabel(new Date(row._id.year, row._id.month - 1, 1)), sales: round(row.sales), earnings: round(row.earnings), orders: row.orders })),
+    topProducts: topProducts.map((row) => ({ title: row.title, units: row.units, sales: round(row.sales) })),
+    orderStatus: orderStatus.map((row) => ({ status: row._id, orders: row.orders, value: round(row.value) })),
+  };
+}
+
+export const downloadAdminReport = async (req, res) => {
+  try {
+    const { start, end } = getPeriod(req);
+    const data = await buildAdminReportData(start, end);
+    const pdf = await buildAdminReport(data, { startDate: start, endDate: end });
+    const filename = `admin-sales-report-${start.toISOString().slice(0, 10)}-to-${end.toISOString().slice(0, 10)}.pdf`;
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(pdf);
+  } catch (error) {
+    res.status(error.status || 500).json({ message: error.message });
+  }
+};
+
+export const downloadVendorReport = async (req, res) => {
+  try {
+    const { start, end } = getPeriod(req);
+    const vendor = await Vendor.findOne({ user: req.user._id, status: "approved" }).lean();
+    if (!vendor) return res.status(403).json({ message: "Vendor not approved" });
+
+    const data = await buildVendorReportData(vendor, start, end);
+    const pdf = await buildVendorReport(data, { startDate: start, endDate: end });
+    const filename = `vendor-sales-report-${start.toISOString().slice(0, 10)}-to-${end.toISOString().slice(0, 10)}.pdf`;
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(pdf);
+  } catch (error) {
+    res.status(error.status || 500).json({ message: error.message });
   }
 };
