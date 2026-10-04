@@ -4,7 +4,7 @@ import {
   useEffect,
   useCallback,
 } from "react";
-import { getFinalPrice } from "@/lib/utils";
+import { getProductPriceWithVariant } from "@/lib/utils";
 import { CartContext } from "./CartContext";
 import { useAuth } from "./AuthContext";
 import { api } from "@/lib/api";
@@ -240,7 +240,7 @@ export function CartProvider({ children }) {
 
   const total =
     cart?.items?.reduce((sum, item) => {
-       const price = getFinalPrice(item.product);
+      const price = getProductPriceWithVariant(item.product, item.variantKey);
       const quantity = Number(item.quantity || 0);
 
       return sum + price * quantity;

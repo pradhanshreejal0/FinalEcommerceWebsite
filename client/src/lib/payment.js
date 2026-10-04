@@ -30,48 +30,15 @@ export function isOnlinePayment(method) {
 export async function initiatePayment(orderId, paymentMethod, accessToken) {
   if (!orderId) throw new Error("Order ID is required to start payment.");
 
-  const attempts = [
-    () =>
-      api("/payments/initiate", {
-        method: "POST",
-        accessToken,
-        body: { orderId, paymentMethod },
-      }),
-    () =>
-      api(`/orders/${orderId}/pay`, {
-        method: "POST",
-        accessToken,
-        body: { paymentMethod },
-      }),
-    () =>
-      api(`/payments/${paymentMethod}/initiate`, {
-        method: "POST",
-        accessToken,
-        body: { orderId },
-      }),
-  ];
-
-  let lastError = null;
-
-  for (const attempt of attempts) {
-    try {
-      const data = await attempt();
-      if (data) return data;
-    } catch (err) {
-      lastError = err;
-      // 404 / 405 → try next route; other errors still try next, then surface
-      if (err?.status && err.status !== 404 && err.status !== 405) {
-        // keep trying other paths in case only one is implemented
-      }
-    }
-  }
-
-  throw (
-    lastError ||
-    new Error(
-      "Online payment could not be started. Please try again or use Cash on Delivery."
-    )
-  );
+  // One canonical endpoint. The old code retried other (partly non-existent) routes,
+  // which could start a payment twice and hid the real server error behind a 404.
+  const data = await api("/payments/initiate", {
+    method: "POST",
+    accessToken,
+    body: { orderId, paymentMethod },
+  });
+  if (!data) throw new Error("Online payment could not be started. Please try again or use Cash on Delivery.");
+  return data;
 }
 
 /**

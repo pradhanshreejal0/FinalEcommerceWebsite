@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getFinalPrice } from "@/lib/utils";
+import { getProductPriceWithVariant } from "@/lib/utils";
 
 import {
   ArrowLeft,
@@ -380,17 +380,7 @@ export default function Checkout() {
       if (!item?.product) return sum;
       const product = item.product;
       const variantKey = item.variantKey || "";
-      let unitPrice = Number(getFinalPrice(product) || 0);
-      if (variantKey && Array.isArray(product.variants)) {
-        const match = product.variants.find((v) => v.key === variantKey);
-        if (match) {
-          const disc = Number(product.discountPercentage) || 0;
-          unitPrice =
-            disc > 0
-              ? match.price - (match.price * disc) / 100
-              : match.price;
-        }
-      }
+      const unitPrice = getProductPriceWithVariant(product, variantKey);
       const quantity = Number(item.quantity || 0);
       return sum + unitPrice * quantity;
     }, 0);
@@ -1952,17 +1942,7 @@ export default function Checkout() {
                     if (!product) return null;
                     const variantKey = item.variantKey || "";
                     const variantLabel = item.variantLabel || "";
-                    let unitPrice = Number(getFinalPrice(product) || 0);
-                    if (variantKey && Array.isArray(product.variants)) {
-                      const match = product.variants.find((v) => v.key === variantKey);
-                      if (match) {
-                        const disc = Number(product.discountPercentage) || 0;
-                        unitPrice =
-                          disc > 0
-                            ? match.price - (match.price * disc) / 100
-                            : match.price;
-                      }
-                    }
+                    const unitPrice = getProductPriceWithVariant(product, variantKey);
                     const quantity = Number(item.quantity || 0);
                     return (
                       <div

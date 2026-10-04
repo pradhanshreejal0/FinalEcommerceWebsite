@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
-import { getFinalPrice } from "@/lib/utils";
+import { getProductPriceWithVariant } from "@/lib/utils";
 import { cloudinaryImage } from "@/lib/cloudinary";
 
 export default function Cart() {
@@ -287,19 +287,7 @@ export default function Cart() {
                       const variantLabel = item.variantLabel || "";
                       const lineKey = `${product._id}:${variantKey}`;
 
-                      let unitPrice = getFinalPrice(product);
-                      if (variantKey && Array.isArray(product.variants)) {
-                        const match = product.variants.find(
-                          (v) => v.key === variantKey
-                        );
-                        if (match) {
-                          const disc = Number(product.discountPercentage) || 0;
-                          unitPrice =
-                            disc > 0
-                              ? match.price - (match.price * disc) / 100
-                              : match.price;
-                        }
-                      }
+                      let unitPrice = getProductPriceWithVariant(product, variantKey);
 
                       const price = Number(unitPrice) || 0;
 

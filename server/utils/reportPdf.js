@@ -18,8 +18,9 @@ function drawHeader(doc, title, subtitle) {
 
 function drawSectionTitle(doc, title) {
   if (doc.y > 700) doc.addPage();
+  doc.x = doc.page.margins.left; // drawTable leaves x at the last column; reset it
   doc.moveDown(0.6);
-  doc.fontSize(12).font("Helvetica-Bold").text(title);
+  doc.fontSize(12).font("Helvetica-Bold").fillColor("#111111").text(title);
   doc.moveDown(0.3);
 }
 
@@ -56,6 +57,7 @@ function drawTable(doc, headers, rows, widths) {
     }
     drawRow(row);
   });
+  doc.x = startX;
   doc.y = y;
 }
 
@@ -64,7 +66,10 @@ export function buildAdminReport(data, options = {}) {
   const chunks = [];
   doc.on("data", (chunk) => chunks.push(chunk));
 
-  const done = new Promise((resolve) => doc.on("end", () => resolve(Buffer.concat(chunks))));
+  const done = new Promise((resolve, reject) => {
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+  });
 
   drawHeader(
     doc,
@@ -115,7 +120,10 @@ export function buildVendorReport(data, options = {}) {
   const chunks = [];
   doc.on("data", (chunk) => chunks.push(chunk));
 
-  const done = new Promise((resolve) => doc.on("end", () => resolve(Buffer.concat(chunks))));
+  const done = new Promise((resolve, reject) => {
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+  });
 
   drawHeader(
     doc,

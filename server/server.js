@@ -118,6 +118,7 @@ app.use(
     credentials: true, // needed for the httpOnly refresh-token cookie
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["Content-Disposition"], // so the report download keeps its filename
   })
 );
 
