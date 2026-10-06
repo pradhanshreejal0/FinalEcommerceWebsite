@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { MapPin, Loader2, Search, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import { formatNominatimAddress } from "@/lib/location";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 import {
@@ -336,30 +337,12 @@ function LocationDialog({ vendor, open, onOpenChange, accessToken, onSaved }) {
 
     setPosition({ lat, lng });
 
-    const addr = result.address || {};
     const displayName = result.display_name || "";
+    const location = formatNominatimAddress(result);
 
-    const road = addr.road || addr.pedestrian || addr.footway || "";
-    const houseNumber = addr.house_number || "";
-    const neighbourhood =
-      addr.neighbourhood || addr.suburb || addr.quarter || "";
-    const resolvedCity =
-      addr.city || addr.town || addr.municipality || addr.village || "";
-
-    let generatedAddress = "";
-    if (houseNumber || road) {
-      generatedAddress = [houseNumber, road].filter(Boolean).join(" ");
-    }
-    if (neighbourhood) {
-      generatedAddress = [generatedAddress, neighbourhood]
-        .filter(Boolean)
-        .join(", ");
-    }
-    if (!generatedAddress) generatedAddress = displayName;
-
-    setAddress(generatedAddress || address);
-    setCity(resolvedCity || city);
-    setCountry(addr.country || "Nepal");
+    setAddress(location.address || address);
+    setCity(location.city || city);
+    setCountry(location.country);
 
     setSearchQuery(displayName);
     setSearchResults([]);

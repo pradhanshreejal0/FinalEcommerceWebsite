@@ -23,42 +23,26 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
   if (variant === "sidebar") {
     return (
       <div className="space-y-4">
-        {ads.map((ad, index) => (
-          <div
-            key={ad._id}
-            className="relative overflow-hidden rounded-lg border border-border group"
-          >
-            {ad.link ? (
-              <Link to={ad.link}>
+        {ads.map((ad) => {
+          const Wrapper = ad.link ? Link : "div";
+          return (
+            <div key={ad._id} className="relative overflow-hidden rounded-lg border border-border group">
+              <Wrapper {...(ad.link ? { to: ad.link } : {})}>
                 <img
                   src={cloudinaryImage(ad.image, { width: 1400 })}
                   alt={ad.title}
                   loading="lazy"
                   decoding="async"
-                  className="w-full h-40 object-cover transition duration-300 group-hover:scale-105"
+                  className={`w-full h-40 object-cover ${ad.link ? "transition duration-300 group-hover:scale-105" : ""}`}
                 />
                 <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent" />
                 <p className="absolute bottom-2 left-2 right-2 text-primary-foreground text-sm font-medium line-clamp-2">
                   {ad.title}
                 </p>
-              </Link>
-            ) : (
-              <>
-                <img
-                  src={cloudinaryImage(ad.image, { width: 1400 })}
-                  alt={ad.title}
-                  loading="lazy"
-                  decoding="async"
-                  className="w-full h-40 object-cover"
-                />
-                <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent" />
-                <p className="absolute bottom-2 left-2 right-2 text-primary-foreground text-sm font-medium line-clamp-2">
-                  {ad.title}
-                </p>
-              </>
-            )}
-          </div>
-        ))}
+              </Wrapper>
+            </div>
+          );
+        })}
       </div>
     );
   }
@@ -66,43 +50,25 @@ export function AdBanner({ ads = [], variant = "carousel" }) {
   // ========== SINGLE BANNER (category page) ==========
   if (variant === "banner" || ads.length === 1) {
     const ad = ads[0];
+    const Wrapper = ad.link ? Link : "div";
     return (
       <div className="relative w-full overflow-hidden rounded-xl border border-border">
-        {ad.link ? (
-          <Link to={ad.link} className="block">
-            <img
-              src={cloudinaryImage(ad.image, { width: 1400 })}
-              alt={ad.title}
-              loading="lazy"
-              decoding="async"
-              className="w-full h-48 md:h-64 object-cover"
-            />
-            <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
-            <div className="absolute bottom-4 left-4 md:left-6 text-primary-foreground">
-              <p className="text-xs uppercase tracking-widest opacity-80 mb-1">
-                Featured
-              </p>
-              <h3 className="text-xl md:text-2xl font-bold">{ad.title}</h3>
-            </div>
-          </Link>
-        ) : (
-          <>
-            <img
-              src={cloudinaryImage(ad.image, { width: 1400 })}
-              alt={ad.title}
-              loading="lazy"
-              decoding="async"
-              className="w-full h-48 md:h-64 object-cover"
-            />
-            <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
-            <div className="absolute bottom-4 left-4 md:left-6 text-primary-foreground">
-              <p className="text-xs uppercase tracking-widest opacity-80 mb-1">
-                Featured
-              </p>
-              <h3 className="text-xl md:text-2xl font-bold">{ad.title}</h3>
-            </div>
-          </>
-        )}
+        <Wrapper {...(ad.link ? { to: ad.link, className: "block" } : {})}>
+          <img
+            src={cloudinaryImage(ad.image, { width: 1400 })}
+            alt={ad.title}
+            loading="lazy"
+            decoding="async"
+            className="w-full h-48 md:h-64 object-cover"
+          />
+          <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
+          <div className="absolute bottom-4 left-4 md:left-6 text-primary-foreground">
+            <p className="text-xs uppercase tracking-widest opacity-80 mb-1">
+              Featured
+            </p>
+            <h3 className="text-xl md:text-2xl font-bold">{ad.title}</h3>
+          </div>
+        </Wrapper>
       </div>
     );
   }

@@ -40,6 +40,7 @@ import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
 import { api } from "@/lib/api";
 import { cloudinaryImage } from "@/lib/cloudinary";
+import { formatNominatimAddress } from "@/lib/location";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -482,51 +483,19 @@ export default function Checkout() {
   ============================================================ */
   /** Fill address/city/postal from a Nominatim result (map or search). */
   const applyNominatimToForm = (result, { updateSearchQuery = true } = {}) => {
-    const address = result.address || {};
     const displayName = result.display_name || "";
-
-    const road =
-      address.road ||
-      address.pedestrian ||
-      address.footway ||
-      address.path ||
-      "";
-    const houseNumber = address.house_number || "";
-    const neighbourhood =
-      address.neighbourhood ||
-      address.suburb ||
-      address.quarter ||
-      address.residential ||
-      "";
-    const city =
-      address.city ||
-      address.town ||
-      address.municipality ||
-      address.village ||
-      address.county ||
-      "";
-    const postcode = address.postcode || "";
-
-    let generatedAddress = "";
-    if (houseNumber || road) {
-      generatedAddress = [houseNumber, road].filter(Boolean).join(" ");
-    }
-    if (neighbourhood) {
-      generatedAddress = [generatedAddress, neighbourhood]
-        .filter(Boolean)
-        .join(", ");
-    }
-    if (!generatedAddress) {
-      // Prefer first segment of display name over the full long string
-      generatedAddress = displayName.split(",").slice(0, 2).join(",").trim();
-    }
+    const location = formatNominatimAddress(
+      result,
+      displayName.split(",").slice(0, 2).join(",").trim(),
+      true
+    );
 
     setForm((prev) => ({
       ...prev,
-      address: generatedAddress || prev.address,
-      city: city || prev.city,
-      postalCode: postcode || prev.postalCode,
-      country: address.country || prev.country || "Nepal",
+      address: location.address || prev.address,
+      city: location.city || prev.city,
+      postalCode: location.postalCode || prev.postalCode,
+      country: result.address?.country || prev.country || location.country,
     }));
 
     if (updateSearchQuery && displayName) {

@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import { formatCurrency } from "@/lib/format";
 import {
   getPaymentMethodLabel,
   isOnlinePayment,
@@ -52,10 +53,6 @@ const statusConfig = {
     className: "bg-destructive/10 text-destructive border-destructive/20",
   },
 };
-
-function formatCurrency(amount) {
-  return `Rs. ${Number(amount || 0).toLocaleString("en-NP")}`;
-}
 
 function formatDate(date) {
   if (!date) return "";

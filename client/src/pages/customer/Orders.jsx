@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { api } from "@/lib/api";
+import { formatCurrency } from "@/lib/format";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 
@@ -69,10 +70,6 @@ function formatDate(date) {
     month: "short",
     day: "numeric",
   });
-}
-
-function formatCurrency(amount) {
-  return `Rs. ${Number(amount || 0).toLocaleString("en-NP")}`;
 }
 
 function StatusBadge({ status }) {

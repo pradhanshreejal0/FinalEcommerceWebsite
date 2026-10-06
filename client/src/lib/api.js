@@ -88,5 +88,3 @@ export async function downloadReport(path, { accessToken } = {}) {
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-
-export { API_BASE };

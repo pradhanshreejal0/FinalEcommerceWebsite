@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import { formatNominatimAddress } from "@/lib/location";
 import { uploadImage } from "@/lib/upload";
 import DeleteAccountDialog from "@/components/DeleteAccountDialog";
 
@@ -250,31 +251,14 @@ export default function VendorProfile() {
 
     setLocation({ lat, lng });
 
-    const addr = result.address || {};
     const displayName = result.display_name || "";
-    const road = addr.road || addr.pedestrian || addr.footway || "";
-    const houseNumber = addr.house_number || "";
-    const neighbourhood =
-      addr.neighbourhood || addr.suburb || addr.quarter || "";
-    const resolvedCity =
-      addr.city || addr.town || addr.municipality || addr.village || "";
-
-    let generatedAddress = "";
-    if (houseNumber || road) {
-      generatedAddress = [houseNumber, road].filter(Boolean).join(" ");
-    }
-    if (neighbourhood) {
-      generatedAddress = [generatedAddress, neighbourhood]
-        .filter(Boolean)
-        .join(", ");
-    }
-    if (!generatedAddress) generatedAddress = displayName;
+    const location = formatNominatimAddress(result);
 
     setForm((prev) => ({
       ...prev,
-      address: generatedAddress || prev.address,
-      city: resolvedCity || prev.city,
-      country: addr.country || "Nepal",
+      address: location.address || prev.address,
+      city: location.city || prev.city,
+      country: result.address?.country || "Nepal",
     }));
 
     setSearchQuery(displayName);
