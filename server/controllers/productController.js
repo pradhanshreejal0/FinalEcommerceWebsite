@@ -1,7 +1,9 @@
 import Product from "../models/Product.js";
 import Vendor from "../models/Vendor.js";
 import Category from "../models/Category.js";
+import Order from "../models/Order.js";
 import { escapeRegex } from "../utils/escapeRegex.js";
+import { buildBestSellerPipeline, orderProductsBySales } from "../utils/productRanking.js";
 
 
 // Normalize vendor description sections (max 4). Also builds a plain-text description for search.
@@ -509,6 +511,7 @@ export const getProducts = async (req, res) => {
       minPrice = "",
       maxPrice = "",
       sort = "newest",
+      section = "",
       page = 1,
       limit = 20,
       includeTotal = "true",
@@ -634,6 +637,36 @@ export const getProducts = async (req, res) => {
       ]);
     } else {
       products = await productsQuery;
+    }
+
+    // Home sections share the public listing filters; only their ranking differs.
+    if (["bestsellers", "featured"].includes(section)) {
+      if (section === "bestsellers") {
+        const sales = await Order.aggregate(buildBestSellerPipeline());
+        const rankedIds = sales.map((item) => item._id);
+        const rankedProducts = await Product.find({
+          ...filter,
+          _id: { $in: rankedIds },
+        }, findProjection)
+          .populate("category", "name parentCategory")
+          .populate({
+            path: "vendor",
+            select: compactResponse ? "storeName storeSlug logo" : "storeName storeSlug logo banner",
+          })
+          .lean();
+        products = orderProductsBySales(rankedProducts, sales).slice(skip, skip + limitNum);
+      } else {
+        products = await Product.find(filter, findProjection)
+          .populate("category", "name parentCategory")
+          .populate({
+            path: "vendor",
+            select: compactResponse ? "storeName storeSlug logo" : "storeName storeSlug logo banner",
+          })
+          .sort({ "ratings.average": -1, "ratings.count": -1, createdAt: -1 })
+          .skip(skip)
+          .limit(limitNum)
+          .lean();
+      }
     }
 
     res.json({
