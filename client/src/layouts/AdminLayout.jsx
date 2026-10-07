@@ -64,18 +64,18 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen w-full">
       <aside className="hidden md:flex w-64 flex-col border-r bg-muted/20 p-4">
         <h2 className="mb-6 px-3 text-lg font-bold">Admin Panel</h2>
         <SidebarLinks onLogout={handleLogout} />
       </aside>
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b p-4 md:hidden">
           <h2 className="text-lg font-bold">Admin Panel</h2>
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" aria-label="Open menu">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
@@ -86,7 +86,7 @@ export default function AdminLayout() {
           </Sheet>
         </header>
 
-        <main className="flex-1 p-4 md:p-8">
+        <main className="flex-1 overflow-x-hidden p-4 md:p-8">
           <Outlet />
         </main>
       </div>

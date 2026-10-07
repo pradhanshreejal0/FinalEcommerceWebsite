@@ -865,7 +865,7 @@ export default function Categories() {
           TABLE
           ===================================================== */}
 
-      <div className="overflow-hidden rounded-xl border bg-background shadow-sm">
+      <div className="overflow-x-auto rounded-xl border bg-background shadow-sm">
 
         <Table>
 

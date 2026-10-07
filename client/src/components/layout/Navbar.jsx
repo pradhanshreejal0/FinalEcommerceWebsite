@@ -49,7 +49,7 @@ export default function Navbar() {
     user?.role === "vendor" ? "/vendor/chats" : "/chats";
 
   // =========================================================
-  // LOAD CATEGORIES
+  // LOAD CATEGORIES (reduced to 4 for cleaner display)
   // =========================================================
 
   useEffect(() => {
@@ -63,9 +63,10 @@ export default function Navbar() {
           return;
         }
 
+        // Filter to parent categories and limit for cleaner mobile menu
         const parentCategories = data
           .filter((category) => !category.parentCategory)
-          .slice(0, 8);
+          .slice(0, 6);
 
         setCategories(parentCategories);
       } catch (error) {
@@ -115,7 +116,13 @@ export default function Navbar() {
 
           <Sheet
             open={mobileMenuOpen}
-            onOpenChange={setMobileMenuOpen}
+            onOpenChange={(open) => {
+              setMobileMenuOpen(open);
+              if (!open) {
+                // Clear search state when menu closes
+                // Handled by SearchBox if needed
+              }
+            }}
           >
             <SheetTrigger asChild>
               <Button
@@ -189,13 +196,12 @@ export default function Navbar() {
 
                 </div>
 
-                {/* Mobile Categories */}
-
+                {/* Mobile Categories - collapsed by default for cleaner look */}
                 {categories.length > 0 && (
-                  <div className="mt-5">
+                  <div className="mt-5 border-t pt-4">
 
-                    <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Popular Categories
+                    <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Categories
                     </p>
 
                     <div className="space-y-1">
@@ -204,9 +210,9 @@ export default function Navbar() {
                         <Link
                           key={cat._id}
                           to={`/products?category=${cat._id}`}
-                          onClick={() =>
-                            setMobileMenuOpen(false)
-                          }
+                          onClick={() => {
+                            setMobileMenuOpen(false);
+                          }}
                           className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-muted"
                         >
                           <CategoryIcon
@@ -555,77 +561,6 @@ export default function Navbar() {
       <div className="border-b bg-background px-3 py-2 sm:px-4 md:hidden">
         <SearchBox variant="mobile" />
       </div>
-
-      {/* =====================================================
-          CATEGORY STRIP
-          ALWAYS VISIBLE
-      ===================================================== */}
-
-      {categories.length > 0 && (
-        <section className="border-b bg-background">
-
-          <div className="mx-auto max-w-7xl px-3 sm:px-4">
-
-            <div className="scrollbar-hide flex gap-5 overflow-x-auto py-2.5">
-
-              {/* =================================================
-                  ALL CATEGORIES
-              ================================================= */}
-
-              <Link
-                to="/categories"
-                className="group flex shrink-0 flex-col items-center justify-center gap-1"
-              >
-
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted transition-transform duration-200 group-hover:scale-105">
-
-                  <Menu className="h-5 w-5" />
-
-                </div>
-
-                <span className="whitespace-nowrap text-[11px] font-medium">
-                  All
-                </span>
-
-              </Link>
-
-              {/* =================================================
-                  CATEGORIES
-              ================================================= */}
-
-              {categories.map((cat) => (
-                <Link
-                  key={cat._id}
-                  to={`/products?category=${cat._id}`}
-                  className="group flex shrink-0 flex-col items-center justify-center gap-1"
-                >
-
-                  {/* Icon */}
-
-                  <div className="flex h-12 w-12 items-center justify-center transition-transform duration-200 group-hover:scale-105">
-
-                    <CategoryIcon
-                      category={cat}
-                      size="sm"
-                    />
-
-                  </div>
-
-                  {/* Name */}
-
-                  <span className="max-w-20 truncate whitespace-nowrap text-[11px] font-medium text-foreground/80 group-hover:text-foreground">
-                    {cat.name}
-                  </span>
-
-                </Link>
-              ))}
-
-            </div>
-
-          </div>
-
-        </section>
-      )}
 
       {/* =====================================================
           FLOATING MOBILE CART BUTTON

@@ -102,7 +102,7 @@ export default function VendorLayout() {
   };
 
   return (
-    <div className="flex min-h-screen bg-muted/20">
+    <div className="flex min-h-screen w-full bg-muted/20">
       <aside className="hidden w-64 flex-col border-r bg-background p-4 md:flex">
         <div className="mb-6 px-1">
           <h2 className="text-lg font-bold tracking-tight">Vendor Panel</h2>
@@ -120,7 +120,7 @@ export default function VendorLayout() {
         <SidebarLinks onLogout={handleLogout} vendorStatus={vendorStatus} />
       </aside>
 
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b bg-background p-4 md:hidden">
           <div>
             <h2 className="text-lg font-bold">Vendor Panel</h2>
@@ -141,7 +141,7 @@ export default function VendorLayout() {
           </Sheet>
         </header>
 
-        <main className="flex-1 p-4 md:p-8">
+        <main className="flex-1 overflow-x-hidden p-4 md:p-8">
           <Outlet />
         </main>
       </div>

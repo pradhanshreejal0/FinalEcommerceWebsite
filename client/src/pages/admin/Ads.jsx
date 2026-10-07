@@ -190,7 +190,7 @@ export default function Ads() {
               Add Ad
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>
                 {editingAd ? "Edit Ad" : "New Ad / Banner"}
@@ -314,7 +314,8 @@ export default function Ads() {
         </Dialog>
       </div>
 
-      <Table>
+        <div className="overflow-x-auto rounded-xl border bg-background shadow-sm">
+          <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Image</TableHead>
@@ -389,7 +390,8 @@ export default function Ads() {
             ))
           )}
         </TableBody>
-      </Table>
+          </Table>
+        </div>
 
       {error && !dialogOpen && (
         <p className="text-sm text-destructive mt-4">{error}</p>
