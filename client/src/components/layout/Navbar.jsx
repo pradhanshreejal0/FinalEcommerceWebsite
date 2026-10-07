@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
@@ -16,11 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import SearchBox from "@/components/SearchBox";
 
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 import {
   DropdownMenu,
@@ -41,15 +37,17 @@ import { CategoryIcon } from "../CategoryIcon";
 export default function Navbar() {
   const [categories, setCategories] = useState([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showCategoryNav, setShowCategoryNav] = useState(true);
+  const previousScrollY = useRef(0);
+  const scrollDelta = useRef(0);
 
   const { user, logout } = useAuth();
   const { itemCount } = useCart();
 
-  const messagesLink =
-    user?.role === "vendor" ? "/vendor/chats" : "/chats";
+  const messagesLink = user?.role === "vendor" ? "/vendor/chats" : "/chats";
 
   // =========================================================
-  // LOAD CATEGORIES (reduced to 4 for cleaner display)
+  // LOAD CATEGORIES (limited to six parent categories)
   // =========================================================
 
   useEffect(() => {
@@ -85,6 +83,44 @@ export default function Navbar() {
     };
   }, []);
 
+  useEffect(() => {
+    let frame = 0;
+
+    const handleScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const currentScrollY = window.scrollY;
+        const delta = currentScrollY - previousScrollY.current;
+        previousScrollY.current = currentScrollY;
+
+        if (currentScrollY <= 24) {
+          scrollDelta.current = 0;
+          setShowCategoryNav(true);
+          return;
+        }
+
+        scrollDelta.current = delta === 0 || Math.sign(delta) === Math.sign(scrollDelta.current)
+          ? scrollDelta.current + delta
+          : delta;
+
+        if (scrollDelta.current > 12) {
+          setShowCategoryNav(false);
+          scrollDelta.current = 0;
+        } else if (scrollDelta.current < -12) {
+          setShowCategoryNav(true);
+          scrollDelta.current = 0;
+        }
+      });
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.cancelAnimationFrame(frame);
+    };
+  }, []);
+
   // =========================================================
   // LOGOUT
   // =========================================================
@@ -109,21 +145,11 @@ export default function Navbar() {
 
       <div className="border-b bg-background">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-3 sm:px-4 lg:h-17 lg:gap-5">
-
           {/* =================================================
               MOBILE MENU
           ================================================= */}
 
-          <Sheet
-            open={mobileMenuOpen}
-            onOpenChange={(open) => {
-              setMobileMenuOpen(open);
-              if (!open) {
-                // Clear search state when menu closes
-                // Handled by SearchBox if needed
-              }
-            }}
-          >
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
               <Button
                 variant="ghost"
@@ -135,26 +161,17 @@ export default function Navbar() {
               </Button>
             </SheetTrigger>
 
-            <SheetContent
-              side="left"
-              className="w-75 sm:w-87"
-            >
+            <SheetContent side="left" className="w-75 sm:w-87">
               <div className="mt-6 flex flex-col">
-
                 {/* Mobile Brand */}
 
                 <div className="mb-6 flex items-center justify-between gap-2">
-                  <Link
-                    to="/"
-                    className="flex items-center gap-2"
-                  >
+                  <Link to="/" className="flex items-center gap-2">
                     <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                       <ShoppingCart className="h-5 w-5" />
                     </span>
 
-                    <span className="text-xl font-bold">
-                      YourStore
-                    </span>
+                    <span className="text-xl font-bold">YourStore</span>
                   </Link>
 
                   <ThemeToggle />
@@ -163,7 +180,6 @@ export default function Navbar() {
                 {/* Mobile Navigation */}
 
                 <div className="space-y-1">
-
                   <Link
                     to="/"
                     onClick={() => setMobileMenuOpen(false)}
@@ -193,19 +209,16 @@ export default function Navbar() {
 
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </Link>
-
                 </div>
 
                 {/* Mobile Categories - collapsed by default for cleaner look */}
                 {categories.length > 0 && (
                   <div className="mt-5 border-t pt-4">
-
                     <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Categories
                     </p>
 
                     <div className="space-y-1">
-
                       {categories.map((cat) => (
                         <Link
                           key={cat._id}
@@ -215,17 +228,13 @@ export default function Navbar() {
                           }}
                           className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-muted"
                         >
-                          <CategoryIcon
-                            category={cat}
-                            size="sm"
-                          />
+                          <CategoryIcon category={cat} size="sm" />
 
                           <span className="text-sm font-medium">
                             {cat.name}
                           </span>
                         </Link>
                       ))}
-
                     </div>
                   </div>
                 )}
@@ -233,55 +242,41 @@ export default function Navbar() {
                 {/* Mobile Account */}
 
                 <div className="mt-6 border-t pt-4">
-
                   {user ? (
                     <div className="space-y-1">
-
                       <Link
                         to="/profile"
-                        onClick={() =>
-                          setMobileMenuOpen(false)
-                        }
+                        onClick={() => setMobileMenuOpen(false)}
                         className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium hover:bg-muted"
                       >
                         <User className="h-4 w-4" />
-
                         My Profile
                       </Link>
 
                       <Link
                         to="/orders"
-                        onClick={() =>
-                          setMobileMenuOpen(false)
-                        }
+                        onClick={() => setMobileMenuOpen(false)}
                         className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium hover:bg-muted"
                       >
                         <Package className="h-4 w-4" />
-
                         My Orders
                       </Link>
 
                       <Link
                         to="/wishlist"
-                        onClick={() =>
-                          setMobileMenuOpen(false)
-                        }
+                        onClick={() => setMobileMenuOpen(false)}
                         className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium hover:bg-muted"
                       >
                         <Heart className="h-4 w-4" />
-
                         Wishlist
                       </Link>
 
                       <Link
                         to={messagesLink}
-                        onClick={() =>
-                          setMobileMenuOpen(false)
-                        }
+                        onClick={() => setMobileMenuOpen(false)}
                         className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium hover:bg-muted"
                       >
                         <MessageCircle className="h-4 w-4" />
-
                         Messages
                       </Link>
 
@@ -291,26 +286,17 @@ export default function Navbar() {
                         className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-destructive hover:bg-destructive/10"
                       >
                         <LogOut className="h-4 w-4" />
-
                         Logout
                       </button>
-
                     </div>
                   ) : (
                     <div className="space-y-2">
-
-                      <Button
-                        asChild
-                        className="w-full rounded-lg"
-                      >
+                      <Button asChild className="w-full rounded-lg">
                         <Link
                           to="/login"
-                          onClick={() =>
-                            setMobileMenuOpen(false)
-                          }
+                          onClick={() => setMobileMenuOpen(false)}
                         >
                           <User className="mr-2 h-4 w-4" />
-
                           Sign In
                         </Link>
                       </Button>
@@ -322,17 +308,13 @@ export default function Navbar() {
                       >
                         <Link
                           to="/signup"
-                          onClick={() =>
-                            setMobileMenuOpen(false)
-                          }
+                          onClick={() => setMobileMenuOpen(false)}
                         >
                           Sign Up
                         </Link>
                       </Button>
-
                     </div>
                   )}
-
                 </div>
               </div>
             </SheetContent>
@@ -342,10 +324,7 @@ export default function Navbar() {
               LOGO
           ================================================= */}
 
-          <Link
-            to="/"
-            className="flex shrink-0 items-center gap-2"
-          >
+          <Link to="/" className="flex shrink-0 items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <ShoppingCart className="h-5 w-5" />
             </span>
@@ -368,7 +347,6 @@ export default function Navbar() {
           ================================================= */}
 
           <div className="hidden items-center gap-2 md:flex">
-
             {/* Theme */}
 
             <ThemeToggle className="mr-1" />
@@ -382,13 +360,9 @@ export default function Navbar() {
               className="gap-1.5 rounded-lg px-2.5"
             >
               <Link to="/wishlist">
-
                 <Heart className="h-4 w-4" />
 
-                <span className="hidden lg:inline">
-                  Wishlist
-                </span>
-
+                <span className="hidden lg:inline">Wishlist</span>
               </Link>
             </Button>
 
@@ -401,19 +375,15 @@ export default function Navbar() {
               className="relative gap-1.5 rounded-lg px-2.5"
             >
               <Link to="/cart">
-
                 <ShoppingCart className="h-4 w-4" />
 
-                <span className="hidden lg:inline">
-                  Cart
-                </span>
+                <span className="hidden lg:inline">Cart</span>
 
                 {itemCount > 0 && (
                   <Badge className="absolute -right-1 -top-2 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
                     {itemCount}
                   </Badge>
                 )}
-
               </Link>
             </Button>
 
@@ -421,7 +391,6 @@ export default function Navbar() {
 
             {user ? (
               <DropdownMenu>
-
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
@@ -430,21 +399,14 @@ export default function Navbar() {
                   >
                     <User className="h-4 w-4" />
 
-                    <span className="hidden lg:inline">
-                      Account
-                    </span>
+                    <span className="hidden lg:inline">Account</span>
                   </Button>
                 </DropdownMenuTrigger>
 
-                <DropdownMenuContent
-                  align="end"
-                  className="w-52"
-                >
-
+                <DropdownMenuContent align="end" className="w-52">
                   <DropdownMenuItem asChild>
                     <Link to="/profile">
                       <User className="mr-2 h-4 w-4" />
-
                       My Profile
                     </Link>
                   </DropdownMenuItem>
@@ -452,7 +414,6 @@ export default function Navbar() {
                   <DropdownMenuItem asChild>
                     <Link to="/orders">
                       <Package className="mr-2 h-4 w-4" />
-
                       My Orders
                     </Link>
                   </DropdownMenuItem>
@@ -460,7 +421,6 @@ export default function Navbar() {
                   <DropdownMenuItem asChild>
                     <Link to="/wishlist">
                       <Heart className="mr-2 h-4 w-4" />
-
                       Wishlist
                     </Link>
                   </DropdownMenuItem>
@@ -468,7 +428,6 @@ export default function Navbar() {
                   <DropdownMenuItem asChild>
                     <Link to={messagesLink}>
                       <MessageCircle className="mr-2 h-4 w-4" />
-
                       Messages
                     </Link>
                   </DropdownMenuItem>
@@ -480,41 +439,29 @@ export default function Navbar() {
                     className="text-destructive focus:text-destructive"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
-
                     Logout
                   </DropdownMenuItem>
-
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
               <div className="flex items-center gap-2">
-
                 <Button
                   asChild
                   variant="ghost"
                   size="sm"
                   className="rounded-lg"
                 >
-                  <Link to="/login">
-                    Sign In
-                  </Link>
+                  <Link to="/login">Sign In</Link>
                 </Button>
 
-                <Button
-                  asChild
-                  size="sm"
-                  className="rounded-lg"
-                >
+                <Button asChild size="sm" className="rounded-lg">
                   <Link to="/register">
                     <User className="mr-1.5 h-4 w-4" />
-
                     Sign Up
                   </Link>
                 </Button>
-
               </div>
             )}
-
           </div>
 
           {/* =================================================
@@ -522,7 +469,6 @@ export default function Navbar() {
           ================================================= */}
 
           <div className="ml-auto flex items-center gap-1.5 md:hidden">
-
             <ThemeToggle />
 
             {user ? (
@@ -538,19 +484,11 @@ export default function Navbar() {
                 </Link>
               </Button>
             ) : (
-              <Button
-                asChild
-                size="sm"
-                className="rounded-lg"
-              >
-                <Link to="/login">
-                  Sign In
-                </Link>
+              <Button asChild size="sm" className="rounded-lg">
+                <Link to="/login">Sign In</Link>
               </Button>
             )}
-
           </div>
-
         </div>
       </div>
 
@@ -562,6 +500,36 @@ export default function Navbar() {
         <SearchBox variant="mobile" />
       </div>
 
+      {/* Compact category links stay below the main navigation and reappear near the page top or while scrolling upward. */}
+      {categories.length > 0 && (
+        <nav
+          aria-label="Shop by category"
+          className={`hidden border-b bg-background transition-[transform,opacity] duration-200 motion-reduce:transition-none md:block ${
+            showCategoryNav
+              ? "translate-y-0 opacity-100"
+              : "pointer-events-none -translate-y-full opacity-0"
+          }`}
+        >
+          <div className="mx-auto flex h-10 max-w-7xl items-center gap-1 overflow-x-auto px-3 sm:px-4 lg:px-8">
+            <Link
+              to="/categories"
+              className="shrink-0 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              All categories
+            </Link>
+            {categories.map((category) => (
+              <Link
+                key={category._id}
+                to={`/products?category=${category._id}`}
+                className="shrink-0 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                {category.name}
+              </Link>
+            ))}
+          </div>
+        </nav>
+      )}
+
       {/* =====================================================
           FLOATING MOBILE CART BUTTON
       ===================================================== */}
@@ -571,7 +539,6 @@ export default function Navbar() {
         aria-label="View cart"
         className="fixed bottom-5 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:hidden"
       >
-
         <ShoppingCart className="h-6 w-6" />
 
         {itemCount > 0 && (
@@ -579,9 +546,7 @@ export default function Navbar() {
             {itemCount}
           </Badge>
         )}
-
       </Link>
-
     </header>
   );
 }
