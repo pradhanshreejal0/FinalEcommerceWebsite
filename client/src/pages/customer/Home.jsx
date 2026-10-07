@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { cloudinaryImage } from "@/lib/cloudinary";
 import { PriceTag } from "@/components/PriceTag";
 import { AdBanner } from "@/components/AdBanner";
-import { CategoryIcon } from "@/components/CategoryIcon";
-import { ChevronRight, LayoutGrid, Sparkles, TrendingUp, Zap } from "lucide-react";
+import { ChevronRight, Sparkles, TrendingUp, Zap } from "lucide-react";
 
 function getProductImage(product) {
   const image = product?.images?.[0];
@@ -14,29 +13,66 @@ function getProductImage(product) {
 
 /**
  * ProductRail renders a horizontally scrollable product shelf with dot navigation.
- * It shows 4 products per "page" on desktop, 2 on tablet, 1 on mobile.
+ * Features:
+ * - Dot navigation to jump to specific sections
+ * - Mousewheel support for scrolling
+ * - Active dot syncs with scroll position
  */
 function ProductRail({ title, icon: Icon, products, loading, href = "/products", badge }) {
+  const scrollRef = useRef(null);
   const [activeDot, setActiveDot] = useState(0);
 
-  // Update active dot on products change (initial load)
-  useEffect(() => {
-    setActiveDot(0);
-  }, [products]);
+  // Calculate how many products per "page" based on screen size
+  const getProductsPerSlide = (length) => {
+    if (length === 0) return 1;
+    if (length > 12) return 4;
+    if (length > 6) return 3;
+    return 2;
+  };
 
-  // Total number of "pages" (dots) based on how many products fit per screen
-  // Desktop: ~4, tablet: ~2, mobile: ~1
-  const productsPerSlide = products.length > 8 ? 4 : products.length > 4 ? 3 : 2;
+  const productsPerSlide = getProductsPerSlide(products.length);
   const totalDots = Math.ceil(products.length / productsPerSlide);
 
+  // Debounced scroll handler to prevent excessive re-renders
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const { scrollLeft, clientWidth } = el;
+    // Calculate current slide index
+    const index = Math.round(scrollLeft / (clientWidth / productsPerSlide));
+    // Only update state if index actually changed
+    if (index !== activeDot) {
+      setActiveDot(Math.min(index, totalDots - 1));
+    }
+  };
+
+  // Handle dot click with smooth scrolling
   const handleDotClick = (index) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const slideWidth = el.clientWidth / productsPerSlide;
+    el.scrollTo({
+      left: index * slideWidth,
+      behavior: "smooth",
+    });
     setActiveDot(index);
   };
 
-  const handleScroll = (e) => {
-    const { scrollLeft, clientWidth } = e.currentTarget;
-    const index = Math.round(scrollLeft / (clientWidth / productsPerSlide));
-    setActiveDot(index);
+  // Handle wheel scroll for smooth mousewheel
+  const handleWheel = (e) => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    // Convert wheel delta to scroll distance
+    const scrollDistance = e.deltaY || e.deltaX;
+    el.scrollLeft += scrollDistance;
+
+    // Update active dot after scroll completes (using requestAnimationFrame)
+    requestAnimationFrame(() => {
+      const { scrollLeft, clientWidth } = el;
+      const index = Math.round(scrollLeft / (clientWidth / productsPerSlide));
+      setActiveDot(Math.min(index, totalDots - 1));
+    });
   };
 
   return (
@@ -65,7 +101,10 @@ function ProductRail({ title, icon: Icon, products, loading, href = "/products",
           <div
             className="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pb-6"
             onScroll={handleScroll}
+            onWheel={handleWheel}
             aria-label={`${title} products`}
+            ref={scrollRef}
+            style={{ scrollBehavior: "smooth" }}
           >
             {products.map((product) => {
               const image = getProductImage(product);

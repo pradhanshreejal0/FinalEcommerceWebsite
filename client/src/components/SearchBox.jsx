@@ -4,6 +4,11 @@ import { Button } from "@/components/ui/button";
 import FastSearchModal from "@/components/FastSearchModal";
 import { api } from "@/lib/api";
 
+// Cache for categories to avoid redundant API calls
+let categoriesCache = null;
+let cacheTime = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 /**
  * Search trigger that opens the Aura-style FastSearchModal.
  * Desktop: looks like an input field; click / focus opens the modal.
@@ -12,20 +17,29 @@ import { api } from "@/lib/api";
  */
 export default function SearchBox({ variant = "desktop", onNavigate }) {
   const [open, setOpen] = useState(false);
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState(categoriesCache || []);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const data = await api("/categories");
-        if (!cancelled && Array.isArray(data)) {
-          setCategories(data);
+
+    // Use cached categories if available and not expired
+    const now = Date.now();
+    if (categoriesCache && now - cacheTime < CACHE_DURATION) {
+      setCategories(categoriesCache);
+    } else {
+      (async () => {
+        try {
+          const data = await api("/categories");
+          if (!cancelled && Array.isArray(data)) {
+            categoriesCache = data;
+            cacheTime = now;
+            setCategories(data);
+          }
+        } catch {
+          /* categories optional for search empty state */
         }
-      } catch {
-        /* categories optional for search empty state */
-      }
-    })();
+      })();
+    }
     return () => {
       cancelled = true;
     };

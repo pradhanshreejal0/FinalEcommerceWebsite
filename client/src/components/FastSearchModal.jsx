@@ -5,8 +5,6 @@ import {
   X,
   ArrowRight,
   Clock,
-  Sparkles,
-  Tag,
   Package,
   Loader2,
 } from "lucide-react";

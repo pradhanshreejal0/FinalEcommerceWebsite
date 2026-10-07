@@ -4,7 +4,6 @@ import {
   Users,
   Package,
   ShoppingBag,
-  Tag,
   MessageCircle,
   Percent,
   Wallet,
