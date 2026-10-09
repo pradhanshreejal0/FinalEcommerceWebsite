@@ -1,13 +1,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/inter";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: var(--font-sans);
-    --font-sans: "Inter Variable", sans-serif;
+    --font-heading: "Manrope", "DM Sans", sans-serif;
+    --font-sans: "DM Sans", system-ui, sans-serif;
 
     /* ---------- Sidebar ---------- */
     --color-sidebar-ring: var(--sidebar-ring);
@@ -78,155 +77,156 @@
 }
 
 /* =========================================================
-   EMERALD + CHARCOAL
-   Premium Ecommerce Theme
+   FOUNDRY PREMIUM THEME
+   Matched to Premium-Ecommerce-Website
+   Forest green + navy + paper neutrals
    ========================================================= */
 
 :root {
     /* ---------- Base ---------- */
-    --background: #f7f8f5;
-    --foreground: #1d2925;
+    --background: #f7f8fa;
+    --foreground: #202b32;
 
     /* ---------- Cards ---------- */
     --card: #ffffff;
-    --card-foreground: #1d2925;
+    --card-foreground: #202b32;
 
     /* ---------- Popovers ---------- */
     --popover: #ffffff;
-    --popover-foreground: #1d2925;
+    --popover-foreground: #202b32;
 
-    /* ---------- Primary ---------- */
-    --primary: #176b5b;
+    /* ---------- Primary (forest green) ---------- */
+    --primary: #174c45;
     --primary-foreground: #ffffff;
 
     /* ---------- Secondary ---------- */
-    --secondary: #e8efeb;
-    --secondary-foreground: #174b40;
+    --secondary: #e9f2ef;
+    --secondary-foreground: #174c45;
 
     /* ---------- Muted ---------- */
-    --muted: #eef2ee;
-    --muted-foreground: #586760;
+    --muted: #f0f3f3;
+    --muted-foreground: #78858a;
 
     /* ---------- Accent ---------- */
-    --accent: #e8efeb;
-    --accent-foreground: #174b40;
+    --accent: #e9f2ef;
+    --accent-foreground: #174c45;
 
     /* ---------- Status ---------- */
     --destructive: #c73935;
 
-    --success: #176b5b;
-    --success-foreground: #174b40;
+    --success: #174c45;
+    --success-foreground: #e9f2ef;
 
-    --warning: #e79545;
+    --warning: #f5a45d;
     --warning-foreground: #78400d;
 
     --info: #2876a8;
     --info-foreground: #205d84;
 
     /* ---------- Borders ---------- */
-    --border: #dce4de;
-    --input: #c7d2cb;
+    --border: #e4e8e9;
+    --input: #d0d7d8;
 
     /* ---------- Focus ---------- */
-    --ring: #176b5b;
+    --ring: #28796e;
 
     /* ---------- Charts ---------- */
-    --chart-1: #176b5b;
-    --chart-2: #58a58e;
-    --chart-3: #71817a;
-    --chart-4: #2876a8;
-    --chart-5: #e79545;
+    --chart-1: #174c45;
+    --chart-2: #28796e;
+    --chart-3: #78858a;
+    --chart-4: #172c36;
+    --chart-5: #f5a45d;
 
     /* ---------- Radius ---------- */
-    --radius: 0.75rem;
+    --radius: 0.625rem;
 
     /* ---------- Sidebar ---------- */
     --sidebar: #ffffff;
-    --sidebar-foreground: #1d2925;
-    --sidebar-primary: #176b5b;
+    --sidebar-foreground: #202b32;
+    --sidebar-primary: #174c45;
     --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #e8efeb;
-    --sidebar-accent-foreground: #174b40;
-    --sidebar-border: #dce4de;
-    --sidebar-ring: #176b5b;
+    --sidebar-accent: #e9f2ef;
+    --sidebar-accent-foreground: #174c45;
+    --sidebar-border: #e4e8e9;
+    --sidebar-ring: #28796e;
 
     /* ---------- Skeleton ---------- */
-    --skeleton-base: #eef2ee;
-    --skeleton-highlight: #dce4de;
+    --skeleton-base: #f0f3f3;
+    --skeleton-highlight: #e4e8e9;
 }
 
 /* =========================================================
-   DARK MODE
+   DARK MODE  (navy-tinted, matches Premium navy)
    ========================================================= */
 
 .dark {
     /* ---------- Base ---------- */
-    --background: #17211d;
-    --foreground: #f0f5f1;
+    --background: #121c22;
+    --foreground: #e8eef0;
 
     /* ---------- Cards ---------- */
-    --card: #202d27;
-    --card-foreground: #f0f5f1;
+    --card: #1a2730;
+    --card-foreground: #e8eef0;
 
     /* ---------- Popovers ---------- */
-    --popover: #202d27;
-    --popover-foreground: #f0f5f1;
+    --popover: #1a2730;
+    --popover-foreground: #e8eef0;
 
     /* ---------- Primary ---------- */
-    --primary: #72c4a8;
-    --primary-foreground: #10261f;
+    --primary: #3d9b8a;
+    --primary-foreground: #0a1f1c;
 
     /* ---------- Secondary ---------- */
-    --secondary: #29483d;
-    --secondary-foreground: #d6eee3;
+    --secondary: #24363f;
+    --secondary-foreground: #c5ddd6;
 
     /* ---------- Muted ---------- */
-    --muted: #26342e;
-    --muted-foreground: #b1c0b7;
+    --muted: #1e2d36;
+    --muted-foreground: #8a9ba3;
 
     /* ---------- Accent ---------- */
-    --accent: #29483d;
-    --accent-foreground: #d6eee3;
+    --accent: #24363f;
+    --accent-foreground: #c5ddd6;
 
     /* ---------- Status ---------- */
     --destructive: #ff7770;
 
-    --success: #72c4a8;
+    --success: #3d9b8a;
     --success-foreground: #b9ead7;
 
-    --warning: #f2b66d;
+    --warning: #f5a45d;
     --warning-foreground: #f7d7ae;
 
     --info: #7bb9e0;
     --info-foreground: #b4d7ee;
 
     /* ---------- Borders ---------- */
-    --border: #35463d;
-    --input: #506257;
+    --border: #2a3c47;
+    --input: #3a4f5c;
 
     /* ---------- Focus ---------- */
-    --ring: #72c4a8;
+    --ring: #3d9b8a;
 
     /* ---------- Charts ---------- */
-    --chart-1: #72c4a8;
-    --chart-2: #b0d47b;
-    --chart-3: #a6b7ad;
+    --chart-1: #3d9b8a;
+    --chart-2: #5cb8a4;
+    --chart-3: #8a9ba3;
     --chart-4: #7bb9e0;
-    --chart-5: #f2b66d;
+    --chart-5: #f5a45d;
 
     /* ---------- Sidebar ---------- */
-    --sidebar: #202d27;
-    --sidebar-foreground: #f0f5f1;
-    --sidebar-primary: #72c4a8;
-    --sidebar-primary-foreground: #10261f;
-    --sidebar-accent: #29483d;
-    --sidebar-accent-foreground: #d6eee3;
-    --sidebar-border: #35463d;
-    --sidebar-ring: #72c4a8;
+    --sidebar: #1a2730;
+    --sidebar-foreground: #e8eef0;
+    --sidebar-primary: #3d9b8a;
+    --sidebar-primary-foreground: #0a1f1c;
+    --sidebar-accent: #24363f;
+    --sidebar-accent-foreground: #c5ddd6;
+    --sidebar-border: #2a3c47;
+    --sidebar-ring: #3d9b8a;
 
     /* ---------- Skeleton ---------- */
-    --skeleton-base: #26342e;
-    --skeleton-highlight: #35463d;
+    --skeleton-base: #1e2d36;
+    --skeleton-highlight: #2a3c47;
 }
 
 /* =========================================================
@@ -247,11 +247,24 @@
        body {
            background-color: var(--background);
            color: var(--foreground);
-
-           font-feature-settings: "cv02", "cv03", "cv04", "cv11";
            text-rendering: optimizeLegibility;
            -webkit-font-smoothing: antialiased;
            -moz-osx-font-smoothing: grayscale;
+       }
+
+       h1, h2, h3, h4, h5, h6 {
+           font-family: var(--font-heading);
+           letter-spacing: -0.02em;
+       }
+
+       ::selection {
+           background: #d6e8e2;
+           color: #153d37;
+       }
+
+       :focus-visible {
+           outline: 3px solid #28796e;
+           outline-offset: 2px;
        }
    }
 

@@ -1,13 +1,27 @@
+import { useState } from "react";
 import { SiFacebook, SiX, SiInstagram } from "@icons-pack/react-simple-icons";
 import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { api } from "@/lib/api";
 
 function Footer() {
-  const handleSubscribe = (e) => {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState({ loading: false, message: "", error: false });
+
+  const handleSubscribe = async (e) => {
     e.preventDefault();
-    // TODO: wire up real newsletter subscription later
+    if (!email) return;
+
+    setStatus({ loading: true, message: "", error: false });
+    try {
+      const res = await api.post("/newsletter/subscribe", { email });
+      setStatus({ loading: false, message: res.message || "Subscribed successfully!", error: false });
+      setEmail("");
+    } catch (err) {
+      setStatus({ loading: false, message: err.message || "Subscription failed.", error: true });
+    }
   };
 
   return (
@@ -16,10 +30,10 @@ function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* About Section */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">About Us</h3>
+            <h3 className="text-lg font-semibold mb-4">Foundry</h3>
             <p className="text-sm mb-4 text-muted-foreground">
-              Your one-stop shop for the latest products. We offer quality,
-              affordability, and great customer service.
+              Everyday, elevated. Considered finds for the way you live, work,
+              move and make a home.
             </p>
             <div className="flex space-x-4 mt-2">
               <a
@@ -135,17 +149,26 @@ function Footer() {
             <h3 className="text-lg font-semibold mb-4">Subscribe</h3>
             <form
               onSubmit={handleSubscribe}
-              className="flex flex-col sm:flex-row gap-2"
+              className="flex flex-col gap-2"
             >
-              <Input
-                type="email"
-                placeholder="Email"
-                required
-                className="min-w-0 flex-1 bg-background"
-              />
-              <Button type="submit" className="shrink-0">
-                Subscribe
-              </Button>
+              <div className="flex sm:flex-row gap-2">
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="min-w-0 flex-1 bg-background"
+                />
+                <Button type="submit" className="shrink-0" disabled={status.loading}>
+                  {status.loading ? "..." : "Subscribe"}
+                </Button>
+              </div>
+              {status.message && (
+                <p className={`text-xs mt-1 ${status.error ? "text-destructive" : "text-green-600 dark:text-green-400"}`}>
+                  {status.message}
+                </p>
+              )}
             </form>
           </div>
         </div>
@@ -155,7 +178,7 @@ function Footer() {
         {/* Bottom Bar */}
         <div className="flex flex-col md:flex-row items-center justify-between text-sm gap-2">
           <p className="text-muted-foreground">
-            &copy; {new Date().getFullYear()} YourCompany. All rights reserved.
+            &copy; {new Date().getFullYear()} Foundry. All rights reserved.
           </p>
           <div className="space-x-4">
             <Link

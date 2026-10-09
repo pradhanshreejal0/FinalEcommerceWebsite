@@ -30,6 +30,8 @@ import reviewRoutes from "./routes/reviewRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
+import contactRoutes from "./routes/contactRoutes.js";
+import newsletterRoutes from "./routes/newsletterRoutes.js";
 
 dotenv.config();
 
@@ -152,6 +154,8 @@ const routes = {
   users: userRoutes,
   settings: settingsRoutes,
   chats: chatRoutes,
+  contact: contactRoutes,
+  newsletter: newsletterRoutes,
 };
 for (const [path, router] of Object.entries(routes)) app.use(`/api/${path}`, router);
 

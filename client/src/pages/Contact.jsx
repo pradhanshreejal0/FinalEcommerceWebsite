@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { api } from "@/lib/api";
 
 export default function Contact() {
   const [form, setForm] = useState({
@@ -12,16 +13,26 @@ export default function Contact() {
     subject: "",
     message: "",
   });
+  const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: wire to backend / email service later
-    setSent(true);
+    setLoading(true);
+    setError(null);
+    try {
+      await api.post("/contact", form);
+      setSent(true);
+    } catch (err) {
+      setError(err.message || "Failed to send message. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -38,11 +49,16 @@ export default function Contact() {
         </CardHeader>
         <CardContent>
           {sent ? (
-            <p className="text-sm text-success">
+            <p className="text-sm text-green-600 dark:text-green-400 font-medium">
               Thank you! Your message has been received. We’ll respond soon.
             </p>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="p-3 text-sm rounded bg-destructive/10 text-destructive">
+                  {error}
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
                 <Input
@@ -85,8 +101,8 @@ export default function Contact() {
                   onChange={handleChange}
                 />
               </div>
-              <Button type="submit" className="w-full">
-                Send message
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Sending..." : "Send message"}
               </Button>
             </form>
           )}
@@ -95,7 +111,7 @@ export default function Contact() {
 
       <div className="mt-8 text-sm text-muted-foreground space-y-1">
         <p>
-          <strong className="text-foreground">Email:</strong> support@yourcompany.com
+          <strong className="text-foreground">Email:</strong> support@foundry.com
         </p>
         <p>
           <strong className="text-foreground">Hours:</strong> Sunday – Friday,

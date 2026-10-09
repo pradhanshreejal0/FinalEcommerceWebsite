@@ -62,7 +62,14 @@ export default function Navbar() {
         }
 
         // Filter to parent categories and limit for cleaner mobile menu
-        const parentCategories = data
+        const list = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.data)
+            ? data.data
+            : Array.isArray(data?.categories)
+              ? data.categories
+              : [];
+        const parentCategories = list
           .filter((category) => !category.parentCategory)
           .slice(0, 6);
 
@@ -167,11 +174,11 @@ export default function Navbar() {
 
                 <div className="mb-6 flex items-center justify-between gap-2">
                   <Link to="/" className="flex items-center gap-2">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                      <ShoppingCart className="h-5 w-5" />
+                    <span className="flex h-9 w-9 items-center justify-center rounded-[10px] rounded-bl-sm bg-primary font-[family-name:var(--font-heading)] text-[21px] font-extrabold tracking-tighter text-primary-foreground">
+                      F
                     </span>
 
-                    <span className="text-xl font-bold">YourStore</span>
+                    <span className="font-[family-name:var(--font-heading)] text-xl font-extrabold tracking-tight">Foundry</span>
                   </Link>
 
                   <ThemeToggle />
@@ -307,7 +314,7 @@ export default function Navbar() {
                         className="w-full rounded-lg"
                       >
                         <Link
-                          to="/signup"
+                          to="/register"
                           onClick={() => setMobileMenuOpen(false)}
                         >
                           Sign Up
@@ -325,12 +332,12 @@ export default function Navbar() {
           ================================================= */}
 
           <Link to="/" className="flex shrink-0 items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <ShoppingCart className="h-5 w-5" />
+            <span className="flex h-9 w-9 items-center justify-center rounded-[10px] rounded-bl-sm bg-primary font-[family-name:var(--font-heading)] text-[21px] font-extrabold tracking-tighter text-primary-foreground">
+              F
             </span>
 
-            <span className="hidden text-lg font-bold tracking-tight sm:block lg:text-xl">
-              YourStore
+            <span className="hidden font-[family-name:var(--font-heading)] text-lg font-extrabold tracking-tight sm:block lg:text-xl">
+              Foundry
             </span>
           </Link>
 

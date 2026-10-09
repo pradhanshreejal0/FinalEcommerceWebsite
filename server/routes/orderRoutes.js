@@ -8,6 +8,7 @@ import {
   getVendorOrders,
   updateOrderStatus,
   getAllOrders,
+  cancelOrder,
 } from "../controllers/orderController.js";
 
 import {
@@ -47,6 +48,13 @@ router.get(
   protect,
   authorize("customer"),
   getMyOrders
+);
+
+router.put(
+  "/:id/cancel",
+  protect,
+  authorize("customer"),
+  cancelOrder
 );
 
 // Online payment (aliases used by the client)

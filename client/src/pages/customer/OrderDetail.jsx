@@ -211,6 +211,28 @@ export default function OrderDetail() {
 
           <StatusBadge status={order.status} />
         </div>
+        {order.status === "pending" && (
+          <div className="mt-4">
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (confirm("Are you sure you want to cancel this order?")) {
+                  try {
+                    await api.put(`/orders/${id}/cancel`, {
+                      reason: "Cancelled by customer",
+                    });
+                    window.location.reload();
+                  } catch (err) {
+                    alert(err.message || "Failed to cancel order");
+                  }
+                }
+              }}
+            >
+              Cancel Order
+            </Button>
+          </div>
+        )}
+      </div>
 
         {/* Quick information */}
         <div className="mt-6 grid gap-4 border-t pt-5 sm:grid-cols-3">

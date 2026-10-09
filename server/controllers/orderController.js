@@ -673,6 +673,28 @@ export const createOrder = async (req, res) => {
 
       cart.items = [];
       await cart.save();
+
+      // Notify customer (non-blocking)
+      notifyEmail({
+        to: req.user.email,
+        subject: `Order placed — ${order.orderNumber}`,
+        html: orderSummaryHtml(order, "Thanks for your order!"),
+      });
+
+      // Notify each vendor for their items
+      const vendorIds = [
+        ...new Set(orderItems.map((i) => String(i.vendor))),
+      ];
+      for (const vid of vendorIds) {
+        const v = await Vendor.findById(vid).populate("user", "email");
+        if (v?.user?.email) {
+          notifyEmail({
+            to: v.user.email,
+            subject: `New order ${order.orderNumber}`,
+            html: orderSummaryHtml(order, `New order for ${v.storeName}`),
+          });
+        }
+      }
     } catch (createErr) {
       // Roll back stock (and coupon usage) if order/cart write fails
       for (const r of reservedLines.reverse()) {
@@ -706,28 +728,6 @@ export const createOrder = async (req, res) => {
     }
 
     const populated = await populateOrder(Order.findById(order._id));
-
-    // Notify customer (non-blocking)
-    notifyEmail({
-      to: req.user.email,
-      subject: `Order placed — ${order.orderNumber}`,
-      html: orderSummaryHtml(order, "Thanks for your order!"),
-    });
-
-    // Notify each vendor for their items
-    const vendorIds = [
-      ...new Set(orderItems.map((i) => String(i.vendor))),
-    ];
-    for (const vid of vendorIds) {
-      const v = await Vendor.findById(vid).populate("user", "email");
-      if (v?.user?.email) {
-        notifyEmail({
-          to: v.user.email,
-          subject: `New order ${order.orderNumber}`,
-          html: orderSummaryHtml(order, `New order for ${v.storeName}`),
-        });
-      }
-    }
 
     return res.status(201).json(populated);
   } catch (error) {
@@ -1055,6 +1055,62 @@ export const updateOrderStatus = async (req, res) => {
 
     return res.status(500).json({
       message: error.message || "Failed to update order status",
+    });
+  }
+};
+
+// =====================================================
+// Customer: Cancel Pending Order
+// =====================================================
+
+export const cancelOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason = "Cancelled by customer" } = req.body;
+
+    const order = await Order.findById(id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    if (order.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    if (order.status !== "pending") {
+      return res.status(400).json({
+        message: `Order cannot be cancelled because it is already "${order.status}"`,
+      });
+    }
+
+    // Cancel main order and all line items
+    order.status = "cancelled";
+    order.cancellationReason = String(reason).trim();
+    for (const item of order.items) {
+      item.status = "cancelled";
+      item.cancellationReason = String(reason).trim();
+    }
+
+    // Restore inventory
+    await restoreStockForItems(order.items);
+
+    await order.save();
+
+    const updatedOrder = await populateOrder(Order.findById(order._id));
+
+    // Notify customer
+    notifyEmail({
+      to: req.user.email,
+      subject: `Order ${order.orderNumber} cancelled`,
+      html: orderSummaryHtml(order, "Your order has been cancelled."),
+    });
+
+    return res.json(updatedOrder);
+  } catch (error) {
+    console.error("Cancel order error:", error);
+    return res.status(500).json({
+      message: error.message || "Failed to cancel order",
     });
   }
 };
