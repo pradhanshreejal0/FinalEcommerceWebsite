@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -17,10 +16,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
-import {
-  getPaymentMethodLabel,
-  isOnlinePayment,
-} from "@/lib/payment";
+import { getPaymentMethodLabel, isOnlinePayment } from "@/lib/payment";
 
 const statusConfig = {
   pending: {
@@ -28,25 +24,21 @@ const statusConfig = {
     icon: Clock3,
     className: "bg-warning/10 text-warning-foreground border-warning/20",
   },
-
   processing: {
     label: "Processing",
     icon: Package,
     className: "bg-info/10 text-info-foreground border-info/20",
   },
-
   shipped: {
     label: "Shipped",
     icon: Truck,
     className: "bg-secondary text-secondary-foreground border-secondary",
   },
-
   delivered: {
     label: "Delivered",
     icon: CheckCircle2,
     className: "bg-success/10 text-success-foreground border-success/20",
   },
-
   cancelled: {
     label: "Cancelled",
     icon: XCircle,
@@ -102,23 +94,12 @@ export default function OrderDetail() {
       setError("");
 
       try {
-        const data = await api(`/orders/${id}`, {
-          accessToken,
-        });
-
-        if (!cancelled) {
-          setOrder(data);
-        }
+        const data = await api(`/orders/${id}`, { accessToken });
+        if (!cancelled) setOrder(data);
       } catch (err) {
-        if (!cancelled) {
-          setError(
-            err?.message || "Failed to load order"
-          );
-        }
+        if (!cancelled) setError(err?.message || "Failed to load order");
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     };
 
@@ -129,13 +110,28 @@ export default function OrderDetail() {
     };
   }, [id, accessToken]);
 
+  const handleCancel = async () => {
+    if (!confirm("Are you sure you want to cancel this order?")) return;
+
+    try {
+      // Adjust method/body to match how your api helper in src/lib/api.js works
+      await api(`/orders/${id}/cancel`, {
+        method: "PUT",
+        accessToken,
+        body: { reason: "Cancelled by customer" },
+      });
+      window.location.reload();
+    } catch (err) {
+      alert(err?.message || "Failed to cancel order");
+    }
+  };
+
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-10">
         <div className="flex min-h-75 items-center justify-center">
           <div className="text-center">
             <Package className="mx-auto h-8 w-8 animate-pulse text-muted-foreground" />
-
             <p className="mt-3 text-sm text-muted-foreground">
               Loading order...
             </p>
@@ -171,19 +167,16 @@ export default function OrderDetail() {
   }
 
   const orderNumber =
-    order.orderNumber ||
-    `#${order._id?.slice(-8).toUpperCase()}`;
+    order.orderNumber || `#${order._id?.slice(-8).toUpperCase()}`;
 
   const itemCount =
     order.items?.reduce(
-      (total, item) =>
-        total + Number(item.quantity || 0),
+      (total, item) => total + Number(item.quantity || 0),
       0
     ) || 0;
 
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Back */}
       <Link
         to="/orders"
         className="inline-flex items-center text-sm text-muted-foreground transition hover:text-foreground hover:underline"
@@ -192,13 +185,11 @@ export default function OrderDetail() {
         Back to orders
       </Link>
 
-      {/* Header */}
+      {/* Header card */}
       <div className="mt-6 rounded-2xl border bg-background p-5 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-sm text-muted-foreground">
-              Order
-            </p>
+            <p className="text-sm text-muted-foreground">Order</p>
 
             <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
               {orderNumber}
@@ -211,28 +202,14 @@ export default function OrderDetail() {
 
           <StatusBadge status={order.status} />
         </div>
+
         {order.status === "pending" && (
           <div className="mt-4">
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                if (confirm("Are you sure you want to cancel this order?")) {
-                  try {
-                    await api.put(`/orders/${id}/cancel`, {
-                      reason: "Cancelled by customer",
-                    });
-                    window.location.reload();
-                  } catch (err) {
-                    alert(err.message || "Failed to cancel order");
-                  }
-                }
-              }}
-            >
+            <Button variant="destructive" onClick={handleCancel}>
               Cancel Order
             </Button>
           </div>
         )}
-      </div>
 
         {/* Quick information */}
         <div className="mt-6 grid gap-4 border-t pt-5 sm:grid-cols-3">
@@ -242,8 +219,7 @@ export default function OrderDetail() {
             </p>
 
             <p className="mt-1 font-medium">
-              {itemCount}{" "}
-              {itemCount === 1 ? "item" : "items"}
+              {itemCount} {itemCount === 1 ? "item" : "items"}
             </p>
           </div>
 
@@ -273,15 +249,12 @@ export default function OrderDetail() {
         </div>
       </div>
 
-      {/* Items */}
+      {/* Order items */}
       <section className="mt-6 rounded-2xl border bg-background shadow-sm">
         <div className="border-b p-5 sm:p-6">
           <div className="flex items-center gap-2">
             <Package className="h-5 w-5" />
-
-            <h2 className="text-lg font-semibold">
-              Order Items
-            </h2>
+            <h2 className="text-lg font-semibold">Order Items</h2>
           </div>
 
           <p className="mt-1 text-sm text-muted-foreground">
@@ -291,32 +264,23 @@ export default function OrderDetail() {
 
         <div className="divide-y">
           {order.items?.map((item, index) => {
-            const itemStatus =
-              item.status || order.status;
+            const itemStatus = item.status || order.status;
 
             const subtotal =
               item.subtotal ??
-              Number(item.price || 0) *
-                Number(item.quantity || 0);
+              Number(item.price || 0) * Number(item.quantity || 0);
 
             return (
               <div
-                key={
-                  item._id ||
-                  `${item.product?._id || "item"}-${index}`
-                }
+                key={item._id || `${item.product?._id || "item"}-${index}`}
                 className="p-5 sm:p-6"
               >
                 <div className="flex flex-col gap-5 sm:flex-row">
                   {/* Image */}
                   <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl border bg-muted">
-                    {item.image ||
-                    item.product?.images?.[0] ? (
+                    {item.image || item.product?.images?.[0] ? (
                       <img
-                        src={
-                          item.image ||
-                          item.product?.images?.[0]
-                        }
+                        src={item.image || item.product?.images?.[0]}
                         alt={item.title || "Product"}
                         className="h-full w-full object-cover"
                       />
@@ -332,9 +296,7 @@ export default function OrderDetail() {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <h3 className="font-semibold">
-                          {item.title ||
-                            item.product?.title ||
-                            "Product"}
+                          {item.title || item.product?.title || "Product"}
                         </h3>
 
                         {(item.variantLabel || item.variantKey) && (
@@ -358,30 +320,21 @@ export default function OrderDetail() {
 
                     <div className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
                       <div>
-                        <span className="text-muted-foreground">
-                          Quantity
-                        </span>
-
-                        <p className="font-medium">
-                          {item.quantity}
-                        </p>
+                        <span className="text-muted-foreground">Quantity</span>
+                        <p className="font-medium">{item.quantity}</p>
                       </div>
 
                       <div>
                         <span className="text-muted-foreground">
                           Unit Price
                         </span>
-
                         <p className="font-medium">
                           {formatCurrency(item.price)}
                         </p>
                       </div>
 
                       <div>
-                        <span className="text-muted-foreground">
-                          Subtotal
-                        </span>
-
+                        <span className="text-muted-foreground">Subtotal</span>
                         <p className="font-semibold">
                           {formatCurrency(subtotal)}
                         </p>
@@ -389,18 +342,12 @@ export default function OrderDetail() {
                     </div>
 
                     {/* Cancellation reason */}
-                    {itemStatus === "cancelled" &&
-                      item.cancellationReason && (
-                        <div className="mt-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
-                          <p className="font-medium">
-                            Cancellation reason
-                          </p>
-
-                          <p className="mt-1">
-                            {item.cancellationReason}
-                          </p>
-                        </div>
-                      )}
+                    {itemStatus === "cancelled" && item.cancellationReason && (
+                      <div className="mt-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+                        <p className="font-medium">Cancellation reason</p>
+                        <p className="mt-1">{item.cancellationReason}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -411,10 +358,7 @@ export default function OrderDetail() {
         {/* Total */}
         <div className="border-t bg-muted/20 p-5 sm:p-6">
           <div className="flex items-center justify-between">
-            <span className="text-lg font-semibold">
-              Order Total
-            </span>
-
+            <span className="text-lg font-semibold">Order Total</span>
             <span className="text-2xl font-bold">
               {formatCurrency(order.totalAmount)}
             </span>
@@ -428,24 +372,17 @@ export default function OrderDetail() {
         <section className="rounded-2xl border bg-background p-5 shadow-sm sm:p-6">
           <div className="flex items-center gap-2">
             <MapPin className="h-5 w-5" />
-
-            <h2 className="font-semibold">
-              Shipping Address
-            </h2>
+            <h2 className="font-semibold">Shipping Address</h2>
           </div>
 
           <div className="mt-4 space-y-1 text-sm">
-            <p className="font-medium">
-              {order.shippingAddress?.fullName}
-            </p>
+            <p className="font-medium">{order.shippingAddress?.fullName}</p>
 
             <p className="text-muted-foreground">
               {order.shippingAddress?.phone}
             </p>
 
-            <p className="pt-2">
-              {order.shippingAddress?.address}
-            </p>
+            <p className="pt-2">{order.shippingAddress?.address}</p>
 
             <p>
               {order.shippingAddress?.city}
@@ -454,9 +391,7 @@ export default function OrderDetail() {
                 : ""}
             </p>
 
-            <p>
-              {order.shippingAddress?.country}
-            </p>
+            <p>{order.shippingAddress?.country}</p>
           </div>
         </section>
 
@@ -464,38 +399,26 @@ export default function OrderDetail() {
         <section className="rounded-2xl border bg-background p-5 shadow-sm sm:p-6">
           <div className="flex items-center gap-2">
             <CreditCard className="h-5 w-5" />
-
-            <h2 className="font-semibold">
-              Payment Information
-            </h2>
+            <h2 className="font-semibold">Payment Information</h2>
           </div>
 
           <div className="mt-4 space-y-3 text-sm">
             <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">
-                Method
-              </span>
-
+              <span className="text-muted-foreground">Method</span>
               <span className="font-medium">
                 {getPaymentMethodLabel(order.paymentMethod)}
               </span>
             </div>
 
             <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">
-                Status
-              </span>
-
+              <span className="text-muted-foreground">Status</span>
               <span className="font-medium capitalize">
                 {order.paymentStatus || "pending"}
               </span>
             </div>
 
             <div className="flex justify-between gap-4 border-t pt-3">
-              <span className="font-medium">
-                Total
-              </span>
-
+              <span className="font-medium">Total</span>
               <span className="font-bold">
                 {formatCurrency(order.totalAmount)}
               </span>
@@ -507,11 +430,11 @@ export default function OrderDetail() {
               ) && (
                 <Button asChild className="mt-2 w-full">
                   <Link to={`/orders/${order._id}/pay`}>
-                    Pay now with{" "}
-                    {getPaymentMethodLabel(order.paymentMethod)}
+                    Pay now with {getPaymentMethodLabel(order.paymentMethod)}
                   </Link>
                 </Button>
               )}
+
             <Button asChild variant="outline" className="mt-2 w-full">
               <Link to="/my-returns">My return requests</Link>
             </Button>
@@ -520,24 +443,18 @@ export default function OrderDetail() {
       </div>
 
       {/* Overall cancellation */}
-      {order.status === "cancelled" &&
-        order.cancellationReason && (
-          <section className="mt-6 rounded-2xl border border-destructive/20 bg-destructive/10 p-5 text-destructive sm:p-6">
-            <div className="flex items-start gap-3">
-              <XCircle className="mt-0.5 h-5 w-5 shrink-0" />
+      {order.status === "cancelled" && order.cancellationReason && (
+        <section className="mt-6 rounded-2xl border border-destructive/20 bg-destructive/10 p-5 text-destructive sm:p-6">
+          <div className="flex items-start gap-3">
+            <XCircle className="mt-0.5 h-5 w-5 shrink-0" />
 
-              <div>
-                <h2 className="font-semibold">
-                  Order Cancelled
-                </h2>
-
-                <p className="mt-1 text-sm">
-                  {order.cancellationReason}
-                </p>
-              </div>
+            <div>
+              <h2 className="font-semibold">Order Cancelled</h2>
+              <p className="mt-1 text-sm">{order.cancellationReason}</p>
             </div>
-          </section>
-        )}
+          </div>
+        </section>
+      )}
 
       {/* Completed receipt note */}
       {order.status === "delivered" && (
@@ -546,13 +463,11 @@ export default function OrderDetail() {
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
 
             <div>
-              <h2 className="font-semibold">
-                Order Completed
-              </h2>
+              <h2 className="font-semibold">Order Completed</h2>
 
               <p className="mt-1 text-sm">
-                This order has been delivered successfully.
-                You can keep this page as your order receipt.
+                This order has been delivered successfully. You can keep this
+                page as your order receipt.
               </p>
             </div>
           </div>
@@ -570,9 +485,7 @@ export default function OrderDetail() {
 
         {order.status === "delivered" && (
           <Button asChild>
-            <Link to="/">
-              Continue Shopping
-            </Link>
+            <Link to="/">Continue Shopping</Link>
           </Button>
         )}
       </div>

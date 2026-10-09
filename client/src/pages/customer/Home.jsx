@@ -75,7 +75,7 @@ function ProductCard({ product }) {
     product.stock == null || Number(product.stock) > 0 || product.inStock;
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground transition-shadow duration-300 hover:shadow-md">
+    <article className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
       <Link
         to={`/products/${product._id || product.slug}`}
         className="relative block aspect-4/5 overflow-hidden bg-muted"
@@ -127,8 +127,8 @@ function ProductCard({ product }) {
 
 function ProductShelf({ title, note, items, loading, link = "/products" }) {
   return (
-    <section className="mx-auto max-w-310 px-6 pb-6 pt-14 sm:px-8">
-      <div className="mb-6 flex items-end justify-between gap-4">
+    <section className="mx-auto max-w-310 px-6 pb-12 pt-20 sm:px-8">
+      <div className="mb-10 flex items-end justify-between gap-4">
         <div>
           <p className="mb-1.5 text-[11px] text-muted-foreground">{note}</p>
           <h2 className="font-heading text-[28px] font-bold tracking-tight text-foreground sm:text-[32px]">
@@ -312,8 +312,8 @@ export default function Home() {
       )}
 
       {/* —— Category grid —— */}
-      <section className="mx-auto max-w-310 px-6 pb-6 pt-14 sm:px-8">
-        <div className="mb-6 flex items-end justify-between gap-4">
+      <section className="mx-auto max-w-310 px-6 pb-12 pt-20 sm:px-8">
+        <div className="mb-10 flex items-end justify-between gap-4">
           <div>
             <p className="mb-1.5 text-[11px] text-muted-foreground">
               A good place to begin
