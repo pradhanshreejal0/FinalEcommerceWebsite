@@ -254,7 +254,8 @@
 
        h1, h2, h3, h4, h5, h6 {
            font-family: var(--font-heading);
-           letter-spacing: -0.02em;
+           letter-spacing: -0.025em; /* Tighter for a more modern, premium feel */
+           font-weight: 700;
        }
 
        ::selection {
