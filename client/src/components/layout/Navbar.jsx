@@ -174,11 +174,11 @@ export default function Navbar() {
 
                 <div className="mb-6 flex items-center justify-between gap-2">
                   <Link to="/" className="flex items-center gap-2">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-[10px] rounded-bl-sm bg-primary font-[family-name:var(--font-heading)] text-[21px] font-extrabold tracking-tighter text-primary-foreground">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-[10px] rounded-bl-sm bg-primary font-heading text-[21px] font-extrabold tracking-tighter text-primary-foreground">
                       F
                     </span>
 
-                    <span className="font-[family-name:var(--font-heading)] text-xl font-extrabold tracking-tight">Foundry</span>
+                    <span className="font-heading text-xl font-extrabold tracking-tight">Foundry</span>
                   </Link>
 
                   <ThemeToggle />
@@ -332,11 +332,11 @@ export default function Navbar() {
           ================================================= */}
 
           <Link to="/" className="flex shrink-0 items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-[10px] rounded-bl-sm bg-primary font-[family-name:var(--font-heading)] text-[21px] font-extrabold tracking-tighter text-primary-foreground">
+            <span className="flex h-9 w-9 items-center justify-center rounded-[10px] rounded-bl-sm bg-primary font-heading text-[21px] font-extrabold tracking-tighter text-primary-foreground">
               F
             </span>
 
-            <span className="hidden font-[family-name:var(--font-heading)] text-lg font-extrabold tracking-tight sm:block lg:text-xl">
+            <span className="hidden font-heading text-lg font-extrabold tracking-tight sm:block lg:text-xl">
               Foundry
             </span>
           </Link>

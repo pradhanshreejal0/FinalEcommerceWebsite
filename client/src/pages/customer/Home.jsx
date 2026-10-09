@@ -78,7 +78,7 @@ function ProductCard({ product }) {
     <article className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground transition-shadow duration-300 hover:shadow-md">
       <Link
         to={`/products/${product._id || product.slug}`}
-        className="relative block aspect-[4/5] overflow-hidden bg-muted"
+        className="relative block aspect-4/5 overflow-hidden bg-muted"
       >
         {img ? (
           <img
@@ -111,7 +111,7 @@ function ProductCard({ product }) {
           {product.name}
         </Link>
         <div className="mt-auto flex items-center justify-between pt-2">
-          <span className="font-[family-name:var(--font-heading)] text-[15px] font-bold text-foreground">
+          <span className="font-heading text-[15px] font-bold text-foreground">
             RS {getFinalPrice(product).toFixed(0)}
           </span>
           {Number(product.discountPercentage) > 0 && (
@@ -127,11 +127,11 @@ function ProductCard({ product }) {
 
 function ProductShelf({ title, note, items, loading, link = "/products" }) {
   return (
-    <section className="mx-auto max-w-[1240px] px-6 pb-6 pt-14 sm:px-8">
+    <section className="mx-auto max-w-310 px-6 pb-6 pt-14 sm:px-8">
       <div className="mb-6 flex items-end justify-between gap-4">
         <div>
           <p className="mb-1.5 text-[11px] text-muted-foreground">{note}</p>
-          <h2 className="font-[family-name:var(--font-heading)] text-[28px] font-bold tracking-tight text-foreground sm:text-[32px]">
+          <h2 className="font-heading text-[28px] font-bold tracking-tight text-foreground sm:text-[32px]">
             {title}
           </h2>
         </div>
@@ -145,7 +145,7 @@ function ProductShelf({ title, note, items, loading, link = "/products" }) {
       {loading ? (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {[0, 1, 2, 3].map((n) => (
-            <div key={n} className="skeleton h-[330px] rounded-lg" />
+            <div key={n} className="skeleton h-82 rounded-lg" />
           ))}
         </div>
       ) : items.length ? (
@@ -259,24 +259,24 @@ export default function Home() {
       {/* —— Hero (admin-editable) —— */}
       {hero.visible !== false && (
         <section
-          className="relative mx-auto flex min-h-[464px] max-w-[1440px] items-center bg-primary bg-cover bg-center px-[max(7.1%,calc((100vw-1240px)/2))] py-[60px] text-primary-foreground"
+          className="relative mx-auto flex min-h-116 max-w-360 items-center bg-primary bg-cover bg-center px-[max(7.1%,calc((100vw-1240px)/2))] py-15 text-primary-foreground"
           style={{
             backgroundImage: `linear-gradient(100deg, color-mix(in srgb, var(--primary) 85%, black), transparent), url("${heroImage}")`,
           }}
         >
-          <div className="max-w-[510px]">
+          <div className="max-w-lg">
             <span className="mb-5 flex items-center gap-2 text-xs opacity-90">
               <Sparkles size={15} /> {hero.kicker || DEFAULT_HERO.kicker}
             </span>
-            <h1 className="mb-[17px] max-w-[480px] whitespace-pre-line font-[family-name:var(--font-heading)] text-[clamp(42px,5.1vw,67px)] font-bold leading-[1.08] tracking-[-0.04em]">
+            <h1 className="mb-4 max-w-120 whitespace-pre-line font-heading text-[clamp(42px,5.1vw,67px)] font-bold leading-[1.08] tracking-[-0.04em]">
               {hero.title || DEFAULT_HERO.title}
             </h1>
-            <p className="mb-[27px] max-w-[390px] text-[15px] leading-[1.7] opacity-90">
+            <p className="mb-7 max-w-98 text-[15px] leading-[1.7] opacity-90">
               {hero.subtitle || DEFAULT_HERO.subtitle}
             </p>
             <Link
               to={hero.ctaLink || "/products"}
-              className="inline-flex min-h-[46px] items-center justify-center gap-3 rounded-md bg-card px-[21px] text-[13px] font-semibold text-card-foreground transition hover:-translate-y-px hover:bg-secondary"
+              className="inline-flex min-h-12 items-center justify-center gap-3 rounded-md bg-card px-5 text-[13px] font-semibold text-card-foreground transition hover:-translate-y-px hover:bg-secondary"
             >
               {hero.ctaText || DEFAULT_HERO.ctaText} <ArrowRight size={17} />
             </Link>
@@ -289,7 +289,7 @@ export default function Home() {
       )}
 
       {/* —— Trust strip —— */}
-      <div className="flex min-h-[62px] flex-wrap items-center justify-center gap-8 bg-secondary px-4 text-[11px] text-secondary-foreground sm:gap-[88px]">
+      <div className="flex min-h-16 flex-wrap items-center justify-center gap-8 bg-secondary px-4 text-[11px] text-secondary-foreground sm:gap-22">
         <span>
           <i className="mr-1.5 text-[15px] not-italic text-primary">✓</i> A
           little better, every day
@@ -306,19 +306,19 @@ export default function Home() {
 
       {/* —— Ad slot A —— */}
       {topAds.length > 0 && (
-        <div className="mx-auto max-w-[1240px] px-6 pt-8 sm:px-8">
+        <div className="mx-auto max-w-310 px-6 pt-8 sm:px-8">
           <AdBanner ads={topAds} variant="banner" />
         </div>
       )}
 
       {/* —— Category grid —— */}
-      <section className="mx-auto max-w-[1240px] px-6 pb-6 pt-14 sm:px-8">
+      <section className="mx-auto max-w-310 px-6 pb-6 pt-14 sm:px-8">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <p className="mb-1.5 text-[11px] text-muted-foreground">
               A good place to begin
             </p>
-            <h2 className="font-[family-name:var(--font-heading)] text-[28px] font-bold tracking-tight text-foreground sm:text-[32px]">
+            <h2 className="font-heading text-[28px] font-bold tracking-tight text-foreground sm:text-[32px]">
               Browse by mood
             </h2>
           </div>
@@ -338,13 +338,13 @@ export default function Home() {
                   ? `/products?category=${item.id}`
                   : `/products?q=${encodeURIComponent(item.name)}`
               }
-              className="group relative flex min-h-[220px] flex-col justify-end overflow-hidden rounded-lg bg-cover bg-center p-4 text-primary-foreground sm:min-h-[260px]"
+              className="group relative flex min-h-55 flex-col justify-end overflow-hidden rounded-lg bg-cover bg-center p-4 text-primary-foreground sm:min-h-65"
               style={{
                 backgroundImage: `linear-gradient(0deg, color-mix(in srgb, var(--foreground) 55%, transparent), transparent 74%), url("${item.image}")`,
               }}
             >
               <span className="text-[11px] opacity-80">{item.line}</span>
-              <strong className="mt-0.5 font-[family-name:var(--font-heading)] text-lg font-bold tracking-tight sm:text-xl">
+              <strong className="mt-0.5 font-heading text-lg font-bold tracking-tight sm:text-xl">
                 {item.name}
               </strong>
               <ArrowUpRight
@@ -367,7 +367,7 @@ export default function Home() {
 
       {/* —— Ad slot B —— */}
       {midAds.length > 0 && (
-        <div className="mx-auto max-w-[1240px] px-6 py-6 sm:px-8">
+        <div className="mx-auto max-w-310 px-6 py-6 sm:px-8">
           <AdBanner
             ads={midAds}
             variant={midAds.length > 1 ? "carousel" : "banner"}
@@ -377,20 +377,20 @@ export default function Home() {
 
       {/* —— Promo band (admin-editable) —— */}
       {promo.visible !== false && (
-        <section className="mx-auto my-10 grid min-h-[330px] max-w-[1176px] overflow-hidden bg-secondary md:grid-cols-2">
-          <div className="flex flex-col justify-center px-8 py-11 text-secondary-foreground sm:px-[52px]">
+        <section className="mx-auto my-10 grid min-h-83 max-w-294 overflow-hidden bg-secondary md:grid-cols-2">
+          <div className="flex flex-col justify-center px-8 py-11 text-secondary-foreground sm:px-13">
             <span className="inline-block w-fit bg-accent px-2.5 py-1.5 text-[9px] font-semibold tracking-[0.08em] text-accent-foreground">
               {promo.badge || DEFAULT_PROMO.badge}
             </span>
-            <h2 className="mt-[18px] mb-2.5 whitespace-pre-line font-[family-name:var(--font-heading)] text-[36px] font-bold leading-[1.12] tracking-tight text-foreground sm:text-[40px]">
+            <h2 className="mt-5 mb-2.5 whitespace-pre-line font-heading text-[36px] font-bold leading-[1.12] tracking-tight text-foreground sm:text-[40px]">
               {promo.title || DEFAULT_PROMO.title}
             </h2>
-            <p className="mb-[21px] text-xs text-muted-foreground">
+            <p className="mb-5 text-xs text-muted-foreground">
               {promo.subtitle || DEFAULT_PROMO.subtitle}
             </p>
             <Link
               to={promo.ctaLink || "/products"}
-              className="inline-flex w-fit min-h-[46px] items-center justify-center gap-2 rounded-md bg-primary px-[21px] text-[13px] font-semibold text-primary-foreground transition hover:-translate-y-px hover:opacity-90"
+              className="inline-flex w-fit min-h-12 items-center justify-center gap-2 rounded-md bg-primary px-5 text-[13px] font-semibold text-primary-foreground transition hover:-translate-y-px hover:opacity-90"
             >
               {promo.ctaText || DEFAULT_PROMO.ctaText}{" "}
               <ChevronRight size={17} />
@@ -400,7 +400,7 @@ export default function Home() {
             src={promo.imageUrl || DEFAULT_PROMO.imageUrl}
             alt="Promotional"
             loading="lazy"
-            className="h-full min-h-[280px] w-full object-cover md:min-h-[330px]"
+            className="h-full min-h-70 w-full object-cover md:min-h-83"
           />
         </section>
       )}

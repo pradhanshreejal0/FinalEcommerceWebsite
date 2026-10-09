@@ -188,8 +188,6 @@
 |:------:|------|:--------:|
 | ☐ | Vendor subscription / membership plans | 🟡 Medium |
 | ☑ | Platform-wide + vendor-specific coupons | 🟡 Medium |
-| ☐ | Multi-currency support | 🟡 Medium |
-| ☐ | Multi-language support | 🟡 Medium |
 | ☑ | AI-powered product description generator (Gemini API) | 🟢 Nice-to-have |
 | ☑ | Vendor performance scoring system | 🟡 Medium |
 | ☑ | Fully mobile-optimized vendor dashboard | 🟠 High |
