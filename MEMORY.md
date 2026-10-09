@@ -1,0 +1,1 @@
+- [Handoff: 2026-10-09](handoff-2026-10-09.md) — session handoff

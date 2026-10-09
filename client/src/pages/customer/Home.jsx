@@ -13,7 +13,7 @@ import { AdBanner } from "@/components/AdBanner";
 
 const FALLBACK_CATEGORIES = [
   {
-    name: "Electronics",
+    name: "Automotive",
     line: "Thoughtful tech",
     image:
       "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=900",
