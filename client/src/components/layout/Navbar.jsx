@@ -175,7 +175,7 @@ export default function Navbar() {
                 <div className="mb-6 flex items-center justify-between gap-2">
                   <Link to="/" className="flex items-center gap-2">
                     <span className="flex h-9 w-9 items-center justify-center rounded-[10px] rounded-bl-sm bg-primary font-heading text-[21px] font-extrabold tracking-tighter text-primary-foreground">
-                      F
+                      W
                     </span>
 
                     <span className="font-heading text-xl font-extrabold tracking-tight">Foundry</span>
